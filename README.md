@@ -264,6 +264,38 @@ routes:
     response: { ok: true }
 ```
 
+### Response Templates
+
+Use `{{ .body.field }}`, `{{ .query.param }}`, and `{{ .params.name }}` in response values to embed data from the request.
+
+```yaml
+- path: /users
+  method: POST
+  response:
+    id: 1
+    name: "{{ .body.name }}"
+    role: "{{ .body.role }}"
+
+- path: /search
+  method: GET
+  response:
+    query: "{{ .query.q }}"
+    results: []
+
+- path: /users/:id
+  method: GET
+  response:
+    msg: "user {{ .params.id }}"
+```
+
+```sh
+POST /users {"name":"Alice","role":"admin"}  → { id: 1, name: "Alice", role: "admin" }
+GET  /search?q=hello                         → { query: "hello", results: [] }
+GET  /users/42                               → { msg: "user 42" }
+```
+
+Template values are always strings. For numeric path parameters, the existing `:paramName` syntax auto-converts to numbers.
+
 ### Response Content Type
 
 By default, responses are served as `application/json`. Set `content_type` to return plain text, HTML, or any other MIME type.

@@ -36,6 +36,18 @@ routes:
     response:
       ok: true
 
+  # Response templates — embed request data in the response
+  - path: /echo
+    method: POST
+    response:
+      name: "{{ .body.name }}"
+      role: "{{ .body.role }}"
+
+  - path: /greet
+    method: GET
+    response:
+      msg: "hello {{ .query.name }}"
+
   # Non-JSON content types
   - path: /health
     method: GET

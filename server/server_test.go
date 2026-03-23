@@ -401,6 +401,72 @@ func TestContentTypeMatchOverride(t *testing.T) {
 	}
 }
 
+// --- Response templates ---
+
+func TestTemplateBody(t *testing.T) {
+	srv := newSrv(&config.Config{
+		Routes: []config.Route{
+			{
+				Path:     "/echo",
+				Method:   "POST",
+				Response: map[string]any{"hello": "{{ .body.name }}"},
+			},
+		},
+	})
+	w := do(srv, "POST", "/echo", `{"name":"Alice"}`)
+	body := jsonBody(t, w)
+	if body["hello"] != "Alice" {
+		t.Errorf("expected hello:Alice, got %v", body["hello"])
+	}
+}
+
+func TestTemplateQuery(t *testing.T) {
+	srv := newSrv(&config.Config{
+		Routes: []config.Route{
+			{
+				Path:     "/greet",
+				Method:   "GET",
+				Response: map[string]any{"msg": "hello {{ .query.name }}"},
+			},
+		},
+	})
+	w := do(srv, "GET", "/greet?name=Bob", "")
+	body := jsonBody(t, w)
+	if body["msg"] != "hello Bob" {
+		t.Errorf("expected 'hello Bob', got %v", body["msg"])
+	}
+}
+
+func TestTemplateParams(t *testing.T) {
+	srv := newSrv(&config.Config{
+		Routes: []config.Route{
+			{
+				Path:     "/users/:id",
+				Method:   "GET",
+				Response: map[string]any{"msg": "user {{ .params.id }}"},
+			},
+		},
+	})
+	w := do(srv, "GET", "/users/42", "")
+	body := jsonBody(t, w)
+	if body["msg"] != "user 42" {
+		t.Errorf("expected 'user 42', got %v", body["msg"])
+	}
+}
+
+func TestTemplateNoTemplate(t *testing.T) {
+	srv := newSrv(&config.Config{
+		Routes: []config.Route{
+			{Path: "/static", Method: "GET", Response: map[string]any{"ok": true}},
+		},
+	})
+	w := do(srv, "GET", "/static", "")
+	body := jsonBody(t, w)
+	if body["ok"] != true {
+		t.Errorf("static response broken: %v", body)
+	}
+}
+
 // --- Reload ---
 
 func TestReload(t *testing.T) {

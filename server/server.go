@@ -13,6 +13,7 @@ import (
 	"strconv"
 	"strings"
 	"sync/atomic"
+	"text/template"
 	"time"
 
 	"github.com/Saku0512/specter/config"
@@ -62,15 +63,14 @@ func newEngine(cfg *config.Config, verbose bool) *gin.Engine {
 				c.Header(k, v)
 			}
 
-			// Pre-read body once if any match condition uses body matching
+			// Pre-read body for match conditions and response templates
 			var bodyBytes []byte
-			for _, m := range rt.Match {
-				if len(m.Body) > 0 {
-					bodyBytes, _ = io.ReadAll(c.Request.Body)
-					c.Request.Body = io.NopCloser(bytes.NewBuffer(bodyBytes))
-					break
-				}
+			if c.Request.Body != nil {
+				bodyBytes, _ = io.ReadAll(c.Request.Body)
+				c.Request.Body = io.NopCloser(bytes.NewBuffer(bodyBytes))
 			}
+
+			tmplData := buildTemplateData(c, bodyBytes)
 
 			for _, m := range rt.Match {
 				if matchesQuery(c, m.Query) && matchesBody(bodyBytes, m.Body) {
@@ -82,7 +82,7 @@ func newEngine(cfg *config.Config, verbose bool) *gin.Engine {
 					if ct == "" {
 						ct = rt.ContentType
 					}
-					respond(c, status, ct, applyParams(m.Response, c.Params))
+					respond(c, status, ct, applyParams(applyTemplate(m.Response, tmplData), c.Params))
 					return
 				}
 			}
@@ -104,7 +104,7 @@ func newEngine(cfg *config.Config, verbose bool) *gin.Engine {
 				if ct == "" {
 					ct = rt.ContentType
 				}
-				respond(c, status, ct, applyParams(picked.Response, c.Params))
+				respond(c, status, ct, applyParams(applyTemplate(picked.Response, tmplData), c.Params))
 				return
 			}
 
@@ -112,7 +112,7 @@ func newEngine(cfg *config.Config, verbose bool) *gin.Engine {
 			if status == 0 {
 				status = http.StatusOK
 			}
-			respond(c, status, rt.ContentType, applyParams(rt.Response, c.Params))
+			respond(c, status, rt.ContentType, applyParams(applyTemplate(rt.Response, tmplData), c.Params))
 		})
 	}
 
@@ -180,6 +180,58 @@ func applyParams(v any, params gin.Params) any {
 		out := make([]any, len(val))
 		for i, v2 := range val {
 			out[i] = applyParams(v2, params)
+		}
+		return out
+	default:
+		return v
+	}
+}
+
+func buildTemplateData(c *gin.Context, bodyBytes []byte) map[string]any {
+	params := map[string]any{}
+	for _, p := range c.Params {
+		params[p.Key] = p.Value
+	}
+	query := map[string]any{}
+	for k, vs := range c.Request.URL.Query() {
+		if len(vs) == 1 {
+			query[k] = vs[0]
+		} else {
+			query[k] = vs
+		}
+	}
+	body := map[string]any{}
+	if len(bodyBytes) > 0 {
+		_ = json.Unmarshal(bodyBytes, &body)
+	}
+	return map[string]any{"params": params, "query": query, "body": body}
+}
+
+func applyTemplate(v any, data map[string]any) any {
+	switch val := v.(type) {
+	case string:
+		if !strings.Contains(val, "{{") {
+			return val
+		}
+		tmpl, err := template.New("").Parse(val)
+		if err != nil {
+			return val
+		}
+		var buf bytes.Buffer
+		if err := tmpl.Execute(&buf, data); err != nil {
+			return val
+		}
+		return buf.String()
+	case map[string]any:
+		out := make(map[string]any, len(val))
+		for k, v2 := range val {
+			out[k] = applyTemplate(v2, data)
+		}
+		return out
+	case []any:
+		out := make([]any, len(val))
+		for i, v2 := range val {
+			out[i] = applyTemplate(v2, data)
 		}
 		return out
 	default:

@@ -10,14 +10,14 @@ func New(cfg *config.Config) *gin.Engine {
 	r := gin.Default()
 
 	for _, route := range cfg.Route {
-		r := route
+		rt := route
 
-		r.Handle(route.Method, route.Path, func(c *gin.Context) {
-			status := r.Status
+		r.Handle(rt.Method, rt.Path, func(c *gin.Context) {
+			status := rt.Status
 			if status == 0 {
 				status = http.StatusOK
 			}
-			c.JSON(status, r.Response)
+			c.JSON(status, rt.Response)
 		})
 	}
 

@@ -11,12 +11,12 @@ routes:
       - id: 2
         name: Bob
 
-  # Path parameter
+  # Path parameter embedded in response
   - path: /users/:id
     method: GET
     status: 200
     response:
-      id: 1
+      id: ":id"   # /users/42 → { id: 42 }
       name: Alice
 
   # POST with 201

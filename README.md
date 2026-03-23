@@ -53,6 +53,18 @@ routes:
 
 Both `.yaml` and `.yml` extensions are supported. See [config.example.yml](config.example.yml) for a full example covering all features.
 
+### Path Parameters in Response
+
+Use `:paramName` in response values to embed path parameters. Numeric values are automatically converted to numbers.
+
+```yaml
+- path: /users/:id
+  method: GET
+  response:
+    id: ":id"       # /users/42 → { id: 42 }
+    name: Alice
+```
+
 ### Multiple Responses
 
 Use `responses` to return different responses per request. Control the behavior with `mode`.

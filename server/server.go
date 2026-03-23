@@ -3,6 +3,8 @@ package server
 import (
 	"math/rand/v2"
 	"net/http"
+	"strconv"
+	"strings"
 	"sync/atomic"
 	"time"
 
@@ -61,7 +63,7 @@ func newEngine(cfg *config.Config) *gin.Engine {
 				if status == 0 {
 					status = http.StatusOK
 				}
-				c.JSON(status, picked.Response)
+				c.JSON(status, applyParams(picked.Response, c.Params))
 				return
 			}
 
@@ -69,11 +71,45 @@ func newEngine(cfg *config.Config) *gin.Engine {
 			if status == 0 {
 				status = http.StatusOK
 			}
-			c.JSON(status, rt.Response)
+			c.JSON(status, applyParams(rt.Response, c.Params))
 		})
 	}
 
 	return r
+}
+
+// applyParams recursively replaces ":paramName" strings in the response with
+// actual path parameter values. Numeric params are converted to int or float64.
+func applyParams(v any, params gin.Params) any {
+	switch val := v.(type) {
+	case string:
+		if strings.HasPrefix(val, ":") {
+			if p := params.ByName(val[1:]); p != "" {
+				if n, err := strconv.Atoi(p); err == nil {
+					return n
+				}
+				if f, err := strconv.ParseFloat(p, 64); err == nil {
+					return f
+				}
+				return p
+			}
+		}
+		return val
+	case map[string]any:
+		out := make(map[string]any, len(val))
+		for k, v2 := range val {
+			out[k] = applyParams(v2, params)
+		}
+		return out
+	case []any:
+		out := make([]any, len(val))
+		for i, v2 := range val {
+			out[i] = applyParams(v2, params)
+		}
+		return out
+	default:
+		return v
+	}
 }
 
 func corsMiddleware() gin.HandlerFunc {

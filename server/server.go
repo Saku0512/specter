@@ -106,7 +106,22 @@ func newEngine(cfg *config.Config, verbose bool, history *RequestHistory) *gin.E
 
 		var counter atomic.Uint64
 
+		var rl *rateLimiter
+		if rt.RateLimit > 0 {
+			rl = newRateLimiter(rt.RateLimit, rt.RateReset)
+		}
+
 		r.Handle(rt.Method, rt.Path, func(c *gin.Context) {
+			if rl != nil {
+				if ok, retryAfter := rl.allow(); !ok {
+					if retryAfter > 0 {
+						c.Header("Retry-After", strconv.Itoa(int(retryAfter.Seconds())+1))
+					}
+					c.JSON(http.StatusTooManyRequests, gin.H{"error": "rate limit exceeded"})
+					return
+				}
+			}
+
 			if rt.Delay > 0 {
 				time.Sleep(time.Duration(rt.Delay) * time.Millisecond)
 			}
@@ -182,6 +197,41 @@ func newEngine(cfg *config.Config, verbose bool, history *RequestHistory) *gin.E
 	}
 
 	return r
+}
+
+type rateLimiter struct {
+	mu          sync.Mutex
+	count       int
+	limit       int
+	reset       time.Duration
+	windowStart time.Time
+}
+
+func newRateLimiter(limit, resetSecs int) *rateLimiter {
+	return &rateLimiter{
+		limit:       limit,
+		reset:       time.Duration(resetSecs) * time.Second,
+		windowStart: time.Now(),
+	}
+}
+
+// allow returns true if the request is within the rate limit.
+// retryAfter is non-zero when a reset window is configured.
+func (rl *rateLimiter) allow() (ok bool, retryAfter time.Duration) {
+	rl.mu.Lock()
+	defer rl.mu.Unlock()
+	if rl.reset > 0 && time.Since(rl.windowStart) >= rl.reset {
+		rl.count = 0
+		rl.windowStart = time.Now()
+	}
+	rl.count++
+	if rl.count > rl.limit {
+		if rl.reset > 0 {
+			retryAfter = max(rl.reset-time.Since(rl.windowStart), 0)
+		}
+		return false, retryAfter
+	}
+	return true, 0
 }
 
 func historyMiddleware(h *RequestHistory) gin.HandlerFunc {

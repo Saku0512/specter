@@ -59,6 +59,19 @@ routes:
     content_type: text/html
     response: "<h1>Hello</h1>"
 
+  # Rate limit simulation — 429 after N requests
+  - path: /limited
+    method: GET
+    rate_limit: 5
+    response: { ok: true }
+
+  # Rate limit with auto-reset every 60 seconds
+  - path: /windowed
+    method: GET
+    rate_limit: 10
+    rate_reset: 60
+    response: { ok: true }
+
   # Response delay (ms)
   - path: /slow
     method: GET

@@ -31,6 +31,8 @@ type Route struct {
 	Mode        string            `yaml:"mode,omitempty"` // "sequential" (default) or "random"
 	Responses   []RouteResponse   `yaml:"responses,omitempty"`
 	Match       []RouteMatch      `yaml:"match,omitempty"`
+	RateLimit   int               `yaml:"rate_limit,omitempty"`  // max requests allowed
+	RateReset   int               `yaml:"rate_reset,omitempty"`  // seconds until count resets
 }
 
 type Config struct {

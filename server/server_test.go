@@ -467,6 +467,69 @@ func TestTemplateNoTemplate(t *testing.T) {
 	}
 }
 
+// --- Rate limiting ---
+
+func TestRateLimit(t *testing.T) {
+	srv := newSrv(&config.Config{
+		Routes: []config.Route{
+			{Path: "/limited", Method: "GET", RateLimit: 2, Response: map[string]any{"ok": true}},
+		},
+	})
+
+	w := do(srv, "GET", "/limited", "")
+	if w.Code != 200 {
+		t.Errorf("1st: expected 200, got %d", w.Code)
+	}
+	w = do(srv, "GET", "/limited", "")
+	if w.Code != 200 {
+		t.Errorf("2nd: expected 200, got %d", w.Code)
+	}
+	w = do(srv, "GET", "/limited", "")
+	if w.Code != http.StatusTooManyRequests {
+		t.Errorf("3rd: expected 429, got %d", w.Code)
+	}
+	if !strings.Contains(w.Body.String(), "rate limit exceeded") {
+		t.Errorf("expected rate limit error body, got %s", w.Body.String())
+	}
+}
+
+func TestRateLimitWithReset(t *testing.T) {
+	srv := newSrv(&config.Config{
+		Routes: []config.Route{
+			{Path: "/window", Method: "GET", RateLimit: 1, RateReset: 1, Response: map[string]any{"ok": true}},
+		},
+	})
+
+	w := do(srv, "GET", "/window", "")
+	if w.Code != 200 {
+		t.Errorf("1st: expected 200, got %d", w.Code)
+	}
+	w = do(srv, "GET", "/window", "")
+	if w.Code != http.StatusTooManyRequests {
+		t.Errorf("2nd: expected 429, got %d", w.Code)
+	}
+	if w.Header().Get("Retry-After") == "" {
+		t.Errorf("expected Retry-After header")
+	}
+}
+
+func TestRateLimitUnaffectedRoutes(t *testing.T) {
+	srv := newSrv(&config.Config{
+		Routes: []config.Route{
+			{Path: "/limited", Method: "GET", RateLimit: 1, Response: nil},
+			{Path: "/unlimited", Method: "GET", Response: map[string]any{"ok": true}},
+		},
+	})
+
+	do(srv, "GET", "/limited", "")
+	do(srv, "GET", "/limited", "") // triggers 429
+
+	w := do(srv, "GET", "/unlimited", "")
+	if w.Code != 200 {
+		t.Errorf("unlimited route: expected 200, got %d", w.Code)
+	}
+}
+
 // --- Request history ---
 
 func TestHistoryRecordsRequests(t *testing.T) {

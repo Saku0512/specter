@@ -320,6 +320,27 @@ routes:
 
 `content_type` can also be set per entry in `match` and `responses`, overriding the route-level value.
 
+### Rate Limit Simulation
+
+Add `rate_limit` to return `429 Too Many Requests` after N requests. Use `rate_reset` to automatically reset the counter after a given number of seconds.
+
+```yaml
+# Allow 5 requests, then always return 429
+- path: /api
+  method: GET
+  rate_limit: 5
+  response: { ok: true }
+
+# Allow 10 requests per minute
+- path: /api/windowed
+  method: GET
+  rate_limit: 10
+  rate_reset: 60
+  response: { ok: true }
+```
+
+When `rate_reset` is set, a `Retry-After` header is included in 429 responses.
+
 ### Response Delay
 
 Add `delay` (milliseconds) to simulate slow responses.

@@ -87,6 +87,18 @@ func TestCheck_matchQueryOnly(t *testing.T) {
 	}
 }
 
+func TestCheck_rateLimitNegative(t *testing.T) {
+	cfg := &config.Config{Routes: []config.Route{{Path: "/a", Method: "GET", RateLimit: -1}}}
+	errs := check(cfg)
+	assertContains(t, errs, "rate_limit must be non-negative")
+}
+
+func TestCheck_rateResetWithoutLimit(t *testing.T) {
+	cfg := &config.Config{Routes: []config.Route{{Path: "/a", Method: "GET", RateReset: 60}}}
+	errs := check(cfg)
+	assertContains(t, errs, "rate_reset requires rate_limit")
+}
+
 func TestCheck_responsesInvalidStatus(t *testing.T) {
 	cfg := &config.Config{
 		Routes: []config.Route{

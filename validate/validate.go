@@ -75,6 +75,15 @@ func check(cfg *config.Config) []string {
 		if r.Delay < 0 {
 			errs = append(errs, prefix+": delay must be non-negative")
 		}
+		if r.RateLimit < 0 {
+			errs = append(errs, prefix+": rate_limit must be non-negative")
+		}
+		if r.RateReset < 0 {
+			errs = append(errs, prefix+": rate_reset must be non-negative")
+		}
+		if r.RateReset > 0 && r.RateLimit == 0 {
+			errs = append(errs, prefix+": rate_reset requires rate_limit to be set")
+		}
 		for j, resp := range r.Responses {
 			if resp.Status != 0 && (resp.Status < 100 || resp.Status > 599) {
 				errs = append(errs, prefix+fmt.Sprintf(": responses[%d] invalid status %d", j, resp.Status))

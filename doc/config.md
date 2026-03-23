@@ -47,46 +47,51 @@ routes:
 
 ## Query Parameter Matching
 
-Use `match` to return different responses based on query parameters. Falls back to the default `response` if no match.
+Use `match` to return different responses based on query parameters. Values are treated as **Go regular expressions** — use `^value$` for exact match. Falls back to the default `response` if no match.
 
 ```yaml
 - path: /users
   method: GET
   match:
     - query:
-        status: active
+        status: "^active$"
       response:
         - id: 1
           name: Alice
     - query:
-        status: inactive
+        status: "^inactive$"
       status: 404
       response:
         error: not found
+    - query:
+        sort: "^(asc|desc)$"
+      response:
+        - id: 2
   response:
     - id: 1
     - id: 2
 ```
 
 ```
-GET /users?status=active   → 200 [{ id: 1, name: Alice }]
-GET /users?status=inactive → 404 { error: not found }
-GET /users                 → 200 [{ id: 1 }, { id: 2 }]
+GET /users?status=active      → 200 [{ id: 1, name: Alice }]
+GET /users?status=inactive    → 404 { error: not found }
+GET /users?sort=asc           → 200 [{ id: 2 }]
+GET /users                    → 200 [{ id: 1 }, { id: 2 }]
 ```
 
 ## Request Header Matching
 
-Use `headers` in `match` to branch on request headers. Matching is case-insensitive on header names.
+Use `headers` in `match` to branch on request headers. Header names are case-insensitive; values are **Go regular expressions**.
 
 ```yaml
 - path: /api/data
   method: GET
   match:
     - headers:
-        Authorization: Bearer secret-token
+        Authorization: "^Bearer .+"
       response: { data: secret }
     - headers:
-        X-Role: admin
+        X-Role: "^admin$"
       response: { data: admin-only }
   status: 401
   response: { error: unauthorized }

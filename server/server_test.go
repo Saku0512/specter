@@ -224,8 +224,8 @@ func TestQueryMatch(t *testing.T) {
 				Path:   "/q",
 				Method: "GET",
 				Match: []config.RouteMatch{
-					{Query: map[string]string{"status": "active"}, Status: 200, Response: map[string]any{"active": true}},
-					{Query: map[string]string{"status": "inactive"}, Status: 404, Response: map[string]any{"active": false}},
+					{Query: map[string]string{"status": "^active$"}, Status: 200, Response: map[string]any{"active": true}},
+					{Query: map[string]string{"status": "^inactive$"}, Status: 404, Response: map[string]any{"active": false}},
 				},
 				Response: map[string]any{"default": true},
 			},
@@ -2198,5 +2198,100 @@ func TestMatch_setVarsMatchLevelOverridesRoute(t *testing.T) {
 	json.NewDecoder(w.Body).Decode(&s)
 	if s["state"] != "match_state" {
 		t.Fatalf("expected match_state, got %v", s["state"])
+	}
+}
+
+// --- query / headers regex matching ---
+
+func TestQueryRegex_match(t *testing.T) {
+	srv := newSrv(&config.Config{
+		Routes: []config.Route{
+			{
+				Path:   "/items",
+				Method: "GET",
+				Match: []config.RouteMatch{
+					{
+						Query:    map[string]string{"sort": "^(asc|desc)$"},
+						Status:   200,
+						Response: map[string]any{"sorted": true},
+					},
+				},
+				Status:   400,
+				Response: map[string]any{"sorted": false},
+			},
+		},
+	})
+
+	for _, q := range []string{"asc", "desc"} {
+		w := do(srv, "GET", "/items?sort="+q, "")
+		if w.Code != 200 {
+			t.Fatalf("sort=%s: expected 200, got %d", q, w.Code)
+		}
+	}
+	w := do(srv, "GET", "/items?sort=random", "")
+	if w.Code != 400 {
+		t.Fatalf("sort=random: expected 400, got %d", w.Code)
+	}
+}
+
+func TestQueryRegex_exactFallback(t *testing.T) {
+	srv := newSrv(&config.Config{
+		Routes: []config.Route{
+			{
+				Path:   "/search",
+				Method: "GET",
+				Match: []config.RouteMatch{
+					{
+						Query:    map[string]string{"q": "hello"},
+						Status:   200,
+						Response: map[string]any{"hit": true},
+					},
+				},
+				Status:   404,
+				Response: map[string]any{"hit": false},
+			},
+		},
+	})
+
+	// "hello" as regex matches substring — "hello world" should match
+	w := do(srv, "GET", "/search?q=hello+world", "")
+	if w.Code != 200 {
+		t.Fatalf("expected 200 (substring match), got %d", w.Code)
+	}
+}
+
+func TestHeadersRegex_match(t *testing.T) {
+	srv := newSrv(&config.Config{
+		Routes: []config.Route{
+			{
+				Path:   "/api",
+				Method: "GET",
+				Match: []config.RouteMatch{
+					{
+						Headers:  map[string]string{"Authorization": "^Bearer .+"},
+						Status:   200,
+						Response: map[string]any{"auth": true},
+					},
+				},
+				Status:   401,
+				Response: map[string]any{"auth": false},
+			},
+		},
+	})
+
+	req := httptest.NewRequest("GET", "/api", nil)
+	req.Header.Set("Authorization", "Bearer my-token-123")
+	w := httptest.NewRecorder()
+	srv.ServeHTTP(w, req)
+	if w.Code != 200 {
+		t.Fatalf("expected 200, got %d", w.Code)
+	}
+
+	req2 := httptest.NewRequest("GET", "/api", nil)
+	req2.Header.Set("Authorization", "Basic dXNlcjpwYXNz")
+	w2 := httptest.NewRecorder()
+	srv.ServeHTTP(w2, req2)
+	if w2.Code != 401 {
+		t.Fatalf("expected 401, got %d", w2.Code)
 	}
 }

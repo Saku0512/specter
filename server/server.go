@@ -1062,8 +1062,8 @@ func matchesBody(body []byte, expected map[string]any) bool {
 }
 
 func matchesHeaders(c *gin.Context, headers map[string]string) bool {
-	for k, v := range headers {
-		if c.GetHeader(k) != v {
+	for k, pattern := range headers {
+		if !matchRegexOrExact(c.GetHeader(k), pattern) {
 			return false
 		}
 	}
@@ -1080,12 +1080,22 @@ func matchesVars(vs *VarStore, expected map[string]string) bool {
 }
 
 func matchesQuery(c *gin.Context, query map[string]string) bool {
-	for k, v := range query {
-		if c.Query(k) != v {
+	for k, pattern := range query {
+		if !matchRegexOrExact(c.Query(k), pattern) {
 			return false
 		}
 	}
 	return true
+}
+
+// matchRegexOrExact treats pattern as a Go regular expression.
+// If the pattern fails to compile it falls back to exact string comparison.
+func matchRegexOrExact(actual, pattern string) bool {
+	re, err := regexp.Compile(pattern)
+	if err != nil {
+		return actual == pattern
+	}
+	return re.MatchString(actual)
 }
 
 // getJSONPath traverses a nested map using a dot-separated path.

@@ -135,6 +135,16 @@ func check(cfg *config.Config) []string {
 					errs = append(errs, prefix+fmt.Sprintf(": match[%d] body_path[%q] invalid regex: %v", j, path, err))
 				}
 			}
+			for key, pattern := range m.Query {
+				if _, err := regexp.Compile(pattern); err != nil {
+					errs = append(errs, prefix+fmt.Sprintf(": match[%d] query[%q] invalid regex: %v", j, key, err))
+				}
+			}
+			for key, pattern := range m.Headers {
+				if _, err := regexp.Compile(pattern); err != nil {
+					errs = append(errs, prefix+fmt.Sprintf(": match[%d] headers[%q] invalid regex: %v", j, key, err))
+				}
+			}
 		}
 		if wh := r.Webhook; wh != nil {
 			if wh.URL == "" {

@@ -209,3 +209,21 @@ func TestCheck_responsesOnCallNegative(t *testing.T) {
 	}}}
 	assertContains(t, check(cfg), "responses[0] on_call must be non-negative")
 }
+
+func TestCheck_queryInvalidRegex(t *testing.T) {
+	cfg := &config.Config{Routes: []config.Route{{
+		Path:   "/a",
+		Method: "GET",
+		Match:  []config.RouteMatch{{Query: map[string]string{"q": "["}}},
+	}}}
+	assertContains(t, check(cfg), "query[\"q\"] invalid regex")
+}
+
+func TestCheck_headersInvalidRegex(t *testing.T) {
+	cfg := &config.Config{Routes: []config.Route{{
+		Path:   "/a",
+		Method: "GET",
+		Match:  []config.RouteMatch{{Headers: map[string]string{"Authorization": "["}}},
+	}}}
+	assertContains(t, check(cfg), "headers[\"Authorization\"] invalid regex")
+}

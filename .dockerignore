@@ -1,0 +1,9 @@
+.git
+.github
+Formula
+*.md
+*.yml
+!go.mod
+!go.sum
+config.example.yml
+install.sh

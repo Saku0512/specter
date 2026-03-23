@@ -8,6 +8,12 @@ Lightweight mock API server. Define endpoints in YAML, run instantly.
 
 ## Install
 
+**Docker**
+
+```sh
+docker run -v $(pwd)/config.yml:/config.yml ghcr.io/saku0512/specter -c /config.yml
+```
+
 **Homebrew (macOS / Linux)**
 
 ```sh

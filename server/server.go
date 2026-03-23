@@ -8,6 +8,8 @@ import (
 	"log"
 	"math/rand/v2"
 	"net/http"
+	"net/http/httputil"
+	"net/url"
 	"strconv"
 	"strings"
 	"sync/atomic"
@@ -104,6 +106,20 @@ func newEngine(cfg *config.Config, verbose bool) *gin.Engine {
 			}
 			c.JSON(status, applyParams(rt.Response, c.Params))
 		})
+	}
+
+	if cfg.Proxy != "" {
+		target, err := url.Parse(cfg.Proxy)
+		if err != nil {
+			log.Printf("invalid proxy URL %q: %v", cfg.Proxy, err)
+		} else {
+			proxy := httputil.NewSingleHostReverseProxy(target)
+			r.NoRoute(func(c *gin.Context) {
+				c.Request.Host = target.Host
+				log.Printf("proxy → %s %s", c.Request.Method, c.Request.URL.RequestURI())
+				proxy.ServeHTTP(c.Writer, c.Request)
+			})
+		}
 	}
 
 	return r

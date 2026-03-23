@@ -3,6 +3,7 @@ package validate
 import (
 	"flag"
 	"fmt"
+	"net/url"
 	"os"
 	"strings"
 
@@ -44,6 +45,12 @@ func Run(args []string) {
 
 func check(cfg *config.Config) []string {
 	var errs []string
+
+	if cfg.Proxy != "" {
+		if _, err := url.ParseRequestURI(cfg.Proxy); err != nil {
+			errs = append(errs, fmt.Sprintf("invalid proxy URL %q: %v", cfg.Proxy, err))
+		}
+	}
 
 	for i, r := range cfg.Routes {
 		prefix := fmt.Sprintf("route %d", i+1)

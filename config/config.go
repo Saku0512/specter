@@ -32,6 +32,7 @@ type Route struct {
 
 type Config struct {
 	CORS   bool    `yaml:"cors,omitempty"`
+	Proxy  string  `yaml:"proxy,omitempty"`
 	Routes []Route `yaml:"routes"`
 }
 

@@ -217,6 +217,20 @@ Use `responses` to return different responses per request. Control the behavior 
       response: { error: unavailable }
 ```
 
+### Proxy Fallback
+
+Set `proxy` to forward unmatched requests to a real API.
+
+```yaml
+proxy: http://api.example.com
+
+routes:
+  - path: /users
+    method: GET
+    response: [{ id: 1 }]   # served by specter
+  # all other requests → forwarded to api.example.com
+```
+
 ### CORS
 
 Set `cors: true` to enable CORS headers for all routes. Preflight (`OPTIONS`) requests are handled automatically.

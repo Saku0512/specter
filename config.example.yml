@@ -1,4 +1,5 @@
 cors: true
+# proxy: http://api.example.com  # forward unmatched routes to a real API
 
 routes:
   # Basic GET

@@ -12,7 +12,7 @@ import (
 	"time"
 
 	"github.com/Saku0512/specter/config"
-	"github.com/Saku0512/specter/gen"
+	gen_cmd "github.com/Saku0512/specter/cmd/gen"
 	init_cmd "github.com/Saku0512/specter/cmd/init"
 	record_cmd "github.com/Saku0512/specter/cmd/record"
 	"github.com/Saku0512/specter/server"
@@ -71,7 +71,7 @@ Examples:
 
 func main() {
 	if len(os.Args) > 1 && os.Args[1] == "gen" {
-		gen.Run(os.Args[2:])
+		gen_cmd.Run(os.Args[2:])
 		return
 	}
 	if len(os.Args) > 1 && os.Args[1] == "validate" {

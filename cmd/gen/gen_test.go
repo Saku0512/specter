@@ -153,7 +153,7 @@ func TestRun(t *testing.T) {
 	inFile := filepath.Join(dir, "openapi.yml")
 	outFile := filepath.Join(dir, "config.yml")
 
-	if err := os.WriteFile(inFile, []byte(sampleSpec), 0644); err != nil {
+	if err := os.WriteFile(inFile, []byte(sampleSpec), 0o644); err != nil {
 		t.Fatal(err)
 	}
 

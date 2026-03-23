@@ -89,7 +89,7 @@ func Run(args []string) {
 		log.Fatalf("failed to marshal config: %v", err)
 	}
 
-	if err := os.WriteFile(*output, out, 0644); err != nil {
+	if err := os.WriteFile(*output, out, 0o644); err != nil {
 		log.Fatalf("failed to write %s: %v", *output, err)
 	}
 

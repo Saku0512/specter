@@ -105,6 +105,11 @@ func check(cfg *config.Config) []string {
 				errs = append(errs, prefix+fmt.Sprintf(": file %q not found", r.File))
 			}
 		}
+		if r.Proxy != "" {
+			if _, err := url.ParseRequestURI(r.Proxy); err != nil {
+				errs = append(errs, prefix+fmt.Sprintf(": proxy invalid url %q: %v", r.Proxy, err))
+			}
+		}
 		for j, resp := range r.Responses {
 			if resp.Status != 0 && (resp.Status < 100 || resp.Status > 599) {
 				errs = append(errs, prefix+fmt.Sprintf(": responses[%d] invalid status %d", j, resp.Status))

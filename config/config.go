@@ -62,6 +62,7 @@ type Route struct {
 	DelayMax    int               `yaml:"delay_max,omitempty"`   // max random delay in ms
 	OnCall      int               `yaml:"on_call,omitempty"`     // match only on this call number (1-based)
 	Script      string            `yaml:"script,omitempty"`      // Go template producing the response body
+	Proxy       string            `yaml:"proxy,omitempty"`       // forward this route to a real backend
 }
 
 type Config struct {

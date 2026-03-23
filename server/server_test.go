@@ -2375,3 +2375,74 @@ func TestScript_statusEnvelopeInResponses(t *testing.T) {
 		t.Fatalf("call 2: expected 200, got %d", w2.Code)
 	}
 }
+
+// --- per-route conditional proxy ---
+
+func TestRouteProxy_forwardsRequest(t *testing.T) {
+	// Start a real backend HTTP server
+	backend := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Content-Type", "application/json")
+		w.WriteHeader(200)
+		w.Write([]byte(`{"from":"backend"}`))
+	}))
+	defer backend.Close()
+
+	srv := newSrv(&config.Config{
+		Routes: []config.Route{
+			{Path: "/real", Method: "GET", Proxy: backend.URL},
+			{Path: "/mock", Method: "GET", Status: 200, Response: map[string]any{"from": "mock"}},
+		},
+	})
+
+	// proxied route → backend response
+	w := do(srv, "GET", "/real", "")
+	if w.Code != 200 {
+		t.Fatalf("expected 200, got %d", w.Code)
+	}
+	b := jsonBody(t, w)
+	if b["from"] != "backend" {
+		t.Fatalf("expected from=backend, got %v", b)
+	}
+
+	// normal mock route → mock response
+	w2 := do(srv, "GET", "/mock", "")
+	b2 := jsonBody(t, w2)
+	if b2["from"] != "mock" {
+		t.Fatalf("expected from=mock, got %v", b2)
+	}
+}
+
+func TestRouteProxy_statefulSwitch(t *testing.T) {
+	backend := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Content-Type", "application/json")
+		w.Write([]byte(`{"real":true}`))
+	}))
+	defer backend.Close()
+
+	realMode := "real"
+	srv := newSrv(&config.Config{
+		Routes: []config.Route{
+			// When state=real, forward to backend
+			{Path: "/data", Method: "GET", State: "real", Proxy: backend.URL},
+			// Default: mock
+			{Path: "/data", Method: "GET", Status: 200, Response: map[string]any{"real": false}},
+		},
+	})
+
+	// default state → mock
+	w := do(srv, "GET", "/data", "")
+	b := jsonBody(t, w)
+	if b["real"] != false {
+		t.Fatalf("expected mock response, got %v", b)
+	}
+
+	// set state to real
+	srv.state.Set(realMode)
+
+	// state=real → backend
+	w2 := do(srv, "GET", "/data", "")
+	b2 := jsonBody(t, w2)
+	if b2["real"] != true {
+		t.Fatalf("expected real=true, got %v", b2)
+	}
+}

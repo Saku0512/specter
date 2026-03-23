@@ -227,3 +227,15 @@ func TestCheck_headersInvalidRegex(t *testing.T) {
 	}}}
 	assertContains(t, check(cfg), "headers[\"Authorization\"] invalid regex")
 }
+
+func TestCheck_routeProxyInvalidURL(t *testing.T) {
+	cfg := &config.Config{Routes: []config.Route{{Path: "/a", Method: "GET", Proxy: "not-a-url"}}}
+	assertContains(t, check(cfg), "proxy invalid url")
+}
+
+func TestCheck_routeProxyValid(t *testing.T) {
+	cfg := &config.Config{Routes: []config.Route{{Path: "/a", Method: "GET", Proxy: "http://api.example.com"}}}
+	if errs := check(cfg); len(errs) != 0 {
+		t.Errorf("expected no errors, got %v", errs)
+	}
+}

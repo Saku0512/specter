@@ -392,6 +392,7 @@ func newEngine(cfg *config.Config, verbose bool, history *RequestHistory, state 
 		if route.RateLimit > 0 {
 			e.limiter = newRateLimiter(route.RateLimit, route.RateReset)
 		}
+
 		groups[key] = append(groups[key], e)
 		if !seen[key] {
 			seen[key] = true
@@ -440,6 +441,12 @@ func newEngine(cfg *config.Config, verbose bool, history *RequestHistory, state 
 						c.JSON(http.StatusTooManyRequests, gin.H{"error": "rate limit exceeded"})
 						return
 					}
+				}
+
+				// Per-route proxy: forward and return, skip mock logic
+				if rt.Proxy != "" {
+					forwardRequest(c, rt.Proxy)
+					return
 				}
 
 				// Delay: random range takes precedence over fixed delay
@@ -949,6 +956,55 @@ func assertBodyMatches(recordedBody string, expected map[string]any) bool {
 		}
 	}
 	return true
+}
+
+// forwardRequest proxies the incoming request to targetBase and writes the response.
+// targetBase is a URL like "http://api.example.com"; the original path and query are preserved.
+func forwardRequest(c *gin.Context, targetBase string) {
+	target, err := url.Parse(targetBase)
+	if err != nil {
+		log.Printf("proxy: invalid target URL %q: %v", targetBase, err)
+		c.JSON(http.StatusBadGateway, gin.H{"error": "invalid proxy target"})
+		return
+	}
+
+	outURL := *c.Request.URL
+	outURL.Scheme = target.Scheme
+	outURL.Host = target.Host
+
+	var bodyReader io.Reader
+	if c.Request.Body != nil {
+		bodyReader = c.Request.Body
+	}
+	outReq, err := http.NewRequestWithContext(c.Request.Context(), c.Request.Method, outURL.String(), bodyReader)
+	if err != nil {
+		log.Printf("proxy: failed to create request: %v", err)
+		c.JSON(http.StatusBadGateway, gin.H{"error": "proxy request failed"})
+		return
+	}
+	for k, vs := range c.Request.Header {
+		for _, v := range vs {
+			outReq.Header.Add(k, v)
+		}
+	}
+	outReq.Host = target.Host
+
+	log.Printf("proxy → %s %s", outReq.Method, outReq.URL)
+	resp, err := http.DefaultClient.Do(outReq)
+	if err != nil {
+		log.Printf("proxy: %s %s failed: %v", outReq.Method, outReq.URL, err)
+		c.JSON(http.StatusBadGateway, gin.H{"error": "proxy request failed"})
+		return
+	}
+	defer resp.Body.Close()
+
+	for k, vs := range resp.Header {
+		for _, v := range vs {
+			c.Header(k, v)
+		}
+	}
+	c.Status(resp.StatusCode)
+	io.Copy(c.Writer, resp.Body)
 }
 
 func fireWebhook(wh *config.Webhook, tmplData map[string]any, params gin.Params) {

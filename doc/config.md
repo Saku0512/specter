@@ -42,6 +42,7 @@ routes:
 | `webhook` | object | Outgoing HTTP callback fired after responding |
 | `file` | string | Path to a `.json`, `.yaml`, `.yml`, or text file to serve as the response body |
 | `script` | string | Go template producing the response body (takes priority over `file` and `response`) |
+| `proxy` | string | Forward this route to a real backend URL (takes priority over mock response) |
 
 ---
 
@@ -706,9 +707,51 @@ Supported spec formats: `.yaml`, `.yml`, `.json`. Routes not defined in the spec
 
 This is useful for catching mismatches between your client and the API contract during development, without breaking your mock-based tests.
 
-## Proxy Fallback
+## Per-route Proxy
 
-Set `proxy` to forward unmatched requests to a real API.
+Set `proxy` on a route to forward that specific route to a real backend. The original path and query string are preserved. Useful for mixing real API calls with mocked responses in the same server.
+
+```yaml
+routes:
+  # Forward only auth to the real service
+  - path: /auth/token
+    method: POST
+    proxy: https://real-auth.example.com
+
+  # Everything else is mocked
+  - path: /users
+    method: GET
+    response: [{ id: 1 }]
+```
+
+Per-route `proxy` participates in the full state/vars matching logic, so you can switch between real and mock based on state:
+
+```yaml
+routes:
+  # In "live" state, forward to real API
+  - path: /payments
+    method: POST
+    state: live
+    proxy: https://payments.example.com
+
+  # Default: return mock response
+  - path: /payments
+    method: POST
+    status: 202
+    response: { status: processing }
+```
+
+```
+POST /payments          → 202 { status: processing }   (default state)
+PUT  /__specter/state {"state":"live"}
+POST /payments          → forwarded to payments.example.com
+```
+
+`proxy` on a route takes priority over `response`, `file`, and `script` — no mock body is generated when proxying.
+
+## Global Proxy Fallback
+
+Set top-level `proxy` to forward unmatched requests to a real API.
 
 ```yaml
 proxy: http://api.example.com

@@ -8,6 +8,7 @@ import (
 	"log"
 	"math/rand/v2"
 	"net/http"
+	"sort"
 	"net/http/httputil"
 	"net/url"
 	"os"
@@ -1309,7 +1310,49 @@ func handleStoreOp(c *gin.Context, rt config.Route, bodyBytes []byte, store *Dat
 		c.JSON(http.StatusCreated, stored)
 
 	case rt.StoreList != "":
-		c.JSON(http.StatusOK, store.List(rt.StoreList))
+		items := store.List(rt.StoreList)
+
+		// Filter: query params not prefixed with _ are treated as field equality filters
+		for k, vs := range c.Request.URL.Query() {
+			if strings.HasPrefix(k, "_") {
+				continue
+			}
+			want := vs[0]
+			filtered := items[:0:0]
+			for _, item := range items {
+				if fmt.Sprint(item[k]) == want {
+					filtered = append(filtered, item)
+				}
+			}
+			items = filtered
+		}
+
+		// Sort
+		if sortField := c.Query("_sort"); sortField != "" {
+			desc := strings.ToLower(c.DefaultQuery("_order", "asc")) == "desc"
+			sort.SliceStable(items, func(i, j int) bool {
+				a := fmt.Sprint(items[i][sortField])
+				b := fmt.Sprint(items[j][sortField])
+				if desc {
+					return a > b
+				}
+				return a < b
+			})
+		}
+
+		// Pagination
+		if off, err := strconv.Atoi(c.Query("_offset")); err == nil && off > 0 {
+			if off >= len(items) {
+				items = []map[string]any{}
+			} else {
+				items = items[off:]
+			}
+		}
+		if lim, err := strconv.Atoi(c.Query("_limit")); err == nil && lim >= 0 && lim < len(items) {
+			items = items[:lim]
+		}
+
+		c.JSON(http.StatusOK, items)
 
 	case rt.StoreGet != "":
 		item, ok := store.Get(rt.StoreGet, id)

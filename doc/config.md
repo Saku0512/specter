@@ -46,7 +46,7 @@ routes:
 | `script` | string | Go template producing the response body (takes priority over `file` and `response`) |
 | `proxy` | string | Forward this route to a real backend URL (takes priority over mock response) |
 | `store_push` | string | Push request body into the named in-memory store (assigns `id`); responds 201 |
-| `store_list` | string | Respond with all items in the named store; responds 200 |
+| `store_list` | string | Respond with all items in the named store; supports filtering, sorting, and pagination via query params |
 | `store_get` | string | Respond with the item matching `store_key` path param; 404 if not found |
 | `store_put` | string | Replace (upsert) item matching `store_key`; responds 200 |
 | `store_patch` | string | Merge request body into item matching `store_key`; 404 if not found |
@@ -832,6 +832,24 @@ specter includes a built-in CRUD store you can wire directly to routes — no ba
 
 **Use one `store_*` field per route.** The `store_key` field names the path parameter used as the item ID (default: `id`).
 
+### Filtering, sorting, and pagination (`store_list`)
+
+`store_list` routes automatically apply query parameters from the request:
+
+| Query param | Meaning |
+|---|---|
+| `field=value` | Filter: only return items where `item[field] == value` (string comparison) |
+| `_sort=field` | Sort by this field (lexicographic) |
+| `_order=asc\|desc` | Sort order; default `asc` |
+| `_limit=N` | Return at most N items |
+| `_offset=N` | Skip the first N items |
+
+```sh
+GET /users?role=admin&_sort=name&_order=asc&_limit=10&_offset=0
+```
+
+Multiple field filters can be combined and are applied before sorting and pagination.
+
 ```yaml
 routes:
   - path: /users
@@ -840,7 +858,7 @@ routes:
 
   - path: /users
     method: GET
-    store_list: users          # list all → 200 [...]
+    store_list: users          # list all → 200 [...] (supports ?role=admin&_sort=name&_order=desc&_limit=10&_offset=0)
 
   - path: /users/:id
     method: GET

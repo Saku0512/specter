@@ -2749,6 +2749,99 @@ func TestStore_Clear(t *testing.T) {
 	}
 }
 
+func TestStore_ListFilter(t *testing.T) {
+	srv := newSrv(&config.Config{
+		Routes: []config.Route{
+			{Path: "/items", Method: "POST", StorePush: "items"},
+			{Path: "/items", Method: "GET", StoreList: "items"},
+		},
+	})
+	do(srv, "POST", "/items", `{"role":"admin","name":"Alice"}`)
+	do(srv, "POST", "/items", `{"role":"user","name":"Bob"}`)
+	do(srv, "POST", "/items", `{"role":"admin","name":"Carol"}`)
+
+	w := httptest.NewRequest("GET", "/items?role=admin", nil)
+	rec := httptest.NewRecorder()
+	srv.ServeHTTP(rec, w)
+
+	var list []map[string]any
+	json.NewDecoder(rec.Body).Decode(&list)
+	if len(list) != 2 {
+		t.Fatalf("filter: expected 2 admins, got %d", len(list))
+	}
+	for _, item := range list {
+		if item["role"] != "admin" {
+			t.Errorf("filter: unexpected role: %v", item)
+		}
+	}
+}
+
+func TestStore_ListSort(t *testing.T) {
+	srv := newSrv(&config.Config{
+		Routes: []config.Route{
+			{Path: "/items", Method: "POST", StorePush: "items"},
+			{Path: "/items", Method: "GET", StoreList: "items"},
+		},
+	})
+	do(srv, "POST", "/items", `{"name":"Charlie"}`)
+	do(srv, "POST", "/items", `{"name":"Alice"}`)
+	do(srv, "POST", "/items", `{"name":"Bob"}`)
+
+	w := httptest.NewRequest("GET", "/items?_sort=name", nil)
+	rec := httptest.NewRecorder()
+	srv.ServeHTTP(rec, w)
+
+	var list []map[string]any
+	json.NewDecoder(rec.Body).Decode(&list)
+	if len(list) != 3 {
+		t.Fatalf("sort: expected 3 items, got %d", len(list))
+	}
+	if list[0]["name"] != "Alice" || list[1]["name"] != "Bob" || list[2]["name"] != "Charlie" {
+		t.Errorf("sort: unexpected order: %v", list)
+	}
+
+	// desc order
+	w2 := httptest.NewRequest("GET", "/items?_sort=name&_order=desc", nil)
+	rec2 := httptest.NewRecorder()
+	srv.ServeHTTP(rec2, w2)
+
+	var list2 []map[string]any
+	json.NewDecoder(rec2.Body).Decode(&list2)
+	if list2[0]["name"] != "Charlie" {
+		t.Errorf("sort desc: expected Charlie first, got %v", list2[0]["name"])
+	}
+}
+
+func TestStore_ListPagination(t *testing.T) {
+	srv := newSrv(&config.Config{
+		Routes: []config.Route{
+			{Path: "/items", Method: "POST", StorePush: "items"},
+			{Path: "/items", Method: "GET", StoreList: "items"},
+		},
+	})
+	for i := 0; i < 5; i++ {
+		do(srv, "POST", "/items", `{"x":1}`)
+	}
+
+	w := httptest.NewRequest("GET", "/items?_limit=2", nil)
+	rec := httptest.NewRecorder()
+	srv.ServeHTTP(rec, w)
+	var list []map[string]any
+	json.NewDecoder(rec.Body).Decode(&list)
+	if len(list) != 2 {
+		t.Fatalf("limit: expected 2, got %d", len(list))
+	}
+
+	w2 := httptest.NewRequest("GET", "/items?_offset=3", nil)
+	rec2 := httptest.NewRecorder()
+	srv.ServeHTTP(rec2, w2)
+	var list2 []map[string]any
+	json.NewDecoder(rec2.Body).Decode(&list2)
+	if len(list2) != 2 {
+		t.Fatalf("offset: expected 2, got %d", len(list2))
+	}
+}
+
 func TestStore_IntrospectionEndpoints(t *testing.T) {
 	srv := newSrv(&config.Config{
 		Routes: []config.Route{

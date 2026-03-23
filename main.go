@@ -4,10 +4,12 @@ import (
 	"flag"
 	"fmt"
 	"log"
+	"net/http"
 	"os"
 
 	"github.com/Saku0512/specter/config"
 	"github.com/Saku0512/specter/server"
+	"github.com/fsnotify/fsnotify"
 )
 
 var version = "dev"
@@ -29,8 +31,45 @@ func main() {
 		log.Fatalf("failed to load config: %v", err)
 	}
 
-	r := server.New(cfg)
+	srv := server.New(cfg)
+
+	watcher, err := fsnotify.NewWatcher()
+	if err != nil {
+		log.Fatalf("failed to create watcher: %v", err)
+	}
+	defer watcher.Close()
+
+	if err := watcher.Add(*configPath); err != nil {
+		log.Printf("warning: could not watch config file: %v", err)
+	}
+
+	go func() {
+		for {
+			select {
+			case event, ok := <-watcher.Events:
+				if !ok {
+					return
+				}
+				if event.Has(fsnotify.Write) || event.Has(fsnotify.Create) {
+					newCfg, err := config.Load(*configPath)
+					if err != nil {
+						log.Printf("reload failed: %v", err)
+						continue
+					}
+					srv.Reload(newCfg)
+					log.Println("config reloaded")
+				}
+			case err, ok := <-watcher.Errors:
+				if !ok {
+					return
+				}
+				log.Printf("watcher error: %v", err)
+			}
+		}
+	}()
 
 	log.Printf("👻 Specter running on :%s", *port)
-	r.Run(":" + *port)
+	if err := http.ListenAndServe(":"+*port, srv); err != nil {
+		log.Fatalf("server error: %v", err)
+	}
 }

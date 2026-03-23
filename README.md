@@ -8,6 +8,15 @@ Lightweight mock API server. Define endpoints in YAML, run instantly.
 
 ## Install
 
+**Homebrew (macOS / Linux)**
+
+```sh
+brew tap Saku0512/specter https://github.com/Saku0512/specter
+brew install specter
+```
+
+**curl**
+
 ```sh
 curl -fsSL https://raw.githubusercontent.com/Saku0512/specter/main/install.sh | bash
 ```

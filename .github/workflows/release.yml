@@ -56,3 +56,44 @@ jobs:
         uses: softprops/action-gh-release@v2
         with:
           files: dist/*
+
+  update-formula:
+    needs: release
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: main
+
+      - name: Compute SHA256 for each binary
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          VERSION=${{ github.ref_name }}
+          for target in darwin_amd64 darwin_arm64 linux_amd64 linux_arm64; do
+            gh release download "$VERSION" \
+              --pattern "specter_${target}" \
+              --output "specter_${target}"
+            SHA=$(sha256sum "specter_${target}" | cut -d' ' -f1)
+            echo "SHA256_${target}=${SHA}" >> "$GITHUB_ENV"
+          done
+
+      - name: Update Formula/specter.rb
+        run: |
+          VERSION=${{ github.ref_name }}
+          VERSION_NUM=${VERSION#v}
+          sed -i "s/version \".*\"/version \"${VERSION_NUM}\"/" Formula/specter.rb
+          sed -i "s/PLACEHOLDER_DARWIN_AMD64/${{ env.SHA256_darwin_amd64 }}/" Formula/specter.rb
+          sed -i "s/PLACEHOLDER_DARWIN_ARM64/${{ env.SHA256_darwin_arm64 }}/" Formula/specter.rb
+          sed -i "s/PLACEHOLDER_LINUX_AMD64/${{ env.SHA256_linux_amd64 }}/" Formula/specter.rb
+          sed -i "s/PLACEHOLDER_LINUX_ARM64/${{ env.SHA256_linux_arm64 }}/" Formula/specter.rb
+
+      - name: Commit updated formula
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git add Formula/specter.rb
+          git commit -m "chore: update formula to ${{ github.ref_name }}"
+          git push origin main

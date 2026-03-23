@@ -56,6 +56,15 @@ Flags take precedence over environment variables.
 | `SPECTER_HOST` | `--host` |
 | `SPECTER_VERBOSE` | `--verbose` |
 
+## Quick start
+
+```sh
+specter init          # generate config.yml in current directory
+specter -c config.yml # start the server
+```
+
+`specter init -f` to overwrite an existing file.
+
 ## Generate config from OpenAPI
 
 ```sh

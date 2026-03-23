@@ -13,6 +13,7 @@ import (
 
 	"github.com/Saku0512/specter/config"
 	"github.com/Saku0512/specter/gen"
+	init_cmd "github.com/Saku0512/specter/cmd/init"
 	"github.com/Saku0512/specter/server"
 	"github.com/Saku0512/specter/validate"
 	"github.com/fsnotify/fsnotify"
@@ -44,6 +45,7 @@ Flags:
   -h, --help   Show this help
 
 Commands:
+  init         Create a starter config.yml
   gen          Generate config from an OpenAPI spec
   validate     Validate a config file
 
@@ -68,6 +70,10 @@ func main() {
 	}
 	if len(os.Args) > 1 && os.Args[1] == "validate" {
 		validate.Run(os.Args[2:])
+		return
+	}
+	if len(os.Args) > 1 && os.Args[1] == "init" {
+		init_cmd.Run(os.Args[2:])
 		return
 	}
 

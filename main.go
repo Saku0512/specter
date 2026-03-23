@@ -36,9 +36,15 @@ Flags:
 Commands:
   gen          Generate config from an OpenAPI spec
 
+Environment variables:
+  SPECTER_CONFIG   Path to config file
+  SPECTER_PORT     Port to listen on
+  SPECTER_VERBOSE  Set to 1 or true to enable verbose logging
+
 Examples:
   specter -c config.yml -p 3000
   specter gen -i openapi.yml -o config.yml
+  SPECTER_PORT=3000 specter -c config.yml
 
 `, version)
 }
@@ -57,6 +63,26 @@ func main() {
 	v := flag.Bool("v", false, "show version")
 	flag.BoolVar(v, "version", false, "show version")
 	flag.Parse()
+
+	// Fall back to environment variables for flags not explicitly set
+	set := make(map[string]bool)
+	flag.Visit(func(f *flag.Flag) { set[f.Name] = true })
+
+	if !set["c"] {
+		if val := os.Getenv("SPECTER_CONFIG"); val != "" {
+			*configPath = val
+		}
+	}
+	if !set["p"] {
+		if val := os.Getenv("SPECTER_PORT"); val != "" {
+			*port = val
+		}
+	}
+	if !set["verbose"] {
+		if val := os.Getenv("SPECTER_VERBOSE"); val == "1" || val == "true" {
+			*verbose = true
+		}
+	}
 
 	if *v {
 		fmt.Println("specter", version)

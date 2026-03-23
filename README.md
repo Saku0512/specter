@@ -25,6 +25,14 @@ specter -c config.yml -p 8080
 | `-v`, `--version` | — | Show version |
 | `--verbose` | — | Log request headers and body |
 
+Flags take precedence over environment variables.
+
+| Environment variable | Equivalent flag |
+|----------------------|-----------------|
+| `SPECTER_CONFIG` | `-c` |
+| `SPECTER_PORT` | `-p` |
+| `SPECTER_VERBOSE` | `--verbose` |
+
 ## Generate config from OpenAPI
 
 ```sh

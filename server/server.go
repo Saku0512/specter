@@ -2,14 +2,15 @@ package server
 
 import (
 	"net/http"
-	"github.com/gin-gonic/gin"
+
 	"github.com/Saku0512/specter/config"
+	"github.com/gin-gonic/gin"
 )
 
 func New(cfg *config.Config) *gin.Engine {
 	r := gin.Default()
 
-	for _, route := range cfg.Route {
+	for _, route := range cfg.Routes {
 		rt := route
 
 		r.Handle(rt.Method, rt.Path, func(c *gin.Context) {

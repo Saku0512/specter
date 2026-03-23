@@ -2,25 +2,26 @@ package config
 
 import (
 	"os"
+
 	"gopkg.in/yaml.v3"
 )
 
 type Route struct {
-	Path		string	`yaml:"path"`
-	Method		string 	`yaml:"method"`
-	Status		int		`yaml:"status"`
-	Response	any		`yaml:"response"`
+	Path     string `yaml:"path"`
+	Method   string `yaml:"method"`
+	Status   int    `yaml:"status"`
+	Response any    `yaml:"response"`
 }
 
 type Config struct {
-	Route []Route `yaml:"route"`
+	Routes []Route `yaml:"routes"`
 }
 
 func Load(path string) (*Config, error) {
 	candidates := []string{path}
-	if path == "config.yml" {
+	if path == "config.yaml" {
 		candidates = append(candidates, "config.yml")
-	} else if path == "config.yaml" {
+	} else if path == "config.yml" {
 		candidates = append(candidates, "config.yaml")
 	}
 

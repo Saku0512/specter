@@ -10,10 +10,12 @@ type Route struct {
 	Path     string `yaml:"path"`
 	Method   string `yaml:"method"`
 	Status   int    `yaml:"status"`
+	Delay    int    `yaml:"delay"` // milliseconds
 	Response any    `yaml:"response"`
 }
 
 type Config struct {
+	CORS   bool    `yaml:"cors"`
 	Routes []Route `yaml:"routes"`
 }
 

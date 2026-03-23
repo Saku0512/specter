@@ -23,6 +23,7 @@ specter -c config.yml -p 8080
 | `-c` | `config.yaml` | Path to config file |
 | `-p` | `8080` | Port to listen on |
 | `-v`, `--version` | — | Show version |
+| `--verbose` | — | Log request headers and body |
 
 ## Config
 
@@ -136,6 +137,21 @@ routes:
     delay: 1000
     response:
       message: finally
+```
+
+### Verbose Logging
+
+Run with `--verbose` to log request headers and body for every request.
+
+```sh
+specter -c config.yml --verbose
+```
+
+```
+→ POST /users
+  Content-Type: application/json
+  Authorization: Bearer token
+  Body: {"name":"Alice"}
 ```
 
 ### Hot Reload

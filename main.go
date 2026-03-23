@@ -17,6 +17,7 @@ var version = "dev"
 func main() {
 	configPath := flag.String("c", "config.yaml", "path to config file")
 	port := flag.String("p", "8080", "port to listen on")
+	verbose := flag.Bool("verbose", false, "log request headers and body")
 	v := flag.Bool("v", false, "show version")
 	flag.BoolVar(v, "version", false, "show version")
 	flag.Parse()
@@ -31,7 +32,7 @@ func main() {
 		log.Fatalf("failed to load config: %v", err)
 	}
 
-	srv := server.New(cfg)
+	srv := server.New(cfg, *verbose)
 
 	watcher, err := fsnotify.NewWatcher()
 	if err != nil {

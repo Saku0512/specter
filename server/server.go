@@ -1,6 +1,9 @@
 package server
 
 import (
+	"bytes"
+	"io"
+	"log"
 	"math/rand/v2"
 	"net/http"
 	"strconv"
@@ -13,28 +16,33 @@ import (
 )
 
 type Server struct {
-	engine atomic.Pointer[gin.Engine]
+	engine  atomic.Pointer[gin.Engine]
+	verbose bool
 }
 
-func New(cfg *config.Config) *Server {
-	s := &Server{}
-	s.engine.Store(newEngine(cfg))
+func New(cfg *config.Config, verbose bool) *Server {
+	s := &Server{verbose: verbose}
+	s.engine.Store(newEngine(cfg, verbose))
 	return s
 }
 
 func (s *Server) Reload(cfg *config.Config) {
-	s.engine.Store(newEngine(cfg))
+	s.engine.Store(newEngine(cfg, s.verbose))
 }
 
 func (s *Server) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	s.engine.Load().ServeHTTP(w, r)
 }
 
-func newEngine(cfg *config.Config) *gin.Engine {
+func newEngine(cfg *config.Config, verbose bool) *gin.Engine {
 	r := gin.Default()
 
 	if cfg.CORS {
 		r.Use(corsMiddleware())
+	}
+
+	if verbose {
+		r.Use(verboseLogger())
 	}
 
 	for _, route := range cfg.Routes {
@@ -76,6 +84,26 @@ func newEngine(cfg *config.Config) *gin.Engine {
 	}
 
 	return r
+}
+
+func verboseLogger() gin.HandlerFunc {
+	return func(c *gin.Context) {
+		log.Printf("→ %s %s", c.Request.Method, c.Request.URL.RequestURI())
+
+		for k, v := range c.Request.Header {
+			log.Printf("  %s: %s", k, strings.Join(v, ", "))
+		}
+
+		if c.Request.Body != nil && c.Request.ContentLength != 0 {
+			body, err := io.ReadAll(c.Request.Body)
+			if err == nil && len(body) > 0 {
+				c.Request.Body = io.NopCloser(bytes.NewBuffer(body))
+				log.Printf("  Body: %s", body)
+			}
+		}
+
+		c.Next()
+	}
 }
 
 // applyParams recursively replaces ":paramName" strings in the response with

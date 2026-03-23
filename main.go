@@ -1,11 +1,15 @@
 package main
 
 import (
+	"context"
 	"flag"
 	"fmt"
 	"log"
 	"net/http"
 	"os"
+	"os/signal"
+	"syscall"
+	"time"
 
 	"github.com/Saku0512/specter/config"
 	"github.com/Saku0512/specter/gen"
@@ -106,8 +110,29 @@ func main() {
 		}
 	}()
 
-	log.Printf("👻 Specter running on :%s", *port)
-	if err := http.ListenAndServe(":"+*port, srv); err != nil {
-		log.Fatalf("server error: %v", err)
+	httpSrv := &http.Server{
+		Addr:    ":" + *port,
+		Handler: srv,
 	}
+
+	quit := make(chan os.Signal, 1)
+	signal.Notify(quit, syscall.SIGINT, syscall.SIGTERM)
+
+	go func() {
+		log.Printf("👻 Specter running on :%s", *port)
+		if err := httpSrv.ListenAndServe(); err != nil && err != http.ErrServerClosed {
+			log.Fatalf("server error: %v", err)
+		}
+	}()
+
+	<-quit
+	log.Println("shutting down...")
+
+	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+	defer cancel()
+
+	if err := httpSrv.Shutdown(ctx); err != nil {
+		log.Fatalf("shutdown error: %v", err)
+	}
+	log.Println("bye 👋")
 }

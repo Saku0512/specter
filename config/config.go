@@ -21,6 +21,14 @@ type RouteMatch struct {
 	Response    any               `yaml:"response,omitempty"`
 }
 
+type Webhook struct {
+	URL     string            `yaml:"url"`
+	Method  string            `yaml:"method,omitempty"`  // default: POST
+	Body    any               `yaml:"body,omitempty"`
+	Headers map[string]string `yaml:"headers,omitempty"`
+	Delay   int               `yaml:"delay,omitempty"` // milliseconds before sending
+}
+
 type Route struct {
 	Path        string            `yaml:"path"`
 	Method      string            `yaml:"method"`
@@ -36,6 +44,7 @@ type Route struct {
 	RateReset   int               `yaml:"rate_reset,omitempty"`  // seconds until count resets
 	State       string            `yaml:"state,omitempty"`       // required server state to match
 	SetState    *string           `yaml:"set_state,omitempty"`   // state to set after responding
+	Webhook     *Webhook          `yaml:"webhook,omitempty"`     // outgoing callback after responding
 }
 
 type Config struct {

@@ -94,6 +94,19 @@ func check(cfg *config.Config) []string {
 				errs = append(errs, prefix+fmt.Sprintf(": match[%d] must have at least one query, body, or headers condition", j))
 			}
 		}
+		if wh := r.Webhook; wh != nil {
+			if wh.URL == "" {
+				errs = append(errs, prefix+": webhook missing url")
+			} else if _, err := url.ParseRequestURI(wh.URL); err != nil {
+				errs = append(errs, prefix+fmt.Sprintf(": webhook invalid url %q: %v", wh.URL, err))
+			}
+			if wh.Method != "" && !validMethods[strings.ToUpper(wh.Method)] {
+				errs = append(errs, prefix+fmt.Sprintf(": webhook invalid method %q", wh.Method))
+			}
+			if wh.Delay < 0 {
+				errs = append(errs, prefix+": webhook delay must be non-negative")
+			}
+		}
 	}
 
 	return errs

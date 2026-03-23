@@ -3,10 +3,12 @@ package server
 import (
 	"bytes"
 	"encoding/json"
+	"io"
 	"net/http"
 	"net/http/httptest"
 	"strings"
 	"testing"
+	"time"
 
 	"github.com/Saku0512/specter/config"
 )
@@ -1107,4 +1109,145 @@ func TestReload(t *testing.T) {
 	if w.Code != 202 {
 		t.Errorf("after reload: expected 202, got %d", w.Code)
 	}
+}
+
+// --- Webhook ---
+
+func TestWebhook_fired(t *testing.T) {
+	received := make(chan []byte, 1)
+	target := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		b, _ := io.ReadAll(r.Body)
+		received <- b
+		w.WriteHeader(http.StatusOK)
+	}))
+	defer target.Close()
+
+	srv := newSrv(&config.Config{
+		Routes: []config.Route{
+			{
+				Path:     "/pay",
+				Method:   "POST",
+				Status:   200,
+				Response: map[string]any{"ok": true},
+				Webhook: &config.Webhook{
+					URL:  target.URL + "/cb",
+					Body: map[string]any{"event": "payment"},
+				},
+			},
+		},
+	})
+
+	w := do(srv, "POST", "/pay", `{"amount":100}`)
+	if w.Code != 200 {
+		t.Fatalf("expected 200, got %d", w.Code)
+	}
+
+	select {
+	case body := <-received:
+		var m map[string]any
+		if err := json.Unmarshal(body, &m); err != nil {
+			t.Fatalf("webhook body not valid JSON: %s", body)
+		}
+		if m["event"] != "payment" {
+			t.Errorf("unexpected webhook body: %v", m)
+		}
+	case <-waitTimeout(500):
+		t.Fatal("webhook not received within timeout")
+	}
+}
+
+func TestWebhook_bodyTemplate(t *testing.T) {
+	received := make(chan []byte, 1)
+	target := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		b, _ := io.ReadAll(r.Body)
+		received <- b
+		w.WriteHeader(http.StatusOK)
+	}))
+	defer target.Close()
+
+	srv := newSrv(&config.Config{
+		Routes: []config.Route{
+			{
+				Path:     "/orders",
+				Method:   "POST",
+				Status:   201,
+				Response: map[string]any{"created": true},
+				Webhook: &config.Webhook{
+					URL:  target.URL + "/notify",
+					Body: map[string]any{"user": "{{ .body.user }}"},
+				},
+			},
+		},
+	})
+
+	do(srv, "POST", "/orders", `{"user":"alice"}`)
+
+	select {
+	case body := <-received:
+		var m map[string]any
+		if err := json.Unmarshal(body, &m); err != nil {
+			t.Fatalf("webhook body not valid JSON: %s", body)
+		}
+		if m["user"] != "alice" {
+			t.Errorf("expected user=alice in webhook body, got %v", m)
+		}
+	case <-waitTimeout(500):
+		t.Fatal("webhook not received within timeout")
+	}
+}
+
+func TestWebhook_customMethod(t *testing.T) {
+	method := make(chan string, 1)
+	target := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		method <- r.Method
+		w.WriteHeader(http.StatusOK)
+	}))
+	defer target.Close()
+
+	srv := newSrv(&config.Config{
+		Routes: []config.Route{
+			{
+				Path:   "/evt",
+				Method: "GET",
+				Status: 200,
+				Webhook: &config.Webhook{
+					URL:    target.URL + "/hook",
+					Method: "PUT",
+				},
+			},
+		},
+	})
+
+	do(srv, "GET", "/evt", "")
+
+	select {
+	case m := <-method:
+		if m != "PUT" {
+			t.Errorf("expected PUT, got %s", m)
+		}
+	case <-waitTimeout(500):
+		t.Fatal("webhook not received within timeout")
+	}
+}
+
+func TestWebhook_nilSkipped(t *testing.T) {
+	// Route with no webhook must not panic
+	srv := newSrv(&config.Config{
+		Routes: []config.Route{
+			{Path: "/ok", Method: "GET", Status: 200, Response: map[string]any{"ok": true}},
+		},
+	})
+	w := do(srv, "GET", "/ok", "")
+	if w.Code != 200 {
+		t.Errorf("expected 200, got %d", w.Code)
+	}
+}
+
+func waitTimeout(ms int) <-chan struct{} {
+	ch := make(chan struct{})
+	go func() {
+		time.Sleep(time.Duration(ms) * time.Millisecond)
+		close(ch)
+	}()
+	return ch
 }

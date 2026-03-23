@@ -255,6 +255,7 @@ func newEngine(cfg *config.Config, verbose bool, history *RequestHistory, state 
 						if rt.SetState != nil {
 							state.Set(*rt.SetState)
 						}
+						fireWebhook(rt.Webhook, tmplData, c.Params)
 						return
 					}
 				}
@@ -281,6 +282,7 @@ func newEngine(cfg *config.Config, verbose bool, history *RequestHistory, state 
 					if rt.SetState != nil {
 						state.Set(*rt.SetState)
 					}
+					fireWebhook(rt.Webhook, tmplData, c.Params)
 					return
 				}
 
@@ -293,6 +295,7 @@ func newEngine(cfg *config.Config, verbose bool, history *RequestHistory, state 
 				if rt.SetState != nil {
 					state.Set(*rt.SetState)
 				}
+				fireWebhook(rt.Webhook, tmplData, c.Params)
 				return
 			}
 
@@ -608,6 +611,65 @@ func assertBodyMatches(recordedBody string, expected map[string]any) bool {
 		}
 	}
 	return true
+}
+
+func fireWebhook(wh *config.Webhook, tmplData map[string]any, params gin.Params) {
+	if wh == nil || wh.URL == "" {
+		return
+	}
+	go func() {
+		if wh.Delay > 0 {
+			time.Sleep(time.Duration(wh.Delay) * time.Millisecond)
+		}
+
+		method := strings.ToUpper(wh.Method)
+		if method == "" {
+			method = http.MethodPost
+		}
+
+		// Apply template to URL
+		targetURL := wh.URL
+		if strings.Contains(targetURL, "{{") {
+			if tmpl, err := template.New("").Funcs(templateFuncs).Parse(targetURL); err == nil {
+				var buf bytes.Buffer
+				if err := tmpl.Execute(&buf, tmplData); err == nil {
+					targetURL = buf.String()
+				}
+			}
+		}
+
+		var bodyReader io.Reader
+		if wh.Body != nil {
+			processed := applyParams(applyTemplate(wh.Body, tmplData), params)
+			var bodyBytes []byte
+			if s, ok := processed.(string); ok {
+				bodyBytes = []byte(s)
+			} else {
+				bodyBytes, _ = json.Marshal(processed)
+			}
+			bodyReader = bytes.NewBuffer(bodyBytes)
+		}
+
+		req, err := http.NewRequest(method, targetURL, bodyReader)
+		if err != nil {
+			log.Printf("webhook: failed to build request to %s: %v", targetURL, err)
+			return
+		}
+		if wh.Body != nil {
+			req.Header.Set("Content-Type", "application/json")
+		}
+		for k, v := range wh.Headers {
+			req.Header.Set(k, v)
+		}
+
+		resp, err := http.DefaultClient.Do(req)
+		if err != nil {
+			log.Printf("webhook: %s %s failed: %v", method, targetURL, err)
+			return
+		}
+		resp.Body.Close()
+		log.Printf("webhook: %s %s → %d", method, targetURL, resp.StatusCode)
+	}()
 }
 
 func respond(c *gin.Context, status int, contentType string, body any) {

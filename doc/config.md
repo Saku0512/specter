@@ -35,6 +35,7 @@ routes:
 | `rate_reset` | int | Seconds until rate limit counter resets |
 | `state` | string | Only match when server is in this state |
 | `set_state` | string | Transition server to this state after responding |
+| `webhook` | object | Outgoing HTTP callback fired after responding |
 
 ---
 
@@ -286,6 +287,62 @@ GET  /profile → 401 { error: unauthorized }
 ```
 
 See [introspection.md](introspection.md) for the `/__specter/state` endpoint.
+
+## Webhook / Callback
+
+Use `webhook` to fire an outgoing HTTP request after specter responds. Useful for simulating event-driven systems (payment callbacks, notification services, async jobs).
+
+```yaml
+- path: /payments
+  method: POST
+  status: 202
+  response: { status: processing }
+  webhook:
+    url: http://localhost:9000/payment-result
+    method: POST                          # default: POST
+    delay: 500                            # milliseconds before sending (default: 0)
+    body:
+      event: payment.completed
+      amount: "{{ .body.amount }}"        # template from original request
+    headers:
+      X-Webhook-Secret: mysecret
+```
+
+The webhook is fired asynchronously — the original response is returned immediately without waiting.
+
+### Webhook fields
+
+| Field | Type | Description |
+|---|---|---|
+| `url` | string | Target URL (required; supports `{{ template }}`) |
+| `method` | string | HTTP method (default: `POST`) |
+| `body` | any | Request body; supports the same template syntax as responses |
+| `headers` | map | Custom HTTP headers to include |
+| `delay` | int | Milliseconds to wait before firing (default: 0) |
+
+### Example: simulate async order fulfillment
+
+```yaml
+routes:
+  - path: /orders
+    method: POST
+    status: 201
+    response: { id: 42, status: pending }
+    webhook:
+      url: http://localhost:8080/fulfillment
+      delay: 2000
+      body:
+        order_id: 42
+        user: "{{ .body.user }}"
+```
+
+```
+POST /orders {"user":"alice"}
+→ 201 { id: 42, status: pending }
+
+# 2 seconds later, specter sends:
+POST http://localhost:8080/fulfillment {"order_id":42,"user":"alice"}
+```
 
 ## Proxy Fallback
 

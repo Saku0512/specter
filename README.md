@@ -21,10 +21,16 @@ brew tap Saku0512/specter https://github.com/Saku0512/specter
 brew install specter
 ```
 
-**curl**
+**curl (macOS / Linux)**
 
 ```sh
 curl -fsSL https://raw.githubusercontent.com/Saku0512/specter/main/install.sh | bash
+```
+
+**PowerShell (Windows)**
+
+```powershell
+irm https://raw.githubusercontent.com/Saku0512/specter/main/install.ps1 | iex
 ```
 
 ## Usage

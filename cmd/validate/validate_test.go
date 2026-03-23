@@ -6,7 +6,6 @@ import (
 	"github.com/Saku0512/specter/config"
 )
 
-
 func TestCheck_valid(t *testing.T) {
 	cfg := &config.Config{
 		Routes: []config.Route{

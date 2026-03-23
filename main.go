@@ -15,8 +15,8 @@ import (
 	gen_cmd "github.com/Saku0512/specter/cmd/gen"
 	init_cmd "github.com/Saku0512/specter/cmd/init"
 	record_cmd "github.com/Saku0512/specter/cmd/record"
+	validate_cmd "github.com/Saku0512/specter/cmd/validate"
 	"github.com/Saku0512/specter/server"
-	"github.com/Saku0512/specter/validate"
 	"github.com/fsnotify/fsnotify"
 )
 
@@ -75,7 +75,7 @@ func main() {
 		return
 	}
 	if len(os.Args) > 1 && os.Args[1] == "validate" {
-		validate.Run(os.Args[2:])
+		validate_cmd.Run(os.Args[2:])
 		return
 	}
 	if len(os.Args) > 1 && os.Args[1] == "init" {

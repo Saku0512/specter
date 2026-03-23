@@ -296,6 +296,46 @@ GET  /users/42                               → { msg: "user 42" }
 
 Template values are always strings. For numeric path parameters, the existing `:paramName` syntax auto-converts to numbers.
 
+Use `{{ fake "type" }}` to generate random values on every request:
+
+```yaml
+- path: /users
+  method: GET
+  response:
+    id: '{{ fake "uuid" }}'
+    name: '{{ fake "name" }}'
+    email: '{{ fake "email" }}'
+    company: '{{ fake "company" }}'
+```
+
+| Type | Example output |
+|---|---|
+| `name` | `John Doe` |
+| `first_name` | `John` |
+| `last_name` | `Doe` |
+| `email` | `john@example.com` |
+| `uuid` | `550e8400-e29b-41d4-a716-446655440000` |
+| `phone` | `555-123-4567` |
+| `url` | `https://example.com` |
+| `ip` | `192.168.1.1` |
+| `username` | `johndoe42` |
+| `password` | `Abc123xyz` |
+| `word` | `cloud` |
+| `sentence` | `The quick brown fox jumps.` |
+| `paragraph` | `Lorem ipsum...` |
+| `color` | `crimson` |
+| `country` | `Japan` |
+| `city` | `Tokyo` |
+| `zip` | `100-0001` |
+| `street` | `123 Main St` |
+| `company` | `Acme Corp` |
+| `job` | `Software Engineer` |
+| `int` | `4821` |
+| `float` | `73.42` |
+| `bool` | `true` |
+| `date` | `2024-03-15` |
+| `datetime` | `2024-03-15T10:30:00Z` |
+
 ### Response Content Type
 
 By default, responses are served as `application/json`. Set `content_type` to return plain text, HTML, or any other MIME type.

@@ -18,6 +18,7 @@ import (
 	"time"
 
 	"github.com/Saku0512/specter/config"
+	"github.com/brianvoe/gofakeit/v6"
 	"github.com/gin-gonic/gin"
 )
 
@@ -347,13 +348,72 @@ func buildTemplateData(c *gin.Context, bodyBytes []byte) map[string]any {
 	return map[string]any{"params": params, "query": query, "body": body}
 }
 
+var templateFuncs = template.FuncMap{
+	"fake": func(kind string) string {
+		switch kind {
+		case "name":
+			return gofakeit.Name()
+		case "first_name":
+			return gofakeit.FirstName()
+		case "last_name":
+			return gofakeit.LastName()
+		case "email":
+			return gofakeit.Email()
+		case "uuid":
+			return gofakeit.UUID()
+		case "phone":
+			return gofakeit.Phone()
+		case "url":
+			return gofakeit.URL()
+		case "ip":
+			return gofakeit.IPv4Address()
+		case "username":
+			return gofakeit.Username()
+		case "password":
+			return gofakeit.Password(true, true, true, false, false, 12)
+		case "word":
+			return gofakeit.Word()
+		case "sentence":
+			return gofakeit.Sentence(6)
+		case "paragraph":
+			return gofakeit.Paragraph(1, 3, 10, " ")
+		case "color":
+			return gofakeit.Color()
+		case "country":
+			return gofakeit.Country()
+		case "city":
+			return gofakeit.City()
+		case "zip":
+			return gofakeit.Zip()
+		case "street":
+			return gofakeit.Street()
+		case "company":
+			return gofakeit.Company()
+		case "job":
+			return gofakeit.JobTitle()
+		case "int":
+			return strconv.Itoa(gofakeit.IntRange(1, 10000))
+		case "float":
+			return strconv.FormatFloat(float64(gofakeit.Float32Range(0, 1000)), 'f', 2, 64)
+		case "bool":
+			return strconv.FormatBool(gofakeit.Bool())
+		case "date":
+			return gofakeit.Date().Format("2006-01-02")
+		case "datetime":
+			return gofakeit.Date().Format(time.RFC3339)
+		default:
+			return ""
+		}
+	},
+}
+
 func applyTemplate(v any, data map[string]any) any {
 	switch val := v.(type) {
 	case string:
 		if !strings.Contains(val, "{{") {
 			return val
 		}
-		tmpl, err := template.New("").Parse(val)
+		tmpl, err := template.New("").Funcs(templateFuncs).Parse(val)
 		if err != nil {
 			return val
 		}

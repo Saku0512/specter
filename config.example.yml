@@ -36,6 +36,15 @@ routes:
     response:
       ok: true
 
+  # Faker — generate random values on every request
+  - path: /fake-user
+    method: GET
+    response:
+      id: '{{ fake "uuid" }}'
+      name: '{{ fake "name" }}'
+      email: '{{ fake "email" }}'
+      company: '{{ fake "company" }}'
+
   # Response templates — embed request data in the response
   - path: /echo
     method: POST

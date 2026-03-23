@@ -467,6 +467,63 @@ func TestTemplateNoTemplate(t *testing.T) {
 	}
 }
 
+// --- Faker templates ---
+
+func TestFakeTemplateName(t *testing.T) {
+	srv := newSrv(&config.Config{
+		Routes: []config.Route{
+			{Path: "/fake", Method: "GET", Response: map[string]any{"name": `{{ fake "name" }}`}},
+		},
+	})
+	w := do(srv, "GET", "/fake", "")
+	body := jsonBody(t, w)
+	name, ok := body["name"].(string)
+	if !ok || name == "" || name == `{{ fake "name" }}` {
+		t.Errorf("expected non-empty rendered name, got %v", body["name"])
+	}
+}
+
+func TestFakeTemplateEmail(t *testing.T) {
+	srv := newSrv(&config.Config{
+		Routes: []config.Route{
+			{Path: "/fake", Method: "GET", Response: map[string]any{"email": `{{ fake "email" }}`}},
+		},
+	})
+	w := do(srv, "GET", "/fake", "")
+	body := jsonBody(t, w)
+	email, ok := body["email"].(string)
+	if !ok || !strings.Contains(email, "@") {
+		t.Errorf("expected email with @, got %v", body["email"])
+	}
+}
+
+func TestFakeTemplateUUID(t *testing.T) {
+	srv := newSrv(&config.Config{
+		Routes: []config.Route{
+			{Path: "/fake", Method: "GET", Response: map[string]any{"id": `{{ fake "uuid" }}`}},
+		},
+	})
+	w := do(srv, "GET", "/fake", "")
+	body := jsonBody(t, w)
+	id, ok := body["id"].(string)
+	if !ok || len(id) != 36 {
+		t.Errorf("expected UUID (36 chars), got %v", body["id"])
+	}
+}
+
+func TestFakeTemplateUnknownReturnsEmpty(t *testing.T) {
+	srv := newSrv(&config.Config{
+		Routes: []config.Route{
+			{Path: "/fake", Method: "GET", Response: map[string]any{"x": `{{ fake "unknown" }}`}},
+		},
+	})
+	w := do(srv, "GET", "/fake", "")
+	body := jsonBody(t, w)
+	if body["x"] != "" {
+		t.Errorf("expected empty string for unknown fake type, got %v", body["x"])
+	}
+}
+
 // --- Rate limiting ---
 
 func TestRateLimit(t *testing.T) {

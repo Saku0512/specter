@@ -69,6 +69,35 @@ specter -c config.yml # start the server
 
 `specter init -f` to overwrite an existing file.
 
+## Record from a real API
+
+Proxy a real API and automatically generate `config.yml` from the recorded responses.
+
+```sh
+specter record -t http://api.example.com -o config.yml
+```
+
+Send requests through the recorder (e.g. with curl or your app), then press Ctrl+C to save.
+
+```sh
+curl http://localhost:8080/users
+curl http://localhost:8080/users/1
+# ^C
+# ✓ recorded 2 route(s) → config.yml
+```
+
+| Flag | Default | Description |
+|------|---------|-------------|
+| `-t` | — | Target URL to proxy to (required) |
+| `-o` | `config.yml` | Output config file |
+| `-p` | `8080` | Port to listen on |
+| `-f` | — | Overwrite output file if it exists |
+
+- Each (method, path) pair is recorded once (first response wins)
+- JSON responses are stored as structured data
+- Non-JSON responses include `content_type` automatically
+- CORS preflight (`OPTIONS`) requests are forwarded but not recorded
+
 ## Generate config from OpenAPI
 
 ```sh

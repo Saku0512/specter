@@ -51,7 +51,7 @@ routes:
       message: created
 ```
 
-Both `.yaml` and `.yml` extensions are supported.
+Both `.yaml` and `.yml` extensions are supported. See [config.example.yml](config.example.yml) for a full example covering all features.
 
 ### Multiple Responses
 

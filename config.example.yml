@@ -1,0 +1,63 @@
+cors: true
+
+routes:
+  # Basic GET
+  - path: /users
+    method: GET
+    status: 200
+    response:
+      - id: 1
+        name: Alice
+      - id: 2
+        name: Bob
+
+  # Path parameter
+  - path: /users/:id
+    method: GET
+    status: 200
+    response:
+      id: 1
+      name: Alice
+
+  # POST with 201
+  - path: /users
+    method: POST
+    status: 201
+    response:
+      message: created
+
+  # Custom response headers
+  - path: /token
+    method: POST
+    status: 200
+    headers:
+      X-Auth-Token: dummy-token
+    response:
+      ok: true
+
+  # Response delay (ms)
+  - path: /slow
+    method: GET
+    delay: 1000
+    response:
+      message: finally
+
+  # Sequential responses — fails first, succeeds on retry
+  - path: /unstable
+    method: GET
+    mode: sequential
+    responses:
+      - status: 500
+        response: { error: internal }
+      - status: 200
+        response: { ok: true }
+
+  # Random responses — simulates flaky network
+  - path: /flaky
+    method: GET
+    mode: random
+    responses:
+      - status: 200
+        response: { ok: true }
+      - status: 503
+        response: { error: unavailable }

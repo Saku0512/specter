@@ -481,10 +481,16 @@ func newEngine(cfg *config.Config, verbose bool, history *RequestHistory, state 
 							ct = rt.ContentType
 						}
 						respond(c, status, ct, body)
-						if rt.SetState != nil {
+						// match-level set_state / set_vars take priority over route-level
+						if m.SetState != nil {
+							state.Set(*m.SetState)
+						} else if rt.SetState != nil {
 							state.Set(*rt.SetState)
 						}
 						for k, v := range rt.SetVars {
+							vars.Set(k, v)
+						}
+						for k, v := range m.SetVars {
 							vars.Set(k, v)
 						}
 						fireWebhook(rt.Webhook, tmplData, c.Params)

@@ -2082,3 +2082,121 @@ func TestScript_inResponses(t *testing.T) {
 		t.Fatalf("expected n=1 then n=2, got %v %v", b1["n"], b2["n"])
 	}
 }
+
+// --- match-level set_state / set_vars ---
+
+func TestMatch_setStateInMatch(t *testing.T) {
+	loggedIn := "logged_in"
+	srv := newSrv(&config.Config{
+		Routes: []config.Route{
+			{
+				Path:   "/login",
+				Method: "POST",
+				Match: []config.RouteMatch{
+					{
+						Body:     map[string]any{"user": "alice"},
+						SetState: &loggedIn,
+						Status:   200,
+						Response: map[string]any{"ok": true},
+					},
+				},
+				Status:   401,
+				Response: map[string]any{"error": "bad credentials"},
+			},
+			{
+				Path:   "/profile",
+				Method: "GET",
+				State:  "logged_in",
+				Status: 200,
+				Response: map[string]any{"name": "alice"},
+			},
+			{
+				Path:   "/profile",
+				Method: "GET",
+				Status: 401,
+				Response: map[string]any{"error": "unauthorized"},
+			},
+		},
+	})
+
+	// wrong credentials → 401, state unchanged
+	w := do(srv, "POST", "/login", `{"user":"bob"}`)
+	if w.Code != 401 {
+		t.Fatalf("expected 401, got %d", w.Code)
+	}
+	w2 := do(srv, "GET", "/profile", "")
+	if w2.Code != 401 {
+		t.Fatalf("state should not be set, expected 401 got %d", w2.Code)
+	}
+
+	// correct credentials → 200, state set to logged_in
+	w3 := do(srv, "POST", "/login", `{"user":"alice"}`)
+	if w3.Code != 200 {
+		t.Fatalf("expected 200, got %d", w3.Code)
+	}
+	w4 := do(srv, "GET", "/profile", "")
+	if w4.Code != 200 {
+		t.Fatalf("expected 200 after login, got %d", w4.Code)
+	}
+}
+
+func TestMatch_setVarsInMatch(t *testing.T) {
+	srv := newSrv(&config.Config{
+		Routes: []config.Route{
+			{
+				Path:   "/role",
+				Method: "POST",
+				Match: []config.RouteMatch{
+					{
+						Body:    map[string]any{"role": "admin"},
+						SetVars: map[string]string{"role": "admin", "level": "5"},
+						Status:  200,
+						Response: map[string]any{"ok": true},
+					},
+				},
+				Status:   200,
+				Response: map[string]any{"ok": false},
+			},
+		},
+	})
+
+	do(srv, "POST", "/role", `{"role":"admin"}`)
+
+	w := do(srv, "GET", "/__specter/vars", "")
+	var vars map[string]string
+	json.NewDecoder(w.Body).Decode(&vars)
+	if vars["role"] != "admin" || vars["level"] != "5" {
+		t.Fatalf("expected role=admin level=5, got %v", vars)
+	}
+}
+
+func TestMatch_setVarsMatchLevelOverridesRoute(t *testing.T) {
+	route := "route_state"
+	match := "match_state"
+	srv := newSrv(&config.Config{
+		Routes: []config.Route{
+			{
+				Path:   "/action",
+				Method: "POST",
+				Match: []config.RouteMatch{
+					{
+						Body:     map[string]any{"x": "1"},
+						SetState: &match,
+						Response: map[string]any{"from": "match"},
+					},
+				},
+				SetState: &route,
+				Response: map[string]any{"from": "default"},
+			},
+		},
+	})
+
+	// match hits → match-level set_state wins
+	do(srv, "POST", "/action", `{"x":"1"}`)
+	w := do(srv, "GET", "/__specter/state", "")
+	var s map[string]string
+	json.NewDecoder(w.Body).Decode(&s)
+	if s["state"] != "match_state" {
+		t.Fatalf("expected match_state, got %v", s["state"])
+	}
+}

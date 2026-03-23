@@ -24,7 +24,9 @@ type RouteMatch struct {
 	ContentType string            `yaml:"content_type,omitempty"`
 	Response    any               `yaml:"response,omitempty"`
 	File        string            `yaml:"file,omitempty"`
-	Script      string            `yaml:"script,omitempty"` // Go template producing the response body
+	Script      string            `yaml:"script,omitempty"`   // Go template producing the response body
+	SetState    *string           `yaml:"set_state,omitempty"` // transition server state after this match
+	SetVars     map[string]string `yaml:"set_vars,omitempty"`  // set vars after this match
 }
 
 type Webhook struct {

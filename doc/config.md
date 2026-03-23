@@ -98,7 +98,31 @@ GET /api/data  X-Role: admin                       → 200 { data: admin-only }
 GET /api/data                                      → 401 { error: unauthorized }
 ```
 
-`headers`, `query`, and `body` can be combined in a single `match` entry (all conditions must match).
+`headers`, `query`, `body`, and `body_path` can be combined in a single `match` entry (all conditions must match).
+
+`match` entries also support `set_state` and `set_vars` to transition state after a specific match fires. Match-level values take priority over route-level values.
+
+```yaml
+- path: /login
+  method: POST
+  match:
+    - body:
+        user: alice
+      set_state: logged_in      # only set when this match fires
+      set_vars:
+        role: admin
+      status: 200
+      response: { token: abc }
+    - body:
+        user: bob
+      set_state: logged_in
+      set_vars:
+        role: viewer
+      status: 200
+      response: { token: xyz }
+  status: 401
+  response: { error: unauthorized }
+```
 
 ## JSONPath / Regex Body Matching
 

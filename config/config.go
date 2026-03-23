@@ -12,7 +12,8 @@ type RouteResponse struct {
 }
 
 type RouteMatch struct {
-	Query    map[string]string `yaml:"query"`
+	Query    map[string]string `yaml:"query,omitempty"`
+	Body     map[string]any    `yaml:"body,omitempty"`
 	Status   int               `yaml:"status,omitempty"`
 	Response any               `yaml:"response,omitempty"`
 }

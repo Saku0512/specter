@@ -42,6 +42,20 @@ routes:
     response:
       message: finally
 
+  # Request body matching
+  - path: /login
+    method: POST
+    match:
+      - body:
+          role: admin
+        status: 200
+        response: { token: admin-token }
+      - body:
+          role: guest
+        status: 403
+        response: { error: forbidden }
+    response: { token: default-token }
+
   # Query parameter matching
   - path: /search
     method: GET

@@ -2,6 +2,8 @@ package server
 
 import (
 	"bytes"
+	"encoding/json"
+	"fmt"
 	"io"
 	"log"
 	"math/rand/v2"
@@ -58,8 +60,18 @@ func newEngine(cfg *config.Config, verbose bool) *gin.Engine {
 				c.Header(k, v)
 			}
 
+			// Pre-read body once if any match condition uses body matching
+			var bodyBytes []byte
 			for _, m := range rt.Match {
-				if matchesQuery(c, m.Query) {
+				if len(m.Body) > 0 {
+					bodyBytes, _ = io.ReadAll(c.Request.Body)
+					c.Request.Body = io.NopCloser(bytes.NewBuffer(bodyBytes))
+					break
+				}
+			}
+
+			for _, m := range rt.Match {
+				if matchesQuery(c, m.Query) && matchesBody(bodyBytes, m.Body) {
 					status := m.Status
 					if status == 0 {
 						status = http.StatusOK
@@ -149,6 +161,22 @@ func applyParams(v any, params gin.Params) any {
 	default:
 		return v
 	}
+}
+
+func matchesBody(body []byte, expected map[string]any) bool {
+	if len(expected) == 0 {
+		return true
+	}
+	var parsed map[string]any
+	if err := json.Unmarshal(body, &parsed); err != nil {
+		return false
+	}
+	for k, v := range expected {
+		if fmt.Sprint(parsed[k]) != fmt.Sprint(v) {
+			return false
+		}
+	}
+	return true
 }
 
 func matchesQuery(c *gin.Context, query map[string]string) bool {

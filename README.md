@@ -129,6 +129,42 @@ GET /users?status=inactive → 404 { error: not found }
 GET /users                 → 200 [{ id: 1 }, { id: 2 }]
 ```
 
+### Request Body Matching
+
+Use `body` in `match` to return different responses based on the request body. Can be combined with `query`.
+
+```yaml
+- path: /users
+  method: POST
+  match:
+    - body:
+        role: admin
+      status: 201
+      response: { id: 1, role: admin }
+    - body:
+        role: guest
+      status: 403
+      response: { error: forbidden }
+  response: { id: 2 }
+```
+
+```sh
+POST /users {"role":"admin"}  → 201 { id: 1, role: admin }
+POST /users {"role":"guest"}  → 403 { error: forbidden }
+POST /users {"role":"user"}   → 200 { id: 2 }
+```
+
+`query` と `body` は同時に指定できます（AND 条件）。
+
+```yaml
+match:
+  - query:
+      version: v2
+    body:
+      role: admin
+    response: { ok: true }
+```
+
 ### Path Parameters in Response
 
 Use `:paramName` in response values to embed path parameters. Numeric values are automatically converted to numbers.

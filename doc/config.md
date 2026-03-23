@@ -681,7 +681,7 @@ POST http://localhost:8080/fulfillment {"order_id":42,"user":"alice"}
 
 ## OpenAPI Request Validation
 
-Set `openapi` to a spec file path to enable non-blocking request validation. specter validates each incoming request against the spec and — if the request doesn't conform — adds a header and logs a warning, but **always serves the mock response regardless**.
+Set `openapi` to a spec file path to enable request validation. By default validation is **non-blocking**: specter always serves the mock response but adds a warning header and logs the error. Set `openapi_strict: true` to **block** invalid requests with a `400` response.
 
 ```yaml
 openapi: ./openapi.yaml
@@ -693,19 +693,31 @@ routes:
     response: { id: 1 }
 ```
 
-When a request fails validation:
+When a request fails validation (non-strict, default):
 
 ```
 X-Specter-Validation-Error: request body has an error: ... property "name" is missing
 ```
 
+Enable strict mode to block invalid requests with a `400`:
+
+```yaml
+openapi: ./openapi.yaml
+openapi_strict: true
+
+routes:
+  - path: /items
+    method: POST
+    status: 201
+    response: { id: 1 }
 ```
-[specter] openapi validation: POST /items — request body has an error: ...
+
+```
+POST /items {}             → 400 { "error": "request validation failed", "detail": "..." }
+POST /items {"name":"x"}   → 201 { id: 1 }
 ```
 
 Supported spec formats: `.yaml`, `.yml`, `.json`. Routes not defined in the spec are silently skipped. Authentication checks are disabled by default (only schema validation runs).
-
-This is useful for catching mismatches between your client and the API contract during development, without breaking your mock-based tests.
 
 ## Per-route Proxy
 

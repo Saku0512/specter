@@ -223,7 +223,7 @@ func newEngine(cfg *config.Config, verbose bool, history *RequestHistory, state 
 		r.Use(verboseLogger())
 	}
 	r.Use(historyMiddleware(history))
-	r.Use(openAPIMiddleware(cfg.OpenAPI))
+	r.Use(openAPIMiddleware(cfg.OpenAPI, cfg.OpenAPIStrict))
 
 	r.GET("/__specter/requests", func(c *gin.Context) {
 		c.JSON(http.StatusOK, history.all())
@@ -1214,9 +1214,10 @@ func matchesBodyPath(body []byte, paths map[string]string) bool {
 }
 
 // openAPIMiddleware returns a gin middleware that validates incoming requests
-// against an OpenAPI spec. Validation errors are non-blocking: the mock response
-// is always served, but an X-Specter-Validation-Error header and a log line are added.
-func openAPIMiddleware(specPath string) gin.HandlerFunc {
+// against an OpenAPI spec. In non-strict mode (default) validation errors are
+// non-blocking: the mock response is always served with an X-Specter-Validation-Error
+// header. In strict mode a 400 is returned immediately and the mock is not served.
+func openAPIMiddleware(specPath string, strict bool) gin.HandlerFunc {
 	if specPath == "" {
 		return func(c *gin.Context) { c.Next() }
 	}
@@ -1271,8 +1272,12 @@ func openAPIMiddleware(specPath string) gin.HandlerFunc {
 
 		if err := openapi3filter.ValidateRequest(loader.Context, input); err != nil {
 			msg := err.Error()
-			c.Header("X-Specter-Validation-Error", msg)
 			log.Printf("openapi validation: %s %s — %s", c.Request.Method, c.Request.URL.Path, msg)
+			if strict {
+				c.AbortWithStatusJSON(http.StatusBadRequest, gin.H{"error": "request validation failed", "detail": msg})
+				return
+			}
+			c.Header("X-Specter-Validation-Error", msg)
 		}
 
 		// Always restore body for the route handler

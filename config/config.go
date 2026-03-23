@@ -66,10 +66,11 @@ type Route struct {
 }
 
 type Config struct {
-	CORS    bool    `yaml:"cors,omitempty"`
-	Proxy   string  `yaml:"proxy,omitempty"`
-	OpenAPI string  `yaml:"openapi,omitempty"` // path to OpenAPI spec for request validation
-	Routes  []Route `yaml:"routes"`
+	CORS         bool    `yaml:"cors,omitempty"`
+	Proxy        string  `yaml:"proxy,omitempty"`
+	OpenAPI      string  `yaml:"openapi,omitempty"`       // path to OpenAPI spec for request validation
+	OpenAPIStrict bool   `yaml:"openapi_strict,omitempty"` // return 400 on validation failures instead of warning
+	Routes       []Route `yaml:"routes"`
 }
 
 func Load(path string) (*Config, error) {

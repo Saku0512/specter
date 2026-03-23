@@ -2446,3 +2446,63 @@ func TestRouteProxy_statefulSwitch(t *testing.T) {
 		t.Fatalf("expected real=true, got %v", b2)
 	}
 }
+
+func TestOpenAPIValidation_strictMode_blocks(t *testing.T) {
+	f, _ := os.CreateTemp(t.TempDir(), "*.yaml")
+	f.WriteString(minimalOpenAPISpec)
+	f.Close()
+
+	srv := newSrv(&config.Config{
+		OpenAPI:       f.Name(),
+		OpenAPIStrict: true,
+		Routes:        []config.Route{{Path: "/items", Method: "POST", Status: 201}},
+	})
+
+	// missing required "name" field → strict mode returns 400
+	w := do(srv, "POST", "/items", `{}`)
+	if w.Code != 400 {
+		t.Fatalf("strict mode: expected 400, got %d", w.Code)
+	}
+	// no mock response served
+	if w.Code == 201 {
+		t.Error("strict mode should not serve mock on invalid request")
+	}
+}
+
+func TestOpenAPIValidation_strictMode_valid(t *testing.T) {
+	f, _ := os.CreateTemp(t.TempDir(), "*.yaml")
+	f.WriteString(minimalOpenAPISpec)
+	f.Close()
+
+	srv := newSrv(&config.Config{
+		OpenAPI:       f.Name(),
+		OpenAPIStrict: true,
+		Routes:        []config.Route{{Path: "/items", Method: "POST", Status: 201}},
+	})
+
+	// valid request → 201 mock served normally
+	w := do(srv, "POST", "/items", `{"name":"widget"}`)
+	if w.Code != 201 {
+		t.Fatalf("strict mode: expected 201 for valid request, got %d", w.Code)
+	}
+}
+
+func TestOpenAPIValidation_nonStrict_stillServesMock(t *testing.T) {
+	f, _ := os.CreateTemp(t.TempDir(), "*.yaml")
+	f.WriteString(minimalOpenAPISpec)
+	f.Close()
+
+	srv := newSrv(&config.Config{
+		OpenAPI: f.Name(),
+		Routes:  []config.Route{{Path: "/items", Method: "POST", Status: 201}},
+	})
+
+	// invalid request in non-strict mode → still returns 201 with warning header
+	w := do(srv, "POST", "/items", `{}`)
+	if w.Code != 201 {
+		t.Fatalf("non-strict: expected 201, got %d", w.Code)
+	}
+	if w.Header().Get("X-Specter-Validation-Error") == "" {
+		t.Error("non-strict: expected X-Specter-Validation-Error header")
+	}
+}

@@ -2586,3 +2586,229 @@ func TestReset_selective(t *testing.T) {
 		t.Errorf("expected empty history, got %d entries", len(entries))
 	}
 }
+
+// --- In-memory CRUD store ---
+
+func TestStore_PushAndList(t *testing.T) {
+	srv := newSrv(&config.Config{
+		Routes: []config.Route{
+			{Path: "/items", Method: "POST", StorePush: "items"},
+			{Path: "/items", Method: "GET", StoreList: "items"},
+		},
+	})
+
+	w := do(srv, "POST", "/items", `{"name":"Alice"}`)
+	if w.Code != 201 {
+		t.Fatalf("push: expected 201, got %d", w.Code)
+	}
+	m := jsonBody(t, w)
+	if m["name"] != "Alice" {
+		t.Errorf("push: expected name=Alice, got %v", m)
+	}
+	if m["id"] == "" {
+		t.Error("push: expected id to be set")
+	}
+
+	w2 := do(srv, "GET", "/items", "")
+	if w2.Code != 200 {
+		t.Fatalf("list: expected 200, got %d", w2.Code)
+	}
+	var list []map[string]any
+	json.NewDecoder(w2.Body).Decode(&list)
+	if len(list) != 1 {
+		t.Fatalf("list: expected 1 item, got %d", len(list))
+	}
+	if list[0]["name"] != "Alice" {
+		t.Errorf("list: unexpected item: %v", list[0])
+	}
+}
+
+func TestStore_GetByID(t *testing.T) {
+	srv := newSrv(&config.Config{
+		Routes: []config.Route{
+			{Path: "/items", Method: "POST", StorePush: "items"},
+			{Path: "/items/:id", Method: "GET", StoreGet: "items", StoreKey: "id"},
+		},
+	})
+
+	w := do(srv, "POST", "/items", `{"name":"Bob"}`)
+	id := jsonBody(t, w)["id"].(string)
+
+	w2 := do(srv, "GET", "/items/"+id, "")
+	if w2.Code != 200 {
+		t.Fatalf("get: expected 200, got %d", w2.Code)
+	}
+	m := jsonBody(t, w2)
+	if m["name"] != "Bob" {
+		t.Errorf("get: expected name=Bob, got %v", m)
+	}
+
+	w3 := do(srv, "GET", "/items/nonexistent", "")
+	if w3.Code != 404 {
+		t.Errorf("get missing: expected 404, got %d", w3.Code)
+	}
+}
+
+func TestStore_PutAndPatch(t *testing.T) {
+	srv := newSrv(&config.Config{
+		Routes: []config.Route{
+			{Path: "/items", Method: "POST", StorePush: "items"},
+			{Path: "/items/:id", Method: "PUT", StorePut: "items", StoreKey: "id"},
+			{Path: "/items/:id", Method: "PATCH", StorePatch: "items", StoreKey: "id"},
+			{Path: "/items/:id", Method: "GET", StoreGet: "items", StoreKey: "id"},
+		},
+	})
+
+	w := do(srv, "POST", "/items", `{"name":"Carol","age":30}`)
+	id := jsonBody(t, w)["id"].(string)
+
+	// PUT replaces
+	wp := do(srv, "PUT", "/items/"+id, `{"name":"Carol Updated"}`)
+	if wp.Code != 200 {
+		t.Fatalf("put: expected 200, got %d", wp.Code)
+	}
+	m := jsonBody(t, wp)
+	if m["name"] != "Carol Updated" {
+		t.Errorf("put: expected updated name, got %v", m)
+	}
+
+	// PATCH merges
+	wpa := do(srv, "PATCH", "/items/"+id, `{"role":"admin"}`)
+	if wpa.Code != 200 {
+		t.Fatalf("patch: expected 200, got %d", wpa.Code)
+	}
+	m2 := jsonBody(t, wpa)
+	if m2["role"] != "admin" {
+		t.Errorf("patch: expected role=admin, got %v", m2)
+	}
+	if m2["name"] != "Carol Updated" {
+		t.Errorf("patch: name should be preserved, got %v", m2)
+	}
+
+	// PATCH non-existent → 404
+	w404 := do(srv, "PATCH", "/items/no-such-id", `{"x":1}`)
+	if w404.Code != 404 {
+		t.Errorf("patch missing: expected 404, got %d", w404.Code)
+	}
+}
+
+func TestStore_Delete(t *testing.T) {
+	srv := newSrv(&config.Config{
+		Routes: []config.Route{
+			{Path: "/items", Method: "POST", StorePush: "items"},
+			{Path: "/items/:id", Method: "DELETE", StoreDelete: "items", StoreKey: "id"},
+			{Path: "/items", Method: "GET", StoreList: "items"},
+		},
+	})
+
+	w := do(srv, "POST", "/items", `{"name":"Dave"}`)
+	id := jsonBody(t, w)["id"].(string)
+
+	wd := do(srv, "DELETE", "/items/"+id, "")
+	if wd.Code != 204 {
+		t.Fatalf("delete: expected 204, got %d", wd.Code)
+	}
+
+	// Delete again → 404
+	wd2 := do(srv, "DELETE", "/items/"+id, "")
+	if wd2.Code != 404 {
+		t.Errorf("delete again: expected 404, got %d", wd2.Code)
+	}
+
+	// List should be empty
+	wl := do(srv, "GET", "/items", "")
+	var list []any
+	json.NewDecoder(wl.Body).Decode(&list)
+	if len(list) != 0 {
+		t.Errorf("after delete: expected empty list, got %d", len(list))
+	}
+}
+
+func TestStore_Clear(t *testing.T) {
+	srv := newSrv(&config.Config{
+		Routes: []config.Route{
+			{Path: "/items", Method: "POST", StorePush: "items"},
+			{Path: "/items", Method: "DELETE", StoreClear: "items"},
+			{Path: "/items", Method: "GET", StoreList: "items"},
+		},
+	})
+
+	do(srv, "POST", "/items", `{"name":"Eve"}`)
+	do(srv, "POST", "/items", `{"name":"Frank"}`)
+
+	wc := do(srv, "DELETE", "/items", "")
+	if wc.Code != 204 {
+		t.Fatalf("clear: expected 204, got %d", wc.Code)
+	}
+
+	wl := do(srv, "GET", "/items", "")
+	var list []any
+	json.NewDecoder(wl.Body).Decode(&list)
+	if len(list) != 0 {
+		t.Errorf("after clear: expected empty list, got %d", len(list))
+	}
+}
+
+func TestStore_IntrospectionEndpoints(t *testing.T) {
+	srv := newSrv(&config.Config{
+		Routes: []config.Route{
+			{Path: "/things", Method: "POST", StorePush: "things"},
+		},
+	})
+
+	do(srv, "POST", "/things", `{"x":1}`)
+	do(srv, "POST", "/things", `{"x":2}`)
+
+	// GET /__specter/stores
+	w := do(srv, "GET", "/__specter/stores", "")
+	if w.Code != 200 {
+		t.Fatalf("expected 200, got %d", w.Code)
+	}
+	var infos []map[string]any
+	json.NewDecoder(w.Body).Decode(&infos)
+	if len(infos) != 1 || infos[0]["name"] != "things" || infos[0]["count"].(float64) != 2 {
+		t.Errorf("unexpected store list: %v", infos)
+	}
+
+	// GET /__specter/stores/things
+	w2 := do(srv, "GET", "/__specter/stores/things", "")
+	var items []map[string]any
+	json.NewDecoder(w2.Body).Decode(&items)
+	if len(items) != 2 {
+		t.Errorf("expected 2 items, got %d", len(items))
+	}
+
+	// DELETE /__specter/stores/things
+	wd := do(srv, "DELETE", "/__specter/stores/things", "")
+	if wd.Code != 204 {
+		t.Fatalf("delete store: expected 204, got %d", wd.Code)
+	}
+	w3 := do(srv, "GET", "/__specter/stores/things", "")
+	var items2 []any
+	json.NewDecoder(w3.Body).Decode(&items2)
+	if len(items2) != 0 {
+		t.Errorf("after delete: expected empty, got %d", len(items2))
+	}
+}
+
+func TestStore_ResetTarget(t *testing.T) {
+	srv := newSrv(&config.Config{
+		Routes: []config.Route{
+			{Path: "/items", Method: "POST", StorePush: "items"},
+		},
+	})
+
+	do(srv, "POST", "/items", `{"name":"Grace"}`)
+
+	w := do(srv, "POST", "/__specter/reset", `{"targets":["stores"]}`)
+	if w.Code != 200 {
+		t.Fatalf("reset: expected 200, got %d", w.Code)
+	}
+
+	w2 := do(srv, "GET", "/__specter/stores/items", "")
+	var list []any
+	json.NewDecoder(w2.Body).Decode(&list)
+	if len(list) != 0 {
+		t.Errorf("after reset stores: expected empty, got %d", len(list))
+	}
+}

@@ -151,6 +151,20 @@ func check(cfg *config.Config) []string {
 				}
 			}
 		}
+		storeOps := []string{r.StorePush, r.StoreList, r.StoreGet, r.StorePut, r.StorePatch, r.StoreDelete, r.StoreClear}
+		storeOpCount := 0
+		for _, op := range storeOps {
+			if op != "" {
+				storeOpCount++
+			}
+		}
+		if storeOpCount > 1 {
+			errs = append(errs, prefix+": only one store_* operation may be set per route")
+		}
+		needsKey := r.StoreGet != "" || r.StorePut != "" || r.StorePatch != "" || r.StoreDelete != ""
+		if r.StoreKey != "" && !needsKey {
+			errs = append(errs, prefix+": store_key is only used with store_get, store_put, store_patch, or store_delete")
+		}
 		if wh := r.Webhook; wh != nil {
 			if wh.URL == "" {
 				errs = append(errs, prefix+": webhook missing url")

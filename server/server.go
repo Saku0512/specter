@@ -183,18 +183,19 @@ type Server struct {
 	vars    *VarStore
 	cfg     atomic.Pointer[config.Config]
 	dynamic *DynamicRouteStore
+	store   *DataStore
 }
 
 func New(cfg *config.Config, verbose bool) *Server {
-	s := &Server{verbose: verbose, history: &RequestHistory{}, state: &StateStore{}, vars: newVarStore(), dynamic: &DynamicRouteStore{}}
+	s := &Server{verbose: verbose, history: &RequestHistory{}, state: &StateStore{}, vars: newVarStore(), dynamic: &DynamicRouteStore{}, store: newDataStore()}
 	s.cfg.Store(cfg)
-	s.engine.Store(newEngine(cfg, verbose, s.history, s.state, s.vars, s.dynamic, s.rebuild))
+	s.engine.Store(newEngine(cfg, verbose, s.history, s.state, s.vars, s.dynamic, s.store, s.rebuild))
 	return s
 }
 
 func (s *Server) rebuild() {
 	cfg := s.cfg.Load()
-	s.engine.Store(newEngine(cfg, s.verbose, s.history, s.state, s.vars, s.dynamic, s.rebuild))
+	s.engine.Store(newEngine(cfg, s.verbose, s.history, s.state, s.vars, s.dynamic, s.store, s.rebuild))
 }
 
 func (s *Server) Reload(cfg *config.Config) {
@@ -213,7 +214,7 @@ type routeEntry struct {
 	limiter   *rateLimiter
 }
 
-func newEngine(cfg *config.Config, verbose bool, history *RequestHistory, state *StateStore, vars *VarStore, dynamic *DynamicRouteStore, rebuild func()) *gin.Engine {
+func newEngine(cfg *config.Config, verbose bool, history *RequestHistory, state *StateStore, vars *VarStore, dynamic *DynamicRouteStore, store *DataStore, rebuild func()) *gin.Engine {
 	r := gin.Default()
 
 	if cfg.CORS {
@@ -357,6 +358,9 @@ func newEngine(cfg *config.Config, verbose bool, history *RequestHistory, state 
 		if reset("history") {
 			history.clear()
 		}
+		if reset("stores") {
+			store.ClearAll()
+		}
 		c.JSON(http.StatusOK, gin.H{"ok": true})
 	})
 
@@ -402,6 +406,36 @@ func newEngine(cfg *config.Config, verbose bool, history *RequestHistory, state 
 			return
 		}
 		go rebuild()
+		c.Status(http.StatusNoContent)
+	})
+
+	// Store introspection endpoints
+	r.GET("/__specter/stores", func(c *gin.Context) {
+		names := store.Names()
+		type storeInfo struct {
+			Name  string `json:"name"`
+			Count int    `json:"count"`
+		}
+		out := make([]storeInfo, 0, len(names))
+		for _, name := range names {
+			out = append(out, storeInfo{Name: name, Count: len(store.List(name))})
+		}
+		c.JSON(http.StatusOK, out)
+	})
+	r.GET("/__specter/stores/:name", func(c *gin.Context) {
+		c.JSON(http.StatusOK, store.List(c.Param("name")))
+	})
+	r.PUT("/__specter/stores/:name", func(c *gin.Context) {
+		var items []map[string]any
+		if err := c.ShouldBindJSON(&items); err != nil {
+			c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+			return
+		}
+		store.SetCollection(c.Param("name"), items)
+		c.Status(http.StatusNoContent)
+	})
+	r.DELETE("/__specter/stores/:name", func(c *gin.Context) {
+		store.Clear(c.Param("name"))
 		c.Status(http.StatusNoContent)
 	})
 
@@ -476,6 +510,18 @@ func newEngine(cfg *config.Config, verbose bool, history *RequestHistory, state 
 				// Per-route proxy: forward and return, skip mock logic
 				if rt.Proxy != "" {
 					forwardRequest(c, rt.Proxy)
+					return
+				}
+
+				// Store CRUD operation
+				if hasStoreOp(rt) {
+					handleStoreOp(c, rt, bodyBytes, store)
+					if rt.SetState != nil {
+						state.Set(*rt.SetState)
+					}
+					for k, v := range rt.SetVars {
+						vars.Set(k, v)
+					}
 					return
 				}
 
@@ -1241,6 +1287,68 @@ func matchesBodyPath(body []byte, paths map[string]string) bool {
 		}
 	}
 	return true
+}
+
+func hasStoreOp(rt config.Route) bool {
+	return rt.StorePush != "" || rt.StoreList != "" || rt.StoreGet != "" ||
+		rt.StorePut != "" || rt.StorePatch != "" || rt.StoreDelete != "" || rt.StoreClear != ""
+}
+
+func handleStoreOp(c *gin.Context, rt config.Route, bodyBytes []byte, store *DataStore) {
+	key := rt.StoreKey
+	if key == "" {
+		key = "id"
+	}
+	id := c.Param(key)
+
+	switch {
+	case rt.StorePush != "":
+		var item map[string]any
+		json.Unmarshal(bodyBytes, &item) //nolint:errcheck
+		stored := store.Push(rt.StorePush, item)
+		c.JSON(http.StatusCreated, stored)
+
+	case rt.StoreList != "":
+		c.JSON(http.StatusOK, store.List(rt.StoreList))
+
+	case rt.StoreGet != "":
+		item, ok := store.Get(rt.StoreGet, id)
+		if !ok {
+			c.JSON(http.StatusNotFound, gin.H{"error": "not found"})
+			return
+		}
+		c.JSON(http.StatusOK, item)
+
+	case rt.StorePut != "":
+		var item map[string]any
+		json.Unmarshal(bodyBytes, &item) //nolint:errcheck
+		if item == nil {
+			item = map[string]any{}
+		}
+		store.Put(rt.StorePut, id, item)
+		c.JSON(http.StatusOK, item)
+
+	case rt.StorePatch != "":
+		var partial map[string]any
+		json.Unmarshal(bodyBytes, &partial) //nolint:errcheck
+		updated, ok := store.Patch(rt.StorePatch, id, partial)
+		if !ok {
+			c.JSON(http.StatusNotFound, gin.H{"error": "not found"})
+			return
+		}
+		c.JSON(http.StatusOK, updated)
+
+	case rt.StoreDelete != "":
+		if !store.Delete(rt.StoreDelete, id) {
+			c.JSON(http.StatusNotFound, gin.H{"error": "not found"})
+			return
+		}
+		c.Status(http.StatusNoContent)
+
+	case rt.StoreClear != "":
+		store.Clear(rt.StoreClear)
+		c.Status(http.StatusNoContent)
+	}
 }
 
 // openAPIMiddleware returns a gin middleware that validates incoming requests

@@ -63,6 +63,14 @@ type Route struct {
 	OnCall      int               `yaml:"on_call,omitempty"`     // match only on this call number (1-based)
 	Script      string            `yaml:"script,omitempty"`      // Go template producing the response body
 	Proxy       string            `yaml:"proxy,omitempty"`       // forward this route to a real backend
+	StorePush   string            `yaml:"store_push,omitempty"`  // push request body into named store → 201
+	StoreList   string            `yaml:"store_list,omitempty"`  // list all items in named store → 200
+	StoreGet    string            `yaml:"store_get,omitempty"`   // get item by store_key param → 200/404
+	StorePut    string            `yaml:"store_put,omitempty"`   // replace/upsert item by store_key param → 200
+	StorePatch  string            `yaml:"store_patch,omitempty"` // merge into item by store_key param → 200/404
+	StoreDelete string            `yaml:"store_delete,omitempty"` // delete item by store_key param → 204/404
+	StoreClear  string            `yaml:"store_clear,omitempty"`  // clear all items in named store → 204
+	StoreKey    string            `yaml:"store_key,omitempty"`    // path param used as item ID (default: "id")
 }
 
 type Config struct {

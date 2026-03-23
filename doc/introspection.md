@@ -128,12 +128,25 @@ DELETE /__specter/vars/:key      # delete one var
 
 Vars persist across hot reloads but reset when the server restarts.
 
+## Stores
+
+Read or seed the in-memory CRUD store. See [config.md](config.md#in-memory-crud-store) for route-level `store_*` fields.
+
+```sh
+GET    /__specter/stores           # list all collections → [{ "name": "users", "count": 3 }, ...]
+GET    /__specter/stores/:name     # list items in a collection → [...]
+PUT    /__specter/stores/:name     # replace collection ← [{ "id": "...", ... }, ...]
+DELETE /__specter/stores/:name     # clear a collection
+```
+
+Stores persist across hot reloads but reset when the server restarts.
+
 ## Reset
 
 Reset state, vars, and request history in a single call. Useful for test setup/teardown.
 
 ```sh
-POST /__specter/reset        # reset everything (state + vars + history)
+POST /__specter/reset        # reset everything (state + vars + history + stores)
 ```
 
 With an optional `targets` array to reset selectively:
@@ -149,8 +162,9 @@ curl -X POST http://localhost:8080/__specter/reset \
 | `state` | Server state (same as `PUT /__specter/state {"state":""}`) |
 | `vars` | All vars (same as `DELETE /__specter/vars`) |
 | `history` | Request history (same as `DELETE /__specter/requests`) |
+| `stores` | All in-memory store collections |
 
-Omit `targets` (or send `{}`) to reset all three at once.
+Omit `targets` (or send `{}`) to reset all four at once.
 
 Dynamic routes are **not** affected — use `DELETE /__specter/routes` to clear those separately.
 

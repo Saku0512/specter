@@ -43,6 +43,14 @@ routes:
 | `file` | string | Path to a `.json`, `.yaml`, `.yml`, or text file to serve as the response body |
 | `script` | string | Go template producing the response body (takes priority over `file` and `response`) |
 | `proxy` | string | Forward this route to a real backend URL (takes priority over mock response) |
+| `store_push` | string | Push request body into the named in-memory store (assigns `id`); responds 201 |
+| `store_list` | string | Respond with all items in the named store; responds 200 |
+| `store_get` | string | Respond with the item matching `store_key` path param; 404 if not found |
+| `store_put` | string | Replace (upsert) item matching `store_key`; responds 200 |
+| `store_patch` | string | Merge request body into item matching `store_key`; 404 if not found |
+| `store_delete` | string | Delete item matching `store_key`; 204 on success, 404 if not found |
+| `store_clear` | string | Delete all items in the named store; responds 204 |
+| `store_key` | string | Path param name used as item ID for get/put/patch/delete (default: `id`) |
 
 ---
 
@@ -800,6 +808,46 @@ routes:
     X-Request-Id: abc123
   response: { ok: true }
 ```
+
+## In-memory CRUD Store
+
+specter includes a built-in CRUD store you can wire directly to routes — no backend needed. Each named store is an independent collection of JSON objects, each assigned an `id` (UUID) on creation.
+
+**Use one `store_*` field per route.** The `store_key` field names the path parameter used as the item ID (default: `id`).
+
+```yaml
+routes:
+  - path: /users
+    method: POST
+    store_push: users          # create → 201 { id: "...", name: "Alice" }
+
+  - path: /users
+    method: GET
+    store_list: users          # list all → 200 [...]
+
+  - path: /users/:id
+    method: GET
+    store_get: users           # get one → 200 or 404
+    store_key: id              # default, can be omitted
+
+  - path: /users/:id
+    method: PUT
+    store_put: users           # replace/upsert → 200
+
+  - path: /users/:id
+    method: PATCH
+    store_patch: users         # merge fields → 200 or 404
+
+  - path: /users/:id
+    method: DELETE
+    store_delete: users        # delete → 204 or 404
+
+  - path: /users
+    method: DELETE
+    store_clear: users         # delete all → 204
+```
+
+Store data resets when the server restarts. Use `POST /__specter/reset` with `"targets":["stores"]` or `DELETE /__specter/stores/:name` to clear it during tests. See [introspection.md](introspection.md) for the full stores API.
 
 ## Response Delay
 

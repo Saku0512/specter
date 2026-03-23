@@ -84,6 +84,21 @@ func check(cfg *config.Config) []string {
 		if r.RateReset > 0 && r.RateLimit == 0 {
 			errs = append(errs, prefix+": rate_reset requires rate_limit to be set")
 		}
+		if r.ErrorRate < 0 || r.ErrorRate > 1 {
+			errs = append(errs, prefix+fmt.Sprintf(": error_rate must be between 0.0 and 1.0, got %v", r.ErrorRate))
+		}
+		if r.ErrorStatus != 0 && (r.ErrorStatus < 100 || r.ErrorStatus > 599) {
+			errs = append(errs, prefix+fmt.Sprintf(": error_status invalid status %d", r.ErrorStatus))
+		}
+		if r.DelayMin < 0 {
+			errs = append(errs, prefix+": delay_min must be non-negative")
+		}
+		if r.DelayMax < 0 {
+			errs = append(errs, prefix+": delay_max must be non-negative")
+		}
+		if r.DelayMax > 0 && r.DelayMin > r.DelayMax {
+			errs = append(errs, prefix+": delay_min must be <= delay_max")
+		}
 		if r.File != "" {
 			if _, err := os.Stat(r.File); err != nil {
 				errs = append(errs, prefix+fmt.Sprintf(": file %q not found", r.File))

@@ -289,6 +289,53 @@ GET  /profile → 401 { error: unauthorized }
 
 See [introspection.md](introspection.md) for the `/__specter/state` endpoint.
 
+## Chaos / Fault Injection
+
+Simulate real-world unreliability to test client-side error handling, retries, and timeouts.
+
+### Random errors
+
+Use `error_rate` (0.0–1.0) to return an error response for a random fraction of requests.
+
+```yaml
+- path: /api
+  method: GET
+  error_rate: 0.3        # 30% of requests return an error
+  error_status: 503      # status code for injected errors (default: 503)
+  response: { ok: true } # returned for the other 70%
+```
+
+### Random delay
+
+Use `delay_min` / `delay_max` to jitter response latency. Both fields must be set together.
+
+```yaml
+- path: /slow
+  method: GET
+  delay_min: 100   # minimum delay in ms
+  delay_max: 800   # maximum delay in ms
+  response: { ok: true }
+```
+
+`delay_min` / `delay_max` take precedence over the fixed `delay` field. All four fields can be combined:
+
+```yaml
+- path: /flaky
+  method: GET
+  delay_min: 200
+  delay_max: 1000
+  error_rate: 0.2
+  error_status: 500
+  response: { data: ok }
+```
+
+| Field | Type | Description |
+|---|---|---|
+| `error_rate` | float | Probability of error, 0.0–1.0 |
+| `error_status` | int | HTTP status for injected error (default: 503) |
+| `delay_min` | int | Minimum random delay in ms |
+| `delay_max` | int | Maximum random delay in ms |
+
 ## File Response
 
 Use `file` to serve a response body from an external file instead of inlining it in the config. Useful for large or complex fixtures.

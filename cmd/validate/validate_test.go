@@ -129,6 +129,32 @@ func TestCheck_responsesInvalidStatus(t *testing.T) {
 	assertContains(t, errs, "responses[0] invalid status")
 }
 
+func TestCheck_errorRateOutOfRange(t *testing.T) {
+	for _, rate := range []float64{-0.1, 1.1} {
+		cfg := &config.Config{Routes: []config.Route{{Path: "/a", Method: "GET", ErrorRate: rate}}}
+		assertContains(t, check(cfg), "error_rate must be between")
+	}
+}
+
+func TestCheck_errorRateValid(t *testing.T) {
+	for _, rate := range []float64{0, 0.5, 1.0} {
+		cfg := &config.Config{Routes: []config.Route{{Path: "/a", Method: "GET", ErrorRate: rate}}}
+		if errs := check(cfg); len(errs) != 0 {
+			t.Errorf("rate %v: expected no errors, got %v", rate, errs)
+		}
+	}
+}
+
+func TestCheck_errorStatusInvalid(t *testing.T) {
+	cfg := &config.Config{Routes: []config.Route{{Path: "/a", Method: "GET", ErrorStatus: 999}}}
+	assertContains(t, check(cfg), "error_status invalid status")
+}
+
+func TestCheck_delayMinGtMax(t *testing.T) {
+	cfg := &config.Config{Routes: []config.Route{{Path: "/a", Method: "GET", DelayMin: 500, DelayMax: 100}}}
+	assertContains(t, check(cfg), "delay_min must be <= delay_max")
+}
+
 func assertContains(t *testing.T, errs []string, substr string) {
 	t.Helper()
 	for _, e := range errs {

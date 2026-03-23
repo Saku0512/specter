@@ -236,8 +236,24 @@ func newEngine(cfg *config.Config, verbose bool, history *RequestHistory, state 
 					}
 				}
 
-				if rt.Delay > 0 {
+				// Delay: random range takes precedence over fixed delay
+				if rt.DelayMin > 0 || rt.DelayMax > 0 {
+					d := rt.DelayMin
+					if rt.DelayMax > rt.DelayMin {
+						d = rt.DelayMin + rand.IntN(rt.DelayMax-rt.DelayMin+1)
+					}
+					time.Sleep(time.Duration(d) * time.Millisecond)
+				} else if rt.Delay > 0 {
 					time.Sleep(time.Duration(rt.Delay) * time.Millisecond)
+				}
+				// Fault injection
+				if rt.ErrorRate > 0 && rand.Float64() < rt.ErrorRate {
+					status := rt.ErrorStatus
+					if status == 0 {
+						status = http.StatusServiceUnavailable
+					}
+					c.JSON(status, gin.H{"error": "injected fault"})
+					return
 				}
 				for hk, hv := range rt.Headers {
 					c.Header(hk, hv)

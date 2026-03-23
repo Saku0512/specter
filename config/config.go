@@ -48,6 +48,10 @@ type Route struct {
 	SetState    *string           `yaml:"set_state,omitempty"`   // state to set after responding
 	Webhook     *Webhook          `yaml:"webhook,omitempty"`     // outgoing callback after responding
 	File        string            `yaml:"file,omitempty"`        // path to response file (.json/.yaml/.yml)
+	ErrorRate   float64           `yaml:"error_rate,omitempty"`  // 0.0-1.0 probability of injecting an error
+	ErrorStatus int               `yaml:"error_status,omitempty"` // status code for injected error (default 503)
+	DelayMin    int               `yaml:"delay_min,omitempty"`   // min random delay in ms (used with delay_max)
+	DelayMax    int               `yaml:"delay_max,omitempty"`   // max random delay in ms
 }
 
 type Config struct {

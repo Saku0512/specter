@@ -1399,3 +1399,55 @@ func TestFileResponse_inResponses(t *testing.T) {
 		t.Errorf("expected 204 on second call, got %d", w.Code)
 	}
 }
+
+// --- Chaos / Fault Injection ---
+
+func TestErrorRate_alwaysFault(t *testing.T) {
+	srv := newSrv(&config.Config{
+		Routes: []config.Route{
+			{Path: "/api", Method: "GET", ErrorRate: 1.0, Response: map[string]any{"ok": true}},
+		},
+	})
+	w := do(srv, "GET", "/api", "")
+	if w.Code != http.StatusServiceUnavailable {
+		t.Errorf("expected 503, got %d", w.Code)
+	}
+}
+
+func TestErrorRate_customStatus(t *testing.T) {
+	srv := newSrv(&config.Config{
+		Routes: []config.Route{
+			{Path: "/api", Method: "GET", ErrorRate: 1.0, ErrorStatus: 500, Response: map[string]any{"ok": true}},
+		},
+	})
+	w := do(srv, "GET", "/api", "")
+	if w.Code != 500 {
+		t.Errorf("expected 500, got %d", w.Code)
+	}
+}
+
+func TestErrorRate_neverFault(t *testing.T) {
+	srv := newSrv(&config.Config{
+		Routes: []config.Route{
+			{Path: "/api", Method: "GET", ErrorRate: 0.0, Response: map[string]any{"ok": true}},
+		},
+	})
+	for i := 0; i < 10; i++ {
+		w := do(srv, "GET", "/api", "")
+		if w.Code != 200 {
+			t.Errorf("expected 200, got %d", w.Code)
+		}
+	}
+}
+
+func TestDelayRange_valid(t *testing.T) {
+	srv := newSrv(&config.Config{
+		Routes: []config.Route{
+			{Path: "/slow", Method: "GET", DelayMin: 0, DelayMax: 5, Response: map[string]any{"ok": true}},
+		},
+	})
+	w := do(srv, "GET", "/slow", "")
+	if w.Code != 200 {
+		t.Errorf("expected 200, got %d", w.Code)
+	}
+}

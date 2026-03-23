@@ -20,9 +20,12 @@ import (
 	"time"
 
 	"github.com/Saku0512/specter/config"
-	"gopkg.in/yaml.v3"
 	"github.com/brianvoe/gofakeit/v6"
 	"github.com/gin-gonic/gin"
+	"github.com/getkin/kin-openapi/openapi3"
+	"github.com/getkin/kin-openapi/openapi3filter"
+	"github.com/getkin/kin-openapi/routers/legacy"
+	"gopkg.in/yaml.v3"
 )
 
 const maxHistory = 200
@@ -218,6 +221,7 @@ func newEngine(cfg *config.Config, verbose bool, history *RequestHistory, state 
 		r.Use(verboseLogger())
 	}
 	r.Use(historyMiddleware(history))
+	r.Use(openAPIMiddleware(cfg.OpenAPI))
 
 	r.GET("/__specter/requests", func(c *gin.Context) {
 		c.JSON(http.StatusOK, history.all())
@@ -995,6 +999,74 @@ func matchesQuery(c *gin.Context, query map[string]string) bool {
 		}
 	}
 	return true
+}
+
+// openAPIMiddleware returns a gin middleware that validates incoming requests
+// against an OpenAPI spec. Validation errors are non-blocking: the mock response
+// is always served, but an X-Specter-Validation-Error header and a log line are added.
+func openAPIMiddleware(specPath string) gin.HandlerFunc {
+	if specPath == "" {
+		return func(c *gin.Context) { c.Next() }
+	}
+
+	loader := openapi3.NewLoader()
+	doc, err := loader.LoadFromFile(specPath)
+	if err != nil {
+		log.Printf("openapi: failed to load spec %q: %v", specPath, err)
+		return func(c *gin.Context) { c.Next() }
+	}
+	if err := doc.Validate(loader.Context); err != nil {
+		log.Printf("openapi: spec %q is invalid: %v", specPath, err)
+		return func(c *gin.Context) { c.Next() }
+	}
+
+	router, err := legacy.NewRouter(doc)
+	if err != nil {
+		log.Printf("openapi: failed to build router from %q: %v", specPath, err)
+		return func(c *gin.Context) { c.Next() }
+	}
+
+	return func(c *gin.Context) {
+		if strings.HasPrefix(c.Request.URL.Path, "/__specter/") {
+			c.Next()
+			return
+		}
+
+		// Read body for validation without consuming it
+		var bodyBytes []byte
+		if c.Request.Body != nil {
+			bodyBytes, _ = io.ReadAll(c.Request.Body)
+			c.Request.Body = io.NopCloser(bytes.NewBuffer(bodyBytes))
+		}
+
+		route, pathParams, err := router.FindRoute(c.Request)
+		if err != nil {
+			// Route not in spec — not an error, spec may be partial
+			c.Next()
+			return
+		}
+
+		input := &openapi3filter.RequestValidationInput{
+			Request:    c.Request,
+			PathParams: pathParams,
+			Route:      route,
+			Options: &openapi3filter.Options{
+				AuthenticationFunc: openapi3filter.NoopAuthenticationFunc,
+			},
+		}
+		// Restore body after FindRoute may have consumed it
+		c.Request.Body = io.NopCloser(bytes.NewBuffer(bodyBytes))
+
+		if err := openapi3filter.ValidateRequest(loader.Context, input); err != nil {
+			msg := err.Error()
+			c.Header("X-Specter-Validation-Error", msg)
+			log.Printf("openapi validation: %s %s — %s", c.Request.Method, c.Request.URL.Path, msg)
+		}
+
+		// Always restore body for the route handler
+		c.Request.Body = io.NopCloser(bytes.NewBuffer(bodyBytes))
+		c.Next()
+	}
 }
 
 func corsMiddleware() gin.HandlerFunc {

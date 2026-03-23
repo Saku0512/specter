@@ -7,6 +7,7 @@ Both `.yaml` and `.yml` extensions are supported. See [config.example.yml](../co
 ```yaml
 cors: true               # optional
 proxy: http://api.example.com  # optional
+openapi: ./openapi.yaml  # optional — enables request validation
 
 routes:
   - path: /users
@@ -486,6 +487,34 @@ POST /orders {"user":"alice"}
 # 2 seconds later, specter sends:
 POST http://localhost:8080/fulfillment {"order_id":42,"user":"alice"}
 ```
+
+## OpenAPI Request Validation
+
+Set `openapi` to a spec file path to enable non-blocking request validation. specter validates each incoming request against the spec and — if the request doesn't conform — adds a header and logs a warning, but **always serves the mock response regardless**.
+
+```yaml
+openapi: ./openapi.yaml
+
+routes:
+  - path: /items
+    method: POST
+    status: 201
+    response: { id: 1 }
+```
+
+When a request fails validation:
+
+```
+X-Specter-Validation-Error: request body has an error: ... property "name" is missing
+```
+
+```
+[specter] openapi validation: POST /items — request body has an error: ...
+```
+
+Supported spec formats: `.yaml`, `.yml`, `.json`. Routes not defined in the spec are silently skipped. Authentication checks are disabled by default (only schema validation runs).
+
+This is useful for catching mismatches between your client and the API contract during development, without breaking your mock-based tests.
 
 ## Proxy Fallback
 

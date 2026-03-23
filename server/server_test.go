@@ -1712,3 +1712,100 @@ func TestDynamicRoute_missingFields(t *testing.T) {
 		t.Errorf("expected 400, got %d", w.Code)
 	}
 }
+
+// --- OpenAPI Validation ---
+
+const minimalOpenAPISpec = `
+openapi: "3.0.0"
+info:
+  title: Test
+  version: "1.0"
+paths:
+  /items:
+    post:
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [name]
+              properties:
+                name:
+                  type: string
+      responses:
+        "201":
+          description: created
+`
+
+func TestOpenAPIValidation_valid(t *testing.T) {
+	f, _ := os.CreateTemp(t.TempDir(), "*.yaml")
+	f.WriteString(minimalOpenAPISpec)
+	f.Close()
+
+	srv := newSrv(&config.Config{
+		OpenAPI: f.Name(),
+		Routes:  []config.Route{{Path: "/items", Method: "POST", Status: 201}},
+	})
+
+	w := do(srv, "POST", "/items", `{"name":"widget"}`)
+	if w.Code != 201 {
+		t.Fatalf("expected 201, got %d", w.Code)
+	}
+	if w.Header().Get("X-Specter-Validation-Error") != "" {
+		t.Errorf("expected no validation error, got: %s", w.Header().Get("X-Specter-Validation-Error"))
+	}
+}
+
+func TestOpenAPIValidation_missingRequiredField(t *testing.T) {
+	f, _ := os.CreateTemp(t.TempDir(), "*.yaml")
+	f.WriteString(minimalOpenAPISpec)
+	f.Close()
+
+	srv := newSrv(&config.Config{
+		OpenAPI: f.Name(),
+		Routes:  []config.Route{{Path: "/items", Method: "POST", Status: 201}},
+	})
+
+	// Missing required "name" field
+	w := do(srv, "POST", "/items", `{"price":10}`)
+	if w.Code != 201 {
+		t.Fatalf("mock should still respond 201, got %d", w.Code)
+	}
+	if w.Header().Get("X-Specter-Validation-Error") == "" {
+		t.Errorf("expected X-Specter-Validation-Error header to be set")
+	}
+}
+
+func TestOpenAPIValidation_noSpec(t *testing.T) {
+	srv := newSrv(&config.Config{
+		Routes: []config.Route{{Path: "/items", Method: "POST", Status: 201}},
+	})
+	w := do(srv, "POST", "/items", `{}`)
+	if w.Code != 201 {
+		t.Fatalf("expected 201, got %d", w.Code)
+	}
+	if w.Header().Get("X-Specter-Validation-Error") != "" {
+		t.Errorf("no spec set, should have no validation header")
+	}
+}
+
+func TestOpenAPIValidation_routeNotInSpec(t *testing.T) {
+	f, _ := os.CreateTemp(t.TempDir(), "*.yaml")
+	f.WriteString(minimalOpenAPISpec)
+	f.Close()
+
+	srv := newSrv(&config.Config{
+		OpenAPI: f.Name(),
+		Routes:  []config.Route{{Path: "/other", Method: "GET", Status: 200}},
+	})
+
+	// /other is not in the spec, should pass through silently
+	w := do(srv, "GET", "/other", "")
+	if w.Code != 200 {
+		t.Fatalf("expected 200, got %d", w.Code)
+	}
+	if w.Header().Get("X-Specter-Validation-Error") != "" {
+		t.Errorf("route not in spec should not produce validation error")
+	}
+}

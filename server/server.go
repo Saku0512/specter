@@ -123,22 +123,79 @@ func (v *VarStore) Clear() {
 	v.vars = map[string]string{}
 }
 
+
+// DynamicRoute is a route added at runtime via the introspection API.
+type DynamicRoute struct {
+	ID    string       `json:"id"`
+	Route config.Route `json:"route"`
+}
+
+type DynamicRouteStore struct {
+	mu     sync.Mutex
+	routes []DynamicRoute
+}
+
+func (d *DynamicRouteStore) Add(route config.Route) string {
+	id := newID()
+	d.mu.Lock()
+	d.routes = append(d.routes, DynamicRoute{ID: id, Route: route})
+	d.mu.Unlock()
+	return id
+}
+
+func (d *DynamicRouteStore) Remove(id string) bool {
+	d.mu.Lock()
+	defer d.mu.Unlock()
+	for i, r := range d.routes {
+		if r.ID == id {
+			d.routes = append(d.routes[:i], d.routes[i+1:]...)
+			return true
+		}
+	}
+	return false
+}
+
+func (d *DynamicRouteStore) All() []DynamicRoute {
+	d.mu.Lock()
+	defer d.mu.Unlock()
+	out := make([]DynamicRoute, len(d.routes))
+	copy(out, d.routes)
+	return out
+}
+
+func (d *DynamicRouteStore) Clear() {
+	d.mu.Lock()
+	defer d.mu.Unlock()
+	d.routes = nil
+}
+
+func newID() string { return gofakeit.UUID() }
+
 type Server struct {
 	engine  atomic.Pointer[gin.Engine]
 	verbose bool
 	history *RequestHistory
 	state   *StateStore
 	vars    *VarStore
+	cfg     atomic.Pointer[config.Config]
+	dynamic *DynamicRouteStore
 }
 
 func New(cfg *config.Config, verbose bool) *Server {
-	s := &Server{verbose: verbose, history: &RequestHistory{}, state: &StateStore{}, vars: newVarStore()}
-	s.engine.Store(newEngine(cfg, verbose, s.history, s.state, s.vars))
+	s := &Server{verbose: verbose, history: &RequestHistory{}, state: &StateStore{}, vars: newVarStore(), dynamic: &DynamicRouteStore{}}
+	s.cfg.Store(cfg)
+	s.engine.Store(newEngine(cfg, verbose, s.history, s.state, s.vars, s.dynamic, s.rebuild))
 	return s
 }
 
+func (s *Server) rebuild() {
+	cfg := s.cfg.Load()
+	s.engine.Store(newEngine(cfg, s.verbose, s.history, s.state, s.vars, s.dynamic, s.rebuild))
+}
+
 func (s *Server) Reload(cfg *config.Config) {
-	s.engine.Store(newEngine(cfg, s.verbose, s.history, s.state, s.vars))
+	s.cfg.Store(cfg)
+	s.rebuild()
 }
 
 func (s *Server) ServeHTTP(w http.ResponseWriter, r *http.Request) {
@@ -151,7 +208,7 @@ type routeEntry struct {
 	limiter *rateLimiter
 }
 
-func newEngine(cfg *config.Config, verbose bool, history *RequestHistory, state *StateStore, vars *VarStore) *gin.Engine {
+func newEngine(cfg *config.Config, verbose bool, history *RequestHistory, state *StateStore, vars *VarStore, dynamic *DynamicRouteStore, rebuild func()) *gin.Engine {
 	r := gin.Default()
 
 	if cfg.CORS {
@@ -267,6 +324,51 @@ func newEngine(cfg *config.Config, verbose bool, history *RequestHistory, state 
 		c.Status(http.StatusNoContent)
 	})
 
+	// Dynamic routes endpoints
+	r.GET("/__specter/routes", func(c *gin.Context) {
+		all := dynamic.All()
+		type routeInfo struct {
+			ID     string       `json:"id,omitempty"`
+			Source string       `json:"source"`
+			Route  config.Route `json:"route"`
+		}
+		var out []routeInfo
+		for _, r := range cfg.Routes {
+			out = append(out, routeInfo{Source: "config", Route: r})
+		}
+		for _, dr := range all {
+			out = append(out, routeInfo{ID: dr.ID, Source: "dynamic", Route: dr.Route})
+		}
+		c.JSON(http.StatusOK, out)
+	})
+	r.POST("/__specter/routes", func(c *gin.Context) {
+		var route config.Route
+		if err := c.ShouldBindJSON(&route); err != nil {
+			c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+			return
+		}
+		if route.Path == "" || route.Method == "" {
+			c.JSON(http.StatusBadRequest, gin.H{"error": "path and method are required"})
+			return
+		}
+		id := dynamic.Add(route)
+		go rebuild()
+		c.JSON(http.StatusCreated, gin.H{"id": id})
+	})
+	r.DELETE("/__specter/routes", func(c *gin.Context) {
+		dynamic.Clear()
+		go rebuild()
+		c.Status(http.StatusNoContent)
+	})
+	r.DELETE("/__specter/routes/:id", func(c *gin.Context) {
+		if !dynamic.Remove(c.Param("id")) {
+			c.JSON(http.StatusNotFound, gin.H{"error": "route not found"})
+			return
+		}
+		go rebuild()
+		c.Status(http.StatusNoContent)
+	})
+
 	// Group routes by (method, path) to support multiple state-conditional
 	// entries for the same endpoint.
 	type routeKey struct{ method, path string }
@@ -274,7 +376,11 @@ func newEngine(cfg *config.Config, verbose bool, history *RequestHistory, state 
 	var order []routeKey
 	seen := map[routeKey]bool{}
 
-	for _, route := range cfg.Routes {
+	allRoutes := cfg.Routes
+	for _, dr := range dynamic.All() {
+		allRoutes = append(allRoutes, dr.Route)
+	}
+	for _, route := range allRoutes {
 		key := routeKey{route.Method, route.Path}
 		e := &routeEntry{route: route, counter: &atomic.Uint64{}}
 		if route.RateLimit > 0 {

@@ -1609,3 +1609,106 @@ func TestVars_setVarsOnResponse(t *testing.T) {
 		t.Errorf("expected 200 after login, got %d", w.Code)
 	}
 }
+
+// --- Dynamic Route Management ---
+
+func postRoute(srv *Server, body string) *httptest.ResponseRecorder {
+	req := httptest.NewRequest(http.MethodPost, "/__specter/routes",
+		bytes.NewBufferString(body))
+	req.Header.Set("Content-Type", "application/json")
+	w := httptest.NewRecorder()
+	srv.ServeHTTP(w, req)
+	return w
+}
+
+func TestDynamicRoute_addAndUse(t *testing.T) {
+	srv := newSrv(&config.Config{})
+
+	w := postRoute(srv, `{"path":"/dynamic","method":"GET","status":200,"response":{"ok":true}}`)
+	if w.Code != http.StatusCreated {
+		t.Fatalf("expected 201, got %d: %s", w.Code, w.Body)
+	}
+
+	// Give rebuild goroutine a moment
+	time.Sleep(20 * time.Millisecond)
+
+	w = do(srv, "GET", "/dynamic", "")
+	if w.Code != 200 {
+		t.Errorf("expected 200 after adding route, got %d", w.Code)
+	}
+}
+
+func TestDynamicRoute_deleteByID(t *testing.T) {
+	srv := newSrv(&config.Config{})
+
+	w := postRoute(srv, `{"path":"/tmp","method":"GET","status":200,"response":{"ok":true}}`)
+	var m map[string]any
+	json.Unmarshal(w.Body.Bytes(), &m)
+	id := m["id"].(string)
+
+	time.Sleep(20 * time.Millisecond)
+
+	req := httptest.NewRequest(http.MethodDelete, "/__specter/routes/"+id, nil)
+	rec := httptest.NewRecorder()
+	srv.ServeHTTP(rec, req)
+	if rec.Code != http.StatusNoContent {
+		t.Fatalf("expected 204, got %d", rec.Code)
+	}
+
+	time.Sleep(20 * time.Millisecond)
+
+	w = do(srv, "GET", "/tmp", "")
+	if w.Code != 404 {
+		t.Errorf("expected 404 after deleting route, got %d", w.Code)
+	}
+}
+
+func TestDynamicRoute_clearAll(t *testing.T) {
+	srv := newSrv(&config.Config{})
+
+	postRoute(srv, `{"path":"/a","method":"GET","status":200}`)
+	postRoute(srv, `{"path":"/b","method":"GET","status":200}`)
+	time.Sleep(20 * time.Millisecond)
+
+	req := httptest.NewRequest(http.MethodDelete, "/__specter/routes", nil)
+	rec := httptest.NewRecorder()
+	srv.ServeHTTP(rec, req)
+	if rec.Code != http.StatusNoContent {
+		t.Fatalf("expected 204, got %d", rec.Code)
+	}
+
+	time.Sleep(20 * time.Millisecond)
+
+	if do(srv, "GET", "/a", "").Code != 404 {
+		t.Errorf("expected 404 for /a after clear")
+	}
+	if do(srv, "GET", "/b", "").Code != 404 {
+		t.Errorf("expected 404 for /b after clear")
+	}
+}
+
+func TestDynamicRoute_listAll(t *testing.T) {
+	srv := newSrv(&config.Config{
+		Routes: []config.Route{{Path: "/static", Method: "GET"}},
+	})
+	postRoute(srv, `{"path":"/dyn","method":"POST","status":201}`)
+	time.Sleep(20 * time.Millisecond)
+
+	req := httptest.NewRequest(http.MethodGet, "/__specter/routes", nil)
+	rec := httptest.NewRecorder()
+	srv.ServeHTTP(rec, req)
+
+	var list []map[string]any
+	json.Unmarshal(rec.Body.Bytes(), &list)
+	if len(list) != 2 {
+		t.Errorf("expected 2 routes, got %d", len(list))
+	}
+}
+
+func TestDynamicRoute_missingFields(t *testing.T) {
+	srv := newSrv(&config.Config{})
+	w := postRoute(srv, `{"path":"/no-method"}`)
+	if w.Code != http.StatusBadRequest {
+		t.Errorf("expected 400, got %d", w.Code)
+	}
+}

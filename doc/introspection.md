@@ -65,6 +65,35 @@ curl -X POST http://localhost:8080/__specter/requests/assert \
 | `200` | Assertion passed — `{ "ok": true, "matched": N }` |
 | `422` | Assertion failed — `{ "ok": false, "matched": N, "error": "..." }` |
 
+## Dynamic Routes
+
+Add, list, and remove routes at runtime without editing the config file or restarting. Useful for per-test scenario setup in CI/E2E.
+
+```sh
+GET    /__specter/routes        # list all routes (config + dynamic)
+POST   /__specter/routes        # add a route → returns { "id": "<uuid>" }
+DELETE /__specter/routes        # remove all dynamic routes
+DELETE /__specter/routes/:id    # remove one dynamic route by ID
+```
+
+`POST /__specter/routes` accepts the same fields as a config route:
+
+```sh
+curl -X POST http://localhost:8080/__specter/routes \
+  -H 'Content-Type: application/json' \
+  -d '{
+    "path": "/feature-flag",
+    "method": "GET",
+    "status": 200,
+    "response": { "enabled": true }
+  }'
+# → { "id": "550e8400-e29b-41d4-a716-446655440000" }
+```
+
+Dynamic routes are merged with config routes and processed in order. Config routes are listed with `"source": "config"`; dynamic routes with `"source": "dynamic"` and an `"id"` field.
+
+Dynamic routes persist across hot reloads but are cleared when the server restarts.
+
 ## State
 
 Read or override the current [stateful mocking](config.md#stateful-mocking) state.

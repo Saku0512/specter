@@ -17,7 +17,21 @@ type Config struct {
 }
 
 func Load(path string) (*Config, error) {
-	data, err := os.ReadFile(path)
+	candidates := []string{path}
+	if path == "config.yaml" {
+		candidates = append(candidates, "config.yml")
+	} else if path == "config.yaml" {
+		candidates = append(candidates, "config.yaml")
+	}
+
+	var data []byte
+	var err error
+	for _, p := candidates {
+		data, err = os.ReadFile(p)
+		if err != nil {
+			break
+		}
+	}
 	if err != nil {
 		return nil, err
 	}

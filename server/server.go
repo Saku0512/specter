@@ -78,7 +78,11 @@ func newEngine(cfg *config.Config, verbose bool) *gin.Engine {
 					if status == 0 {
 						status = http.StatusOK
 					}
-					c.JSON(status, applyParams(m.Response, c.Params))
+					ct := m.ContentType
+					if ct == "" {
+						ct = rt.ContentType
+					}
+					respond(c, status, ct, applyParams(m.Response, c.Params))
 					return
 				}
 			}
@@ -96,7 +100,11 @@ func newEngine(cfg *config.Config, verbose bool) *gin.Engine {
 				if status == 0 {
 					status = http.StatusOK
 				}
-				c.JSON(status, applyParams(picked.Response, c.Params))
+				ct := picked.ContentType
+				if ct == "" {
+					ct = rt.ContentType
+				}
+				respond(c, status, ct, applyParams(picked.Response, c.Params))
 				return
 			}
 
@@ -104,7 +112,7 @@ func newEngine(cfg *config.Config, verbose bool) *gin.Engine {
 			if status == 0 {
 				status = http.StatusOK
 			}
-			c.JSON(status, applyParams(rt.Response, c.Params))
+			respond(c, status, rt.ContentType, applyParams(rt.Response, c.Params))
 		})
 	}
 
@@ -177,6 +185,15 @@ func applyParams(v any, params gin.Params) any {
 	default:
 		return v
 	}
+}
+
+func respond(c *gin.Context, status int, contentType string, body any) {
+	if contentType == "" || contentType == "application/json" {
+		c.JSON(status, body)
+		return
+	}
+	s, _ := body.(string)
+	c.Data(status, contentType, []byte(s))
 }
 
 func matchesBody(body []byte, expected map[string]any) bool {

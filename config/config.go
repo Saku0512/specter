@@ -7,27 +7,30 @@ import (
 )
 
 type RouteResponse struct {
-	Status   int `yaml:"status,omitempty"`
-	Response any `yaml:"response,omitempty"`
+	Status      int    `yaml:"status,omitempty"`
+	ContentType string `yaml:"content_type,omitempty"`
+	Response    any    `yaml:"response,omitempty"`
 }
 
 type RouteMatch struct {
-	Query    map[string]string `yaml:"query,omitempty"`
-	Body     map[string]any    `yaml:"body,omitempty"`
-	Status   int               `yaml:"status,omitempty"`
-	Response any               `yaml:"response,omitempty"`
+	Query       map[string]string `yaml:"query,omitempty"`
+	Body        map[string]any    `yaml:"body,omitempty"`
+	Status      int               `yaml:"status,omitempty"`
+	ContentType string            `yaml:"content_type,omitempty"`
+	Response    any               `yaml:"response,omitempty"`
 }
 
 type Route struct {
-	Path      string            `yaml:"path"`
-	Method    string            `yaml:"method"`
-	Status    int               `yaml:"status,omitempty"`
-	Delay     int               `yaml:"delay,omitempty"` // milliseconds
-	Headers   map[string]string `yaml:"headers,omitempty"`
-	Response  any               `yaml:"response,omitempty"`
-	Mode      string            `yaml:"mode,omitempty"` // "sequential" (default) or "random"
-	Responses []RouteResponse   `yaml:"responses,omitempty"`
-	Match     []RouteMatch      `yaml:"match,omitempty"`
+	Path        string            `yaml:"path"`
+	Method      string            `yaml:"method"`
+	Status      int               `yaml:"status,omitempty"`
+	Delay       int               `yaml:"delay,omitempty"` // milliseconds
+	Headers     map[string]string `yaml:"headers,omitempty"`
+	ContentType string            `yaml:"content_type,omitempty"`
+	Response    any               `yaml:"response,omitempty"`
+	Mode        string            `yaml:"mode,omitempty"` // "sequential" (default) or "random"
+	Responses   []RouteResponse   `yaml:"responses,omitempty"`
+	Match       []RouteMatch      `yaml:"match,omitempty"`
 }
 
 type Config struct {

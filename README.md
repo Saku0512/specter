@@ -264,6 +264,30 @@ routes:
     response: { ok: true }
 ```
 
+### Response Content Type
+
+By default, responses are served as `application/json`. Set `content_type` to return plain text, HTML, or any other MIME type.
+
+```yaml
+routes:
+  - path: /health
+    method: GET
+    content_type: text/plain
+    response: "ok"
+
+  - path: /page
+    method: GET
+    content_type: text/html
+    response: "<h1>Hello</h1>"
+
+  - path: /data
+    method: GET
+    content_type: application/xml
+    response: "<user><id>1</id></user>"
+```
+
+`content_type` can also be set per entry in `match` and `responses`, overriding the route-level value.
+
 ### Response Delay
 
 Add `delay` (milliseconds) to simulate slow responses.

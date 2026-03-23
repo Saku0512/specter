@@ -322,6 +322,85 @@ func TestBodyAndQueryMatch(t *testing.T) {
 	}
 }
 
+// --- Content type ---
+
+func TestContentTypePlainText(t *testing.T) {
+	srv := newSrv(&config.Config{
+		Routes: []config.Route{
+			{Path: "/health", Method: "GET", ContentType: "text/plain", Response: "ok"},
+		},
+	})
+	w := do(srv, "GET", "/health", "")
+	if w.Code != 200 {
+		t.Errorf("expected 200, got %d", w.Code)
+	}
+	if ct := w.Header().Get("Content-Type"); !strings.HasPrefix(ct, "text/plain") {
+		t.Errorf("expected text/plain, got %s", ct)
+	}
+	if w.Body.String() != "ok" {
+		t.Errorf("expected body 'ok', got %s", w.Body.String())
+	}
+}
+
+func TestContentTypeHTML(t *testing.T) {
+	srv := newSrv(&config.Config{
+		Routes: []config.Route{
+			{Path: "/page", Method: "GET", ContentType: "text/html", Response: "<h1>Hello</h1>"},
+		},
+	})
+	w := do(srv, "GET", "/page", "")
+	if ct := w.Header().Get("Content-Type"); !strings.HasPrefix(ct, "text/html") {
+		t.Errorf("expected text/html, got %s", ct)
+	}
+	if w.Body.String() != "<h1>Hello</h1>" {
+		t.Errorf("unexpected body: %s", w.Body.String())
+	}
+}
+
+func TestContentTypeDefaultJSON(t *testing.T) {
+	srv := newSrv(&config.Config{
+		Routes: []config.Route{
+			{Path: "/data", Method: "GET", Response: map[string]any{"ok": true}},
+		},
+	})
+	w := do(srv, "GET", "/data", "")
+	if ct := w.Header().Get("Content-Type"); !strings.HasPrefix(ct, "application/json") {
+		t.Errorf("expected application/json, got %s", ct)
+	}
+}
+
+func TestContentTypeMatchOverride(t *testing.T) {
+	srv := newSrv(&config.Config{
+		Routes: []config.Route{
+			{
+				Path:   "/mixed",
+				Method: "GET",
+				Match: []config.RouteMatch{
+					{
+						Query:       map[string]string{"fmt": "text"},
+						ContentType: "text/plain",
+						Response:    "plain",
+					},
+				},
+				Response: map[string]any{"fmt": "json"},
+			},
+		},
+	})
+
+	w := do(srv, "GET", "/mixed?fmt=text", "")
+	if ct := w.Header().Get("Content-Type"); !strings.HasPrefix(ct, "text/plain") {
+		t.Errorf("expected text/plain, got %s", ct)
+	}
+	if w.Body.String() != "plain" {
+		t.Errorf("expected body 'plain', got %s", w.Body.String())
+	}
+
+	w = do(srv, "GET", "/mixed", "")
+	if ct := w.Header().Get("Content-Type"); !strings.HasPrefix(ct, "application/json") {
+		t.Errorf("expected application/json for fallback, got %s", ct)
+	}
+}
+
 // --- Reload ---
 
 func TestReload(t *testing.T) {

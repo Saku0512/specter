@@ -36,6 +36,17 @@ routes:
     response:
       ok: true
 
+  # Non-JSON content types
+  - path: /health
+    method: GET
+    content_type: text/plain
+    response: "ok"
+
+  - path: /page
+    method: GET
+    content_type: text/html
+    response: "<h1>Hello</h1>"
+
   # Response delay (ms)
   - path: /slow
     method: GET

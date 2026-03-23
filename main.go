@@ -2,25 +2,67 @@ package main
 
 import (
 	"context"
+	"crypto/ecdsa"
+	"crypto/elliptic"
+	"crypto/rand"
+	"crypto/tls"
+	"crypto/x509"
+	"crypto/x509/pkix"
+	"encoding/pem"
 	"flag"
 	"fmt"
 	"log"
+	"math/big"
 	"net/http"
 	"os"
 	"os/signal"
 	"syscall"
 	"time"
 
-	"github.com/Saku0512/specter/config"
 	gen_cmd "github.com/Saku0512/specter/cmd/gen"
 	init_cmd "github.com/Saku0512/specter/cmd/init"
 	record_cmd "github.com/Saku0512/specter/cmd/record"
 	validate_cmd "github.com/Saku0512/specter/cmd/validate"
+	"github.com/Saku0512/specter/config"
 	"github.com/Saku0512/specter/server"
 	"github.com/fsnotify/fsnotify"
 )
 
 var version = "dev"
+
+// generateSelfSignedCert creates an in-memory ECDSA P-256 self-signed certificate
+// valid for 365 days, covering localhost and 127.0.0.1.
+func generateSelfSignedCert() (tls.Certificate, error) {
+	priv, err := ecdsa.GenerateKey(elliptic.P256(), rand.Reader)
+	if err != nil {
+		return tls.Certificate{}, err
+	}
+
+	serial, _ := rand.Int(rand.Reader, new(big.Int).Lsh(big.NewInt(1), 128))
+	tmpl := &x509.Certificate{
+		SerialNumber: serial,
+		Subject:      pkix.Name{Organization: []string{"specter (self-signed)"}},
+		DNSNames:     []string{"localhost"},
+		NotBefore:    time.Now(),
+		NotAfter:     time.Now().Add(365 * 24 * time.Hour),
+		KeyUsage:     x509.KeyUsageDigitalSignature,
+		ExtKeyUsage:  []x509.ExtKeyUsage{x509.ExtKeyUsageServerAuth},
+	}
+
+	certDER, err := x509.CreateCertificate(rand.Reader, tmpl, tmpl, &priv.PublicKey, priv)
+	if err != nil {
+		return tls.Certificate{}, err
+	}
+
+	certPEM := pem.EncodeToMemory(&pem.Block{Type: "CERTIFICATE", Bytes: certDER})
+	keyDER, err := x509.MarshalECPrivateKey(priv)
+	if err != nil {
+		return tls.Certificate{}, err
+	}
+	keyPEM := pem.EncodeToMemory(&pem.Block{Type: "EC PRIVATE KEY", Bytes: keyDER})
+
+	return tls.X509KeyPair(certPEM, keyPEM)
+}
 
 func printRoutes(cfg *config.Config) {
 	fmt.Printf("\nregistered %d route(s):\n", len(cfg.Routes))
@@ -92,6 +134,7 @@ func main() {
 	configPath := flag.String("c", "config.yaml", "path to config file")
 	port := flag.String("p", "8080", "port to listen on")
 	host := flag.String("host", "", "host to listen on (default: all interfaces)")
+	tlsAuto := flag.Bool("tls", false, "enable HTTPS with auto-generated self-signed certificate")
 	cert := flag.String("cert", "", "TLS certificate file")
 	key := flag.String("key", "", "TLS key file")
 	verbose := flag.Bool("verbose", false, "log request headers and body")
@@ -196,14 +239,30 @@ func main() {
 
 	printRoutes(cfg)
 
+	useTLS := *tlsAuto || (*cert != "" && *key != "")
+
 	go func() {
-		if *cert != "" && *key != "" {
-			log.Printf("👻 Specter running on :%s (TLS)", *port)
-			if err := httpSrv.ListenAndServeTLS(*cert, *key); err != nil && err != http.ErrServerClosed {
-				log.Fatalf("server error: %v", err)
+		if useTLS {
+			if *cert != "" && *key != "" {
+				// Use provided cert/key files
+				log.Printf("👻 Specter running on https://localhost:%s", *port)
+				if err := httpSrv.ListenAndServeTLS(*cert, *key); err != nil && err != http.ErrServerClosed {
+					log.Fatalf("server error: %v", err)
+				}
+			} else {
+				// Auto-generate self-signed certificate
+				tlsCert, err := generateSelfSignedCert()
+				if err != nil {
+					log.Fatalf("failed to generate TLS certificate: %v", err)
+				}
+				httpSrv.TLSConfig = &tls.Config{Certificates: []tls.Certificate{tlsCert}}
+				log.Printf("👻 Specter running on https://localhost:%s (self-signed cert)", *port)
+				if err := httpSrv.ListenAndServeTLS("", ""); err != nil && err != http.ErrServerClosed {
+					log.Fatalf("server error: %v", err)
+				}
 			}
 		} else {
-			log.Printf("👻 Specter running on :%s", *port)
+			log.Printf("👻 Specter running on http://localhost:%s", *port)
 			if err := httpSrv.ListenAndServe(); err != nil && err != http.ErrServerClosed {
 				log.Fatalf("server error: %v", err)
 			}

@@ -2,6 +2,10 @@
 
 Lightweight mock API server. Define endpoints in YAML, run instantly.
 
+- Zero-config hot reload — edit `config.yml` and changes apply immediately, no restart needed
+- Supports GET, POST, PUT, DELETE, PATCH and any other HTTP method
+- Path parameters, custom status codes, arbitrary JSON responses
+
 ## Install
 
 ```sh
@@ -48,6 +52,14 @@ routes:
 ```
 
 Both `.yaml` and `.yml` extensions are supported.
+
+### Hot Reload
+
+specter watches the config file and reloads automatically on save. No restart required.
+
+```
+[GIN] ...  👻 config reloaded
+```
 
 ## License
 

@@ -102,5 +102,5 @@ jobs:
           git config user.name "github-actions[bot]"
           git config user.email "github-actions[bot]@users.noreply.github.com"
           git add Formula/specter.rb
-          git commit -m "chore: update formula to ${{ github.ref_name }}"
+          git diff --staged --quiet || git commit -m "chore: update formula to ${{ github.ref_name }}"
           git push origin main

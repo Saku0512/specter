@@ -330,6 +330,36 @@ func newEngine(cfg *config.Config, verbose bool, history *RequestHistory, state 
 		c.Status(http.StatusNoContent)
 	})
 
+	// Reset endpoint: clears state, vars, and request history in one call
+	r.POST("/__specter/reset", func(c *gin.Context) {
+		var body struct {
+			Targets []string `json:"targets"` // optional: ["state","vars","history"] — defaults to all
+		}
+		_ = c.ShouldBindJSON(&body)
+		all := len(body.Targets) == 0
+		reset := func(t string) bool {
+			if all {
+				return true
+			}
+			for _, v := range body.Targets {
+				if v == t {
+					return true
+				}
+			}
+			return false
+		}
+		if reset("state") {
+			state.Set("")
+		}
+		if reset("vars") {
+			vars.Clear()
+		}
+		if reset("history") {
+			history.clear()
+		}
+		c.JSON(http.StatusOK, gin.H{"ok": true})
+	})
+
 	// Dynamic routes endpoints
 	r.GET("/__specter/routes", func(c *gin.Context) {
 		all := dynamic.All()

@@ -127,3 +127,35 @@ DELETE /__specter/vars/:key      # delete one var
 ```
 
 Vars persist across hot reloads but reset when the server restarts.
+
+## Reset
+
+Reset state, vars, and request history in a single call. Useful for test setup/teardown.
+
+```sh
+POST /__specter/reset        # reset everything (state + vars + history)
+```
+
+With an optional `targets` array to reset selectively:
+
+```sh
+curl -X POST http://localhost:8080/__specter/reset \
+  -H 'Content-Type: application/json' \
+  -d '{"targets": ["state", "vars", "history"]}'
+```
+
+| Target | Resets |
+|---|---|
+| `state` | Server state (same as `PUT /__specter/state {"state":""}`) |
+| `vars` | All vars (same as `DELETE /__specter/vars`) |
+| `history` | Request history (same as `DELETE /__specter/requests`) |
+
+Omit `targets` (or send `{}`) to reset all three at once.
+
+Dynamic routes are **not** affected — use `DELETE /__specter/routes` to clear those separately.
+
+```sh
+# Reset before each test
+curl -X POST http://localhost:8080/__specter/reset
+# → { "ok": true }
+```

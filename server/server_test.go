@@ -2506,3 +2506,83 @@ func TestOpenAPIValidation_nonStrict_stillServesMock(t *testing.T) {
 		t.Error("non-strict: expected X-Specter-Validation-Error header")
 	}
 }
+
+// --- /__specter/reset ---
+
+func TestReset_all(t *testing.T) {
+	srv := newSrv(&config.Config{
+		Routes: []config.Route{{Path: "/x", Method: "GET", Status: 200}},
+	})
+
+	// Set up some state
+	srv.state.Set("logged_in")
+	srv.vars.Set("role", "admin")
+	do(srv, "GET", "/x", "") // add history entry
+
+	// Reset everything
+	w := do(srv, "POST", "/__specter/reset", "")
+	if w.Code != 200 {
+		t.Fatalf("expected 200, got %d", w.Code)
+	}
+
+	// state cleared
+	ws := do(srv, "GET", "/__specter/state", "")
+	var s map[string]string
+	json.NewDecoder(ws.Body).Decode(&s)
+	if s["state"] != "" {
+		t.Errorf("expected empty state, got %q", s["state"])
+	}
+
+	// vars cleared
+	wv := do(srv, "GET", "/__specter/vars", "")
+	var v map[string]string
+	json.NewDecoder(wv.Body).Decode(&v)
+	if len(v) != 0 {
+		t.Errorf("expected empty vars, got %v", v)
+	}
+
+	// history cleared (only the reset request itself is excluded since /__specter/ is not recorded)
+	wh := do(srv, "GET", "/__specter/requests", "")
+	var entries []any
+	json.NewDecoder(wh.Body).Decode(&entries)
+	if len(entries) != 0 {
+		t.Errorf("expected empty history, got %d entries", len(entries))
+	}
+}
+
+func TestReset_selective(t *testing.T) {
+	srv := newSrv(&config.Config{
+		Routes: []config.Route{{Path: "/x", Method: "GET", Status: 200}},
+	})
+
+	srv.state.Set("active")
+	srv.vars.Set("k", "v")
+	do(srv, "GET", "/x", "")
+
+	// Reset only state and history, leave vars
+	do(srv, "POST", "/__specter/reset", `{"targets":["state","history"]}`)
+
+	// state cleared
+	ws := do(srv, "GET", "/__specter/state", "")
+	var s map[string]string
+	json.NewDecoder(ws.Body).Decode(&s)
+	if s["state"] != "" {
+		t.Errorf("expected empty state, got %q", s["state"])
+	}
+
+	// vars preserved
+	wv := do(srv, "GET", "/__specter/vars", "")
+	var v map[string]string
+	json.NewDecoder(wv.Body).Decode(&v)
+	if v["k"] != "v" {
+		t.Errorf("expected vars preserved, got %v", v)
+	}
+
+	// history cleared
+	wh := do(srv, "GET", "/__specter/requests", "")
+	var entries []any
+	json.NewDecoder(wh.Body).Decode(&entries)
+	if len(entries) != 0 {
+		t.Errorf("expected empty history, got %d entries", len(entries))
+	}
+}

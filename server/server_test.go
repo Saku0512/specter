@@ -467,6 +467,144 @@ func TestTemplateNoTemplate(t *testing.T) {
 	}
 }
 
+// --- Request verification ---
+
+func assertAPI(srv *Server, body string) *httptest.ResponseRecorder {
+	return do(srv, "POST", "/__specter/requests/assert", body)
+}
+
+func TestAssert_matchByPath(t *testing.T) {
+	srv := newSrv(&config.Config{
+		Routes: []config.Route{{Path: "/users", Method: "GET", Response: nil}},
+	})
+	do(srv, "GET", "/users", "")
+
+	w := assertAPI(srv, `{"path":"/users"}`)
+	if w.Code != 200 {
+		t.Errorf("expected 200, got %d: %s", w.Code, w.Body.String())
+	}
+}
+
+func TestAssert_matchByMethodAndPath(t *testing.T) {
+	srv := newSrv(&config.Config{
+		Routes: []config.Route{{Path: "/users", Method: "POST", Response: nil}},
+	})
+	do(srv, "POST", "/users", `{"name":"Alice"}`)
+
+	w := assertAPI(srv, `{"method":"POST","path":"/users"}`)
+	if w.Code != 200 {
+		t.Errorf("expected 200, got %d", w.Code)
+	}
+}
+
+func TestAssert_matchByBody(t *testing.T) {
+	srv := newSrv(&config.Config{
+		Routes: []config.Route{{Path: "/users", Method: "POST", Response: nil}},
+	})
+	do(srv, "POST", "/users", `{"name":"Alice","role":"admin"}`)
+
+	w := assertAPI(srv, `{"path":"/users","body":{"name":"Alice"}}`)
+	if w.Code != 200 {
+		t.Errorf("expected 200 for body match, got %d: %s", w.Code, w.Body.String())
+	}
+}
+
+func TestAssert_noMatch(t *testing.T) {
+	srv := newSrv(&config.Config{
+		Routes: []config.Route{{Path: "/users", Method: "GET", Response: nil}},
+	})
+	do(srv, "GET", "/users", "")
+
+	w := assertAPI(srv, `{"path":"/orders"}`)
+	if w.Code != http.StatusUnprocessableEntity {
+		t.Errorf("expected 422, got %d", w.Code)
+	}
+	var body map[string]any
+	json.Unmarshal(w.Body.Bytes(), &body)
+	if body["ok"] != false {
+		t.Errorf("expected ok:false")
+	}
+}
+
+func TestAssert_exactCount(t *testing.T) {
+	srv := newSrv(&config.Config{
+		Routes: []config.Route{{Path: "/users", Method: "GET", Response: nil}},
+	})
+	do(srv, "GET", "/users", "")
+	do(srv, "GET", "/users", "")
+
+	// count: 2 → pass
+	w := assertAPI(srv, `{"path":"/users","count":2}`)
+	if w.Code != 200 {
+		t.Errorf("expected 200 for count:2, got %d", w.Code)
+	}
+
+	// count: 1 → fail
+	w = assertAPI(srv, `{"path":"/users","count":1}`)
+	if w.Code != http.StatusUnprocessableEntity {
+		t.Errorf("expected 422 for count:1 mismatch, got %d", w.Code)
+	}
+}
+
+func TestAssert_countZero(t *testing.T) {
+	srv := newSrv(&config.Config{
+		Routes: []config.Route{{Path: "/users", Method: "GET", Response: nil}},
+	})
+	// No requests made yet
+	w := assertAPI(srv, `{"path":"/admin","count":0}`)
+	if w.Code != 200 {
+		t.Errorf("expected 200 for count:0 (none recorded), got %d", w.Code)
+	}
+}
+
+func TestAssert_matchByQuery(t *testing.T) {
+	srv := newSrv(&config.Config{
+		Routes: []config.Route{{Path: "/search", Method: "GET", Response: nil}},
+	})
+	do(srv, "GET", "/search?q=hello", "")
+
+	w := assertAPI(srv, `{"path":"/search","query":{"q":"hello"}}`)
+	if w.Code != 200 {
+		t.Errorf("expected 200 for query match, got %d: %s", w.Code, w.Body.String())
+	}
+}
+
+func TestRequestByIndex(t *testing.T) {
+	srv := newSrv(&config.Config{
+		Routes: []config.Route{{Path: "/a", Method: "GET", Response: nil}},
+	})
+	do(srv, "GET", "/a", "")
+	do(srv, "GET", "/a", "")
+
+	w := do(srv, "GET", "/__specter/requests/0", "")
+	if w.Code != 200 {
+		t.Fatalf("expected 200, got %d", w.Code)
+	}
+	var entry map[string]any
+	json.Unmarshal(w.Body.Bytes(), &entry)
+	if entry["path"] != "/a" {
+		t.Errorf("unexpected entry: %v", entry)
+	}
+}
+
+func TestRequestByIndex_outOfRange(t *testing.T) {
+	srv := newSrv(&config.Config{Routes: []config.Route{}})
+
+	w := do(srv, "GET", "/__specter/requests/5", "")
+	if w.Code != http.StatusNotFound {
+		t.Errorf("expected 404, got %d", w.Code)
+	}
+}
+
+func TestRequestByIndex_invalid(t *testing.T) {
+	srv := newSrv(&config.Config{Routes: []config.Route{}})
+
+	w := do(srv, "GET", "/__specter/requests/abc", "")
+	if w.Code != http.StatusBadRequest {
+		t.Errorf("expected 400, got %d", w.Code)
+	}
+}
+
 // --- Stateful mocking ---
 
 func setServerState(srv *Server, state string) {

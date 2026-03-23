@@ -7,11 +7,12 @@ specter exposes built-in endpoints under `/__specter/` for debugging and test au
 Records incoming requests in memory (up to 200 entries, oldest dropped when full).
 
 ```sh
-GET    /__specter/requests   # list recorded requests
-DELETE /__specter/requests   # clear history
+GET    /__specter/requests        # list all recorded requests
+GET    /__specter/requests/:index # get request by index (0-based)
+DELETE /__specter/requests        # clear history
 ```
 
-Example response:
+Example response for `GET /__specter/requests`:
 
 ```json
 [
@@ -26,12 +27,43 @@ Example response:
 ]
 ```
 
-Useful in CI to assert that the app made expected API calls:
+## Request Verification
+
+`POST /__specter/requests/assert` checks that recorded requests match the given criteria. Useful in CI/E2E tests to verify your app made the expected API calls.
+
+### Request body
+
+| Field | Type | Description |
+|---|---|---|
+| `method` | string | HTTP method to match (case-insensitive) |
+| `path` | string | Exact path to match |
+| `query` | object | Query params that must be present (subset match) |
+| `body` | object | JSON fields that must be present in the request body (subset match) |
+| `count` | int | Exact number of matching requests expected. Omit to require at least 1. |
+
+### Examples
 
 ```sh
-# After running your tests:
-curl http://localhost:8080/__specter/requests | jq '.[0].path'
+# Assert /users was called at least once
+curl -X POST http://localhost:8080/__specter/requests/assert \
+  -H 'Content-Type: application/json' \
+  -d '{"path":"/users"}'
+
+# Assert POST /users was called with name=Alice exactly once
+curl -X POST http://localhost:8080/__specter/requests/assert \
+  -d '{"method":"POST","path":"/users","body":{"name":"Alice"},"count":1}'
+
+# Assert /admin was never called
+curl -X POST http://localhost:8080/__specter/requests/assert \
+  -d '{"path":"/admin","count":0}'
 ```
+
+### Responses
+
+| Status | Meaning |
+|---|---|
+| `200` | Assertion passed — `{ "ok": true, "matched": N }` |
+| `422` | Assertion failed — `{ "ok": false, "matched": N, "error": "..." }` |
 
 ## State
 

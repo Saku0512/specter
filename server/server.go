@@ -123,6 +123,49 @@ func newEngine(cfg *config.Config, verbose bool, history *RequestHistory, state 
 		history.clear()
 		c.Status(http.StatusNoContent)
 	})
+	r.GET("/__specter/requests/:index", func(c *gin.Context) {
+		idx, err := strconv.Atoi(c.Param("index"))
+		if err != nil || idx < 0 {
+			c.JSON(http.StatusBadRequest, gin.H{"error": "index must be a non-negative integer"})
+			return
+		}
+		entries := history.all()
+		if idx >= len(entries) {
+			c.JSON(http.StatusNotFound, gin.H{
+				"error": fmt.Sprintf("index %d out of range (%d recorded)", idx, len(entries)),
+			})
+			return
+		}
+		c.JSON(http.StatusOK, entries[idx])
+	})
+	r.POST("/__specter/requests/assert", func(c *gin.Context) {
+		var req assertRequest
+		if err := c.ShouldBindJSON(&req); err != nil {
+			c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+			return
+		}
+		matched := filterEntries(history.all(), req)
+		wantAtLeastOne := req.Count == nil
+		if wantAtLeastOne {
+			if len(matched) >= 1 {
+				c.JSON(http.StatusOK, gin.H{"ok": true, "matched": len(matched)})
+			} else {
+				c.JSON(http.StatusUnprocessableEntity, gin.H{
+					"ok": false, "matched": 0, "error": "no matching requests found",
+				})
+			}
+			return
+		}
+		if len(matched) == *req.Count {
+			c.JSON(http.StatusOK, gin.H{"ok": true, "matched": len(matched)})
+		} else {
+			c.JSON(http.StatusUnprocessableEntity, gin.H{
+				"ok":      false,
+				"matched": len(matched),
+				"error":   fmt.Sprintf("expected %d matching request(s), got %d", *req.Count, len(matched)),
+			})
+		}
+	})
 	r.GET("/__specter/state", func(c *gin.Context) {
 		c.JSON(http.StatusOK, gin.H{"state": state.Get()})
 	})
@@ -512,6 +555,59 @@ func applyTemplate(v any, data map[string]any) any {
 	default:
 		return v
 	}
+}
+
+type assertRequest struct {
+	Method string            `json:"method"`
+	Path   string            `json:"path"`
+	Query  map[string]string `json:"query"`
+	Body   map[string]any    `json:"body"`
+	Count  *int              `json:"count"` // nil = at least 1
+}
+
+func filterEntries(entries []RequestEntry, req assertRequest) []RequestEntry {
+	var matched []RequestEntry
+	for _, e := range entries {
+		if req.Method != "" && !strings.EqualFold(e.Method, req.Method) {
+			continue
+		}
+		if req.Path != "" && e.Path != req.Path {
+			continue
+		}
+		if !assertQueryMatches(e.Query, req.Query) {
+			continue
+		}
+		if !assertBodyMatches(e.Body, req.Body) {
+			continue
+		}
+		matched = append(matched, e)
+	}
+	return matched
+}
+
+func assertQueryMatches(recorded, expected map[string]string) bool {
+	for k, v := range expected {
+		if recorded[k] != v {
+			return false
+		}
+	}
+	return true
+}
+
+func assertBodyMatches(recordedBody string, expected map[string]any) bool {
+	if len(expected) == 0 {
+		return true
+	}
+	var parsed map[string]any
+	if err := json.Unmarshal([]byte(recordedBody), &parsed); err != nil {
+		return false
+	}
+	for k, v := range expected {
+		if fmt.Sprint(parsed[k]) != fmt.Sprint(v) {
+			return false
+		}
+	}
+	return true
 }
 
 func respond(c *gin.Context, status int, contentType string, body any) {

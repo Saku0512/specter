@@ -11,6 +11,7 @@ type RouteResponse struct {
 	ContentType string `yaml:"content_type,omitempty"`
 	Response    any    `yaml:"response,omitempty"`
 	File        string `yaml:"file,omitempty"`
+	OnCall      int    `yaml:"on_call,omitempty"` // match only on this call number (1-based)
 }
 
 type RouteMatch struct {
@@ -55,6 +56,7 @@ type Route struct {
 	ErrorStatus int               `yaml:"error_status,omitempty"` // status code for injected error (default 503)
 	DelayMin    int               `yaml:"delay_min,omitempty"`   // min random delay in ms (used with delay_max)
 	DelayMax    int               `yaml:"delay_max,omitempty"`   // max random delay in ms
+	OnCall      int               `yaml:"on_call,omitempty"`     // match only on this call number (1-based)
 }
 
 type Config struct {

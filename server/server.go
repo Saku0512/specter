@@ -207,9 +207,10 @@ func (s *Server) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 }
 
 type routeEntry struct {
-	route   config.Route
-	counter *atomic.Uint64
-	limiter *rateLimiter
+	route     config.Route
+	counter   *atomic.Uint64 // sequential responses cycling index
+	callCount *atomic.Uint64 // total matched calls (for on_call)
+	limiter   *rateLimiter
 }
 
 func newEngine(cfg *config.Config, verbose bool, history *RequestHistory, state *StateStore, vars *VarStore, dynamic *DynamicRouteStore, rebuild func()) *gin.Engine {
@@ -387,7 +388,7 @@ func newEngine(cfg *config.Config, verbose bool, history *RequestHistory, state 
 	}
 	for _, route := range allRoutes {
 		key := routeKey{route.Method, route.Path}
-		e := &routeEntry{route: route, counter: &atomic.Uint64{}}
+		e := &routeEntry{route: route, counter: &atomic.Uint64{}, callCount: &atomic.Uint64{}}
 		if route.RateLimit > 0 {
 			e.limiter = newRateLimiter(route.RateLimit, route.RateReset)
 		}
@@ -419,6 +420,14 @@ func newEngine(cfg *config.Config, verbose bool, history *RequestHistory, state 
 					continue
 				}
 				if !matchesVars(vars, rt.Vars) {
+					continue
+				}
+
+				// Increment call counter (used for on_call matching)
+				callN := e.callCount.Add(1)
+
+				// Skip if on_call is set and this call number doesn't match
+				if rt.OnCall > 0 && int(callN) != rt.OnCall {
 					continue
 				}
 
@@ -486,12 +495,33 @@ func newEngine(cfg *config.Config, verbose bool, history *RequestHistory, state 
 				// multiple responses
 				if len(rt.Responses) > 0 {
 					var picked config.RouteResponse
-					switch rt.Mode {
-					case "random":
-						picked = rt.Responses[rand.IntN(len(rt.Responses))]
-					default:
-						idx := e.counter.Add(1) - 1
-						picked = rt.Responses[idx%uint64(len(rt.Responses))]
+					// Check for on_call-pinned entry first (callN already incremented above)
+					var found bool
+					for _, resp := range rt.Responses {
+						if resp.OnCall > 0 && int(callN) == resp.OnCall {
+							picked = resp
+							found = true
+							break
+						}
+					}
+					if !found {
+						// Fall back to sequential/random among entries without on_call
+						var pool []config.RouteResponse
+						for _, resp := range rt.Responses {
+							if resp.OnCall == 0 {
+								pool = append(pool, resp)
+							}
+						}
+						if len(pool) == 0 {
+							pool = rt.Responses
+						}
+						switch rt.Mode {
+						case "random":
+							picked = pool[rand.IntN(len(pool))]
+						default:
+							idx := e.counter.Add(1) - 1
+							picked = pool[idx%uint64(len(pool))]
+						}
 					}
 					status := picked.Status
 					if status == 0 {

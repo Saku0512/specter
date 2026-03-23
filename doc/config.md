@@ -29,6 +29,7 @@ routes:
 | `headers` | map | Custom response headers |
 | `content_type` | string | Response Content-Type (default: `application/json`) |
 | `delay` | int | Response delay in milliseconds |
+| `on_call` | int | Only match on this call number (1-based); use on multiple routes with same path for retry simulation |
 | `match` | list | Conditional responses by query/body/headers/body_path |
 | `mode` | string | `sequential` (default) or `random` |
 | `responses` | list | Multiple responses for cycling |
@@ -164,6 +165,61 @@ Use `:paramName` in response values to embed path parameters. Numeric values are
   response:
     id: ":id"       # /users/42 → { id: 42 }
     name: Alice
+```
+
+## Call-number Matching (on_call)
+
+Use `on_call` to match only on a specific call number (1-based). Useful for simulating retry scenarios without complex state management.
+
+### Route-level on_call
+
+Multiple routes with the same method+path are evaluated in order. A route with `on_call: N` only matches when it is the Nth call to that endpoint.
+
+```yaml
+routes:
+  # Only matches on the 2nd call
+  - path: /retry
+    method: GET
+    on_call: 2
+    status: 200
+    response: { ok: true }
+
+  # Fallback for all other calls
+  - path: /retry
+    method: GET
+    status: 503
+    response: { error: unavailable }
+```
+
+```
+GET /retry  (call 1) → 503 { error: unavailable }
+GET /retry  (call 2) → 200 { ok: true }
+GET /retry  (call 3) → 503 { error: unavailable }
+```
+
+### on_call inside responses
+
+Set `on_call` on individual `responses[]` entries to pin them to a specific call number. Entries without `on_call` form the fallback pool for sequential/random cycling.
+
+```yaml
+- path: /items
+  method: GET
+  responses:
+    - on_call: 1
+      status: 503
+      response: { error: first call fails }
+    - on_call: 3
+      status: 201
+      response: { special: true }
+    - status: 200
+      response: { normal: true }
+```
+
+```
+GET /items  (call 1) → 503  (on_call: 1 wins)
+GET /items  (call 2) → 200  (fallback pool: normal)
+GET /items  (call 3) → 201  (on_call: 3 wins)
+GET /items  (call 4) → 200  (fallback pool: normal)
 ```
 
 ## Multiple Responses

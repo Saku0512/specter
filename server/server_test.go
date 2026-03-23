@@ -1926,3 +1926,61 @@ func TestBodyPath_missingField(t *testing.T) {
 		t.Fatalf("expected 404 (field missing), got %d", w.Code)
 	}
 }
+
+// --- on_call (N回目マッチ) ---
+
+func TestOnCall_routeLevel(t *testing.T) {
+	srv := newSrv(&config.Config{
+		Routes: []config.Route{
+			{Path: "/retry", Method: "GET", OnCall: 2, Status: 200, Response: map[string]any{"ok": true}},
+			{Path: "/retry", Method: "GET", Status: 503, Response: map[string]any{"error": "unavailable"}},
+		},
+	})
+
+	// Call 1: on_call=2 entry skips (callN=1 ≠ 2), fallback to 503
+	w1 := do(srv, "GET", "/retry", "")
+	if w1.Code != 503 {
+		t.Fatalf("call 1: expected 503, got %d", w1.Code)
+	}
+	// Call 2: on_call=2 entry matches (callN=2 == 2) → 200
+	w2 := do(srv, "GET", "/retry", "")
+	if w2.Code != 200 {
+		t.Fatalf("call 2: expected 200, got %d", w2.Code)
+	}
+	// Call 3: on_call=2 entry skips again → 503
+	w3 := do(srv, "GET", "/retry", "")
+	if w3.Code != 503 {
+		t.Fatalf("call 3: expected 503, got %d", w3.Code)
+	}
+}
+
+func TestOnCall_inResponses(t *testing.T) {
+	srv := newSrv(&config.Config{
+		Routes: []config.Route{
+			{
+				Path:   "/seq",
+				Method: "GET",
+				Responses: []config.RouteResponse{
+					{OnCall: 2, Status: 201, Response: map[string]any{"special": true}},
+					{Status: 200, Response: map[string]any{"normal": true}},
+				},
+			},
+		},
+	})
+
+	// Call 1: on_call=2 doesn't match, picks from pool (normal)
+	w1 := do(srv, "GET", "/seq", "")
+	if w1.Code != 200 {
+		t.Fatalf("call 1: expected 200, got %d", w1.Code)
+	}
+	// Call 2: on_call=2 matches → 201
+	w2 := do(srv, "GET", "/seq", "")
+	if w2.Code != 201 {
+		t.Fatalf("call 2: expected 201, got %d", w2.Code)
+	}
+	// Call 3: on_call=2 doesn't match, picks normal again
+	w3 := do(srv, "GET", "/seq", "")
+	if w3.Code != 200 {
+		t.Fatalf("call 3: expected 200, got %d", w3.Code)
+	}
+}

@@ -114,6 +114,12 @@ func check(cfg *config.Config) []string {
 					errs = append(errs, prefix+fmt.Sprintf(": responses[%d] file %q not found", j, resp.File))
 				}
 			}
+			if resp.OnCall < 0 {
+				errs = append(errs, prefix+fmt.Sprintf(": responses[%d] on_call must be non-negative", j))
+			}
+		}
+		if r.OnCall < 0 {
+			errs = append(errs, prefix+": on_call must be non-negative")
 		}
 		for j, m := range r.Match {
 			if len(m.Query) == 0 && len(m.Body) == 0 && len(m.Headers) == 0 && len(m.BodyPath) == 0 {

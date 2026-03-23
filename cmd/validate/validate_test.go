@@ -195,3 +195,17 @@ func TestCheck_bodyPathOnlyConditionValid(t *testing.T) {
 		t.Errorf("expected no errors, got %v", errs)
 	}
 }
+
+func TestCheck_onCallNegative(t *testing.T) {
+	cfg := &config.Config{Routes: []config.Route{{Path: "/a", Method: "GET", OnCall: -1}}}
+	assertContains(t, check(cfg), "on_call must be non-negative")
+}
+
+func TestCheck_responsesOnCallNegative(t *testing.T) {
+	cfg := &config.Config{Routes: []config.Route{{
+		Path:      "/a",
+		Method:    "GET",
+		Responses: []config.RouteResponse{{OnCall: -1, Response: "x"}},
+	}}}
+	assertContains(t, check(cfg), "responses[0] on_call must be non-negative")
+}

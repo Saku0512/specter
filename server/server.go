@@ -40,6 +40,9 @@ func newEngine(cfg *config.Config) *gin.Engine {
 			if rt.Delay > 0 {
 				time.Sleep(time.Duration(rt.Delay) * time.Millisecond)
 			}
+			for k, v := range rt.Headers {
+				c.Header(k, v)
+			}
 			status := rt.Status
 			if status == 0 {
 				status = http.StatusOK

@@ -7,11 +7,12 @@ import (
 )
 
 type Route struct {
-	Path     string `yaml:"path"`
-	Method   string `yaml:"method"`
-	Status   int    `yaml:"status"`
-	Delay    int    `yaml:"delay"` // milliseconds
-	Response any    `yaml:"response"`
+	Path     string            `yaml:"path"`
+	Method   string            `yaml:"method"`
+	Status   int               `yaml:"status"`
+	Delay    int               `yaml:"delay"` // milliseconds
+	Headers  map[string]string `yaml:"headers"`
+	Response any               `yaml:"response"`
 }
 
 type Config struct {

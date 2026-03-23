@@ -68,6 +68,20 @@ routes:
         name: Alice
 ```
 
+### Custom Response Headers
+
+Add `headers` to set arbitrary response headers.
+
+```yaml
+routes:
+  - path: /token
+    method: POST
+    headers:
+      X-Auth-Token: dummy-token
+      X-Request-Id: abc123
+    response: { ok: true }
+```
+
 ### Response Delay
 
 Add `delay` (milliseconds) to simulate slow responses.

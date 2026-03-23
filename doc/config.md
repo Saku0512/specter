@@ -41,6 +41,7 @@ routes:
 | `set_vars` | map | Set these vars after responding |
 | `webhook` | object | Outgoing HTTP callback fired after responding |
 | `file` | string | Path to a `.json`, `.yaml`, `.yml`, or text file to serve as the response body |
+| `script` | string | Go template producing the response body (takes priority over `file` and `response`) |
 
 ---
 
@@ -243,9 +244,60 @@ Use `responses` to return different responses per request. Control the behavior 
       response: { ok: true }
 ```
 
+## Response Script
+
+Use `script` to generate a response body using a Go template. The template has access to the full request context, including `.body`, `.query`, `.params`, `.headers`, `.method`, and `.path`. If the output is valid JSON it is decoded automatically; otherwise the raw string is returned.
+
+`script` takes priority over `file` and `response`, and can be used on routes, `responses[]` entries, and `match` entries.
+
+```yaml
+- path: /greet
+  method: POST
+  script: |
+    {"msg": "Hello, {{ .body.name | upper }}!", "path": "{{ .path }}"}
+
+- path: /users/:id
+  method: GET
+  script: |
+    {"id": "{{ .params.id }}", "via": "{{ .method }}"}
+```
+
+### Template helpers
+
+| Function | Example | Output |
+|---|---|---|
+| `upper` | `{{ upper "hello" }}` | `HELLO` |
+| `lower` | `{{ lower "WORLD" }}` | `world` |
+| `trim` | `{{ trim "  hi  " }}` | `hi` |
+| `default` | `{{ default "anon" .body.name }}` | `anon` if name is empty |
+| `now` | `{{ now }}` | `2024-03-15T10:30:00Z` |
+| `add` | `{{ add 1 2 }}` | `3` |
+| `sub` | `{{ sub 5 2 }}` | `3` |
+| `fake` | `{{ fake "uuid" }}` | random UUID |
+
+All [Faker](#faker) types are also available via `{{ fake "type" }}`.
+
+### Using script in match and responses
+
+```yaml
+- path: /echo
+  method: POST
+  match:
+    - body:
+        action: echo
+      script: '{"echoed": "{{ .body.text }}", "at": "{{ now }}"}'
+  response: { error: unknown action }
+
+- path: /items
+  method: GET
+  responses:
+    - script: '{"page": 1, "count": {{ fake "int" }}}'
+    - script: '{"page": 2, "count": {{ fake "int" }}}'
+```
+
 ## Response Templates
 
-Use `{{ .body.field }}`, `{{ .query.param }}`, and `{{ .params.name }}` to embed request data in responses.
+Use `{{ .body.field }}`, `{{ .query.param }}`, `{{ .params.name }}`, `{{ .headers.X-My-Header }}`, `{{ .method }}`, and `{{ .path }}` to embed request data in responses. For more complex logic use `script` instead.
 
 ```yaml
 - path: /users

@@ -1984,3 +1984,101 @@ func TestOnCall_inResponses(t *testing.T) {
 		t.Fatalf("call 3: expected 200, got %d", w3.Code)
 	}
 }
+
+// --- Response Scripting ---
+
+func TestScript_basicJSON(t *testing.T) {
+	srv := newSrv(&config.Config{
+		Routes: []config.Route{{
+			Path:   "/greet",
+			Method: "POST",
+			Script: `{"msg": "hello {{ .body.name }}"}`,
+		}},
+	})
+
+	w := do(srv, "POST", "/greet", `{"name":"Alice"}`)
+	body := jsonBody(t, w)
+	if body["msg"] != "hello Alice" {
+		t.Fatalf("expected 'hello Alice', got %v", body["msg"])
+	}
+}
+
+func TestScript_helpers(t *testing.T) {
+	srv := newSrv(&config.Config{
+		Routes: []config.Route{{
+			Path:   "/up",
+			Method: "GET",
+			Script: `{"val": "{{ upper "hello" }}"}`,
+		}},
+	})
+
+	w := do(srv, "GET", "/up", "")
+	body := jsonBody(t, w)
+	if body["val"] != "HELLO" {
+		t.Fatalf("expected HELLO, got %v", body["val"])
+	}
+}
+
+func TestScript_methodAndPath(t *testing.T) {
+	srv := newSrv(&config.Config{
+		Routes: []config.Route{{
+			Path:   "/info",
+			Method: "GET",
+			Script: `{"method":"{{ .method }}","path":"{{ .path }}"}`,
+		}},
+	})
+
+	w := do(srv, "GET", "/info", "")
+	body := jsonBody(t, w)
+	if body["method"] != "GET" || body["path"] != "/info" {
+		t.Fatalf("unexpected body: %v", body)
+	}
+}
+
+func TestScript_inMatch(t *testing.T) {
+	srv := newSrv(&config.Config{
+		Routes: []config.Route{{
+			Path:   "/echo",
+			Method: "POST",
+			Match: []config.RouteMatch{{
+				Body:   map[string]any{"echo": true},
+				Script: `{"echoed":"{{ .body.text }}"}`,
+			}},
+			Response: map[string]any{"echoed": "none"},
+		}},
+	})
+
+	w := do(srv, "POST", "/echo", `{"echo":true,"text":"hi"}`)
+	body := jsonBody(t, w)
+	if body["echoed"] != "hi" {
+		t.Fatalf("expected hi, got %v", body["echoed"])
+	}
+
+	w2 := do(srv, "POST", "/echo", `{"echo":false,"text":"hi"}`)
+	body2 := jsonBody(t, w2)
+	if body2["echoed"] != "none" {
+		t.Fatalf("expected none, got %v", body2["echoed"])
+	}
+}
+
+func TestScript_inResponses(t *testing.T) {
+	srv := newSrv(&config.Config{
+		Routes: []config.Route{{
+			Path:   "/seq",
+			Method: "GET",
+			Responses: []config.RouteResponse{
+				{Script: `{"n":1}`},
+				{Script: `{"n":2}`},
+			},
+		}},
+	})
+
+	w1 := do(srv, "GET", "/seq", "")
+	b1 := jsonBody(t, w1)
+	w2 := do(srv, "GET", "/seq", "")
+	b2 := jsonBody(t, w2)
+
+	if b1["n"] != float64(1) || b2["n"] != float64(2) {
+		t.Fatalf("expected n=1 then n=2, got %v %v", b1["n"], b2["n"])
+	}
+}

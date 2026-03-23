@@ -472,7 +472,7 @@ func newEngine(cfg *config.Config, verbose bool, history *RequestHistory, state 
 						if status == 0 {
 							status = http.StatusOK
 						}
-						body, fileCT := resolveBody(m.Response, m.File, tmplData, c.Params)
+						body, fileCT := resolveBody(m.Response, m.File, m.Script, tmplData, c.Params)
 						ct := m.ContentType
 						if ct == "" {
 							ct = fileCT
@@ -527,7 +527,7 @@ func newEngine(cfg *config.Config, verbose bool, history *RequestHistory, state 
 					if status == 0 {
 						status = http.StatusOK
 					}
-					body, fileCT := resolveBody(picked.Response, picked.File, tmplData, c.Params)
+					body, fileCT := resolveBody(picked.Response, picked.File, picked.Script, tmplData, c.Params)
 					ct := picked.ContentType
 					if ct == "" {
 						ct = fileCT
@@ -551,7 +551,7 @@ func newEngine(cfg *config.Config, verbose bool, history *RequestHistory, state 
 				if status == 0 {
 					status = http.StatusOK
 				}
-				body, fileCT := resolveBody(rt.Response, rt.File, tmplData, c.Params)
+				body, fileCT := resolveBody(rt.Response, rt.File, rt.Script, tmplData, c.Params)
 				ct := rt.ContentType
 				if ct == "" {
 					ct = fileCT
@@ -734,7 +734,18 @@ func buildTemplateData(c *gin.Context, bodyBytes []byte) map[string]any {
 	if len(bodyBytes) > 0 {
 		_ = json.Unmarshal(bodyBytes, &body)
 	}
-	return map[string]any{"params": params, "query": query, "body": body}
+	headers := map[string]any{}
+	for k, vs := range c.Request.Header {
+		headers[k] = strings.Join(vs, ", ")
+	}
+	return map[string]any{
+		"params":  params,
+		"query":   query,
+		"body":    body,
+		"headers": headers,
+		"method":  c.Request.Method,
+		"path":    c.Request.URL.Path,
+	}
 }
 
 var templateFuncs = template.FuncMap{
@@ -794,6 +805,42 @@ var templateFuncs = template.FuncMap{
 			return ""
 		}
 	},
+	"default": func(def, val string) string {
+		if val == "" {
+			return def
+		}
+		return val
+	},
+	"upper":  strings.ToUpper,
+	"lower":  strings.ToLower,
+	"trim":   strings.TrimSpace,
+	"now":    func() string { return time.Now().UTC().Format(time.RFC3339) },
+	"add":    func(a, b int) int { return a + b },
+	"sub":    func(a, b int) int { return a - b },
+}
+
+// execScript renders a Go template script and returns the result as any.
+// If the output is valid JSON it is decoded; otherwise the raw string is returned.
+func execScript(script string, data map[string]any) any {
+	if script == "" {
+		return nil
+	}
+	tmpl, err := template.New("").Funcs(templateFuncs).Parse(script)
+	if err != nil {
+		log.Printf("script: parse error: %v", err)
+		return nil
+	}
+	var buf bytes.Buffer
+	if err := tmpl.Execute(&buf, data); err != nil {
+		log.Printf("script: execute error: %v", err)
+		return nil
+	}
+	out := strings.TrimSpace(buf.String())
+	var v any
+	if err := json.Unmarshal([]byte(out), &v); err == nil {
+		return v
+	}
+	return out
 }
 
 func applyTemplate(v any, data map[string]any) any {
@@ -967,8 +1014,11 @@ func loadFile(path string) (any, string, error) {
 }
 
 // resolveBody returns the response body and an inferred content type.
-// If file is non-empty it takes precedence over body.
-func resolveBody(body any, file string, tmplData map[string]any, params gin.Params) (any, string) {
+// Priority: script > file > body.
+func resolveBody(body any, file, script string, tmplData map[string]any, params gin.Params) (any, string) {
+	if script != "" {
+		return execScript(script, tmplData), ""
+	}
 	if file != "" {
 		data, ct, err := loadFile(file)
 		if err != nil {

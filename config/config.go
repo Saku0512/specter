@@ -12,6 +12,7 @@ type RouteResponse struct {
 	Response    any    `yaml:"response,omitempty"`
 	File        string `yaml:"file,omitempty"`
 	OnCall      int    `yaml:"on_call,omitempty"` // match only on this call number (1-based)
+	Script      string `yaml:"script,omitempty"`  // Go template producing the response body
 }
 
 type RouteMatch struct {
@@ -23,6 +24,7 @@ type RouteMatch struct {
 	ContentType string            `yaml:"content_type,omitempty"`
 	Response    any               `yaml:"response,omitempty"`
 	File        string            `yaml:"file,omitempty"`
+	Script      string            `yaml:"script,omitempty"` // Go template producing the response body
 }
 
 type Webhook struct {
@@ -57,6 +59,7 @@ type Route struct {
 	DelayMin    int               `yaml:"delay_min,omitempty"`   // min random delay in ms (used with delay_max)
 	DelayMax    int               `yaml:"delay_max,omitempty"`   // max random delay in ms
 	OnCall      int               `yaml:"on_call,omitempty"`     // match only on this call number (1-based)
+	Script      string            `yaml:"script,omitempty"`      // Go template producing the response body
 }
 
 type Config struct {

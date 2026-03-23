@@ -453,6 +453,53 @@ specter -c config.yml --verbose
   Body: {"name":"Alice"}
 ```
 
+### Stateful Mocking
+
+Use `state` and `set_state` to simulate stateful flows like authentication.
+
+```yaml
+routes:
+  # Login: always accessible, transitions to logged_in
+  - path: /login
+    method: POST
+    set_state: logged_in
+    response: { token: abc }
+
+  # Profile: only accessible when logged_in, fallback to 401
+  - path: /profile
+    method: GET
+    state: logged_in
+    response: { name: Alice }
+
+  - path: /profile
+    method: GET
+    status: 401
+    response: { error: unauthorized }
+
+  # Logout: only when logged_in, resets state
+  - path: /logout
+    method: POST
+    state: logged_in
+    set_state: ""
+    response: { ok: true }
+```
+
+```sh
+POST /login            → 200 { token: abc }      (state → logged_in)
+GET  /profile          → 200 { name: Alice }
+POST /logout           → 200 { ok: true }         (state → "")
+GET  /profile          → 401 { error: unauthorized }
+```
+
+Multiple routes with the same method+path are matched in order — the first whose `state` condition matches wins. Routes without `state` always match.
+
+**Built-in state endpoints:**
+
+```sh
+GET /__specter/state             # { "state": "logged_in" }
+PUT /__specter/state {"state":""} # reset state (useful in test setup)
+```
+
 ### Request History
 
 specter records incoming requests in memory (up to 200 entries). Use the built-in endpoints to inspect or clear the history.

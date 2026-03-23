@@ -36,6 +36,28 @@ routes:
     response:
       ok: true
 
+  # Stateful mocking — login/logout flow
+  - path: /login
+    method: POST
+    set_state: logged_in
+    response: { token: abc }
+
+  - path: /me
+    method: GET
+    state: logged_in
+    response: { name: Alice }
+
+  - path: /me
+    method: GET
+    status: 401
+    response: { error: unauthorized }
+
+  - path: /logout
+    method: POST
+    state: logged_in
+    set_state: ""
+    response: { ok: true }
+
   # Faker — generate random values on every request
   - path: /fake-user
     method: GET

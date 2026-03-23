@@ -61,37 +61,59 @@ func (h *RequestHistory) clear() {
 	h.entries = nil
 }
 
+type StateStore struct {
+	mu    sync.Mutex
+	value string
+}
+
+func (s *StateStore) Get() string {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	return s.value
+}
+
+func (s *StateStore) Set(v string) {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	s.value = v
+}
+
 type Server struct {
 	engine  atomic.Pointer[gin.Engine]
 	verbose bool
 	history *RequestHistory
+	state   *StateStore
 }
 
 func New(cfg *config.Config, verbose bool) *Server {
-	s := &Server{verbose: verbose, history: &RequestHistory{}}
-	s.engine.Store(newEngine(cfg, verbose, s.history))
+	s := &Server{verbose: verbose, history: &RequestHistory{}, state: &StateStore{}}
+	s.engine.Store(newEngine(cfg, verbose, s.history, s.state))
 	return s
 }
 
 func (s *Server) Reload(cfg *config.Config) {
-	s.engine.Store(newEngine(cfg, s.verbose, s.history))
+	s.engine.Store(newEngine(cfg, s.verbose, s.history, s.state))
 }
 
 func (s *Server) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	s.engine.Load().ServeHTTP(w, r)
 }
 
-func newEngine(cfg *config.Config, verbose bool, history *RequestHistory) *gin.Engine {
+type routeEntry struct {
+	route   config.Route
+	counter *atomic.Uint64
+	limiter *rateLimiter
+}
+
+func newEngine(cfg *config.Config, verbose bool, history *RequestHistory, state *StateStore) *gin.Engine {
 	r := gin.Default()
 
 	if cfg.CORS {
 		r.Use(corsMiddleware())
 	}
-
 	if verbose {
 		r.Use(verboseLogger())
 	}
-
 	r.Use(historyMiddleware(history))
 
 	r.GET("/__specter/requests", func(c *gin.Context) {
@@ -101,85 +123,138 @@ func newEngine(cfg *config.Config, verbose bool, history *RequestHistory) *gin.E
 		history.clear()
 		c.Status(http.StatusNoContent)
 	})
+	r.GET("/__specter/state", func(c *gin.Context) {
+		c.JSON(http.StatusOK, gin.H{"state": state.Get()})
+	})
+	r.PUT("/__specter/state", func(c *gin.Context) {
+		var body struct {
+			State string `json:"state"`
+		}
+		if err := c.ShouldBindJSON(&body); err != nil {
+			c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+			return
+		}
+		state.Set(body.State)
+		c.Status(http.StatusNoContent)
+	})
+
+	// Group routes by (method, path) to support multiple state-conditional
+	// entries for the same endpoint.
+	type routeKey struct{ method, path string }
+	groups := map[routeKey][]*routeEntry{}
+	var order []routeKey
+	seen := map[routeKey]bool{}
 
 	for _, route := range cfg.Routes {
-		rt := route
-
-		var counter atomic.Uint64
-
-		var rl *rateLimiter
-		if rt.RateLimit > 0 {
-			rl = newRateLimiter(rt.RateLimit, rt.RateReset)
+		key := routeKey{route.Method, route.Path}
+		e := &routeEntry{route: route, counter: &atomic.Uint64{}}
+		if route.RateLimit > 0 {
+			e.limiter = newRateLimiter(route.RateLimit, route.RateReset)
 		}
+		groups[key] = append(groups[key], e)
+		if !seen[key] {
+			seen[key] = true
+			order = append(order, key)
+		}
+	}
 
-		r.Handle(rt.Method, rt.Path, func(c *gin.Context) {
-			if rl != nil {
-				if ok, retryAfter := rl.allow(); !ok {
-					if retryAfter > 0 {
-						c.Header("Retry-After", strconv.Itoa(int(retryAfter.Seconds())+1))
-					}
-					c.JSON(http.StatusTooManyRequests, gin.H{"error": "rate limit exceeded"})
-					return
-				}
-			}
+	for _, key := range order {
+		k := key
+		entries := groups[k]
 
-			if rt.Delay > 0 {
-				time.Sleep(time.Duration(rt.Delay) * time.Millisecond)
-			}
-			for k, v := range rt.Headers {
-				c.Header(k, v)
-			}
-
-			// Pre-read body for match conditions and response templates
+		r.Handle(k.method, k.path, func(c *gin.Context) {
 			var bodyBytes []byte
 			if c.Request.Body != nil {
 				bodyBytes, _ = io.ReadAll(c.Request.Body)
 				c.Request.Body = io.NopCloser(bytes.NewBuffer(bodyBytes))
 			}
-
 			tmplData := buildTemplateData(c, bodyBytes)
+			currentState := state.Get()
 
-			for _, m := range rt.Match {
-				if matchesQuery(c, m.Query) && matchesBody(bodyBytes, m.Body) {
-					status := m.Status
+			for _, e := range entries {
+				rt := e.route
+
+				// Skip entries whose state condition doesn't match
+				if rt.State != "" && rt.State != currentState {
+					continue
+				}
+
+				// Rate limit
+				if e.limiter != nil {
+					if ok, retryAfter := e.limiter.allow(); !ok {
+						if retryAfter > 0 {
+							c.Header("Retry-After", strconv.Itoa(int(retryAfter.Seconds())+1))
+						}
+						c.JSON(http.StatusTooManyRequests, gin.H{"error": "rate limit exceeded"})
+						return
+					}
+				}
+
+				if rt.Delay > 0 {
+					time.Sleep(time.Duration(rt.Delay) * time.Millisecond)
+				}
+				for hk, hv := range rt.Headers {
+					c.Header(hk, hv)
+				}
+
+				// match conditions
+				for _, m := range rt.Match {
+					if matchesQuery(c, m.Query) && matchesBody(bodyBytes, m.Body) {
+						status := m.Status
+						if status == 0 {
+							status = http.StatusOK
+						}
+						ct := m.ContentType
+						if ct == "" {
+							ct = rt.ContentType
+						}
+						respond(c, status, ct, applyParams(applyTemplate(m.Response, tmplData), c.Params))
+						if rt.SetState != nil {
+							state.Set(*rt.SetState)
+						}
+						return
+					}
+				}
+
+				// multiple responses
+				if len(rt.Responses) > 0 {
+					var picked config.RouteResponse
+					switch rt.Mode {
+					case "random":
+						picked = rt.Responses[rand.IntN(len(rt.Responses))]
+					default:
+						idx := e.counter.Add(1) - 1
+						picked = rt.Responses[idx%uint64(len(rt.Responses))]
+					}
+					status := picked.Status
 					if status == 0 {
 						status = http.StatusOK
 					}
-					ct := m.ContentType
+					ct := picked.ContentType
 					if ct == "" {
 						ct = rt.ContentType
 					}
-					respond(c, status, ct, applyParams(applyTemplate(m.Response, tmplData), c.Params))
+					respond(c, status, ct, applyParams(applyTemplate(picked.Response, tmplData), c.Params))
+					if rt.SetState != nil {
+						state.Set(*rt.SetState)
+					}
 					return
 				}
-			}
 
-			if len(rt.Responses) > 0 {
-				var picked config.RouteResponse
-				switch rt.Mode {
-				case "random":
-					picked = rt.Responses[rand.IntN(len(rt.Responses))]
-				default: // sequential
-					idx := counter.Add(1) - 1
-					picked = rt.Responses[idx%uint64(len(rt.Responses))]
-				}
-				status := picked.Status
+				// default response
+				status := rt.Status
 				if status == 0 {
 					status = http.StatusOK
 				}
-				ct := picked.ContentType
-				if ct == "" {
-					ct = rt.ContentType
+				respond(c, status, rt.ContentType, applyParams(applyTemplate(rt.Response, tmplData), c.Params))
+				if rt.SetState != nil {
+					state.Set(*rt.SetState)
 				}
-				respond(c, status, ct, applyParams(applyTemplate(picked.Response, tmplData), c.Params))
 				return
 			}
 
-			status := rt.Status
-			if status == 0 {
-				status = http.StatusOK
-			}
-			respond(c, status, rt.ContentType, applyParams(applyTemplate(rt.Response, tmplData), c.Params))
+			// No entry matched the current state
+			c.JSON(http.StatusConflict, gin.H{"error": "no route matches current state", "state": currentState})
 		})
 	}
 

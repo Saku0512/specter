@@ -33,6 +33,8 @@ type Route struct {
 	Match       []RouteMatch      `yaml:"match,omitempty"`
 	RateLimit   int               `yaml:"rate_limit,omitempty"`  // max requests allowed
 	RateReset   int               `yaml:"rate_reset,omitempty"`  // seconds until count resets
+	State       string            `yaml:"state,omitempty"`       // required server state to match
+	SetState    *string           `yaml:"set_state,omitempty"`   // state to set after responding
 }
 
 type Config struct {

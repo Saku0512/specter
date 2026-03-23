@@ -467,6 +467,137 @@ func TestTemplateNoTemplate(t *testing.T) {
 	}
 }
 
+// --- Stateful mocking ---
+
+func setServerState(srv *Server, state string) {
+	srv.state.Set(state)
+}
+
+func getServerState(srv *Server) string {
+	return srv.state.Get()
+}
+
+func TestState_matchesCurrentState(t *testing.T) {
+	setStr := "logged_in"
+	srv := newSrv(&config.Config{
+		Routes: []config.Route{
+			{Path: "/profile", Method: "GET", State: "logged_in", Response: map[string]any{"name": "Alice"}},
+		},
+	})
+
+	// State is "" → 409
+	w := do(srv, "GET", "/profile", "")
+	if w.Code != http.StatusConflict {
+		t.Errorf("expected 409 when state mismatch, got %d", w.Code)
+	}
+
+	// Set state → 200
+	srv.state.Set(setStr)
+	w = do(srv, "GET", "/profile", "")
+	if w.Code != 200 {
+		t.Errorf("expected 200 when state matches, got %d", w.Code)
+	}
+}
+
+func TestState_fallbackToNoStateCondition(t *testing.T) {
+	srv := newSrv(&config.Config{
+		Routes: []config.Route{
+			{Path: "/profile", Method: "GET", State: "logged_in", Status: 200, Response: map[string]any{"auth": true}},
+			{Path: "/profile", Method: "GET", Status: 401, Response: map[string]any{"auth": false}},
+		},
+	})
+
+	// No state → fallback route
+	w := do(srv, "GET", "/profile", "")
+	if w.Code != 401 {
+		t.Errorf("expected 401 fallback, got %d", w.Code)
+	}
+
+	// Logged in → first route
+	setServerState(srv, "logged_in")
+	w = do(srv, "GET", "/profile", "")
+	if w.Code != 200 {
+		t.Errorf("expected 200 when logged_in, got %d", w.Code)
+	}
+}
+
+func TestState_setStateTransitions(t *testing.T) {
+	loggedIn := "logged_in"
+	empty := ""
+	srv := newSrv(&config.Config{
+		Routes: []config.Route{
+			{Path: "/login", Method: "POST", SetState: &loggedIn, Response: map[string]any{"ok": true}},
+			{Path: "/logout", Method: "POST", State: "logged_in", SetState: &empty, Response: map[string]any{"ok": true}},
+		},
+	})
+
+	if getServerState(srv) != "" {
+		t.Errorf("initial state should be empty")
+	}
+
+	do(srv, "POST", "/login", "")
+	if getServerState(srv) != "logged_in" {
+		t.Errorf("expected logged_in after login, got %q", getServerState(srv))
+	}
+
+	do(srv, "POST", "/logout", "")
+	if getServerState(srv) != "" {
+		t.Errorf("expected empty after logout, got %q", getServerState(srv))
+	}
+}
+
+func TestState_persistsAcrossReload(t *testing.T) {
+	loggedIn := "logged_in"
+	srv := newSrv(&config.Config{
+		Routes: []config.Route{
+			{Path: "/login", Method: "POST", SetState: &loggedIn, Response: map[string]any{"ok": true}},
+		},
+	})
+
+	do(srv, "POST", "/login", "")
+	if getServerState(srv) != "logged_in" {
+		t.Fatalf("state not set before reload")
+	}
+
+	srv.Reload(&config.Config{
+		Routes: []config.Route{
+			{Path: "/profile", Method: "GET", State: "logged_in", Response: map[string]any{"name": "Alice"}},
+		},
+	})
+
+	if getServerState(srv) != "logged_in" {
+		t.Errorf("state lost after reload, got %q", getServerState(srv))
+	}
+	w := do(srv, "GET", "/profile", "")
+	if w.Code != 200 {
+		t.Errorf("expected 200 after reload with state, got %d", w.Code)
+	}
+}
+
+func TestState_specterStateEndpoint(t *testing.T) {
+	srv := newSrv(&config.Config{Routes: []config.Route{}})
+
+	// GET initial state
+	w := do(srv, "GET", "/__specter/state", "")
+	if w.Code != 200 {
+		t.Fatalf("expected 200, got %d", w.Code)
+	}
+	var body map[string]any
+	json.Unmarshal(w.Body.Bytes(), &body)
+	if body["state"] != "" {
+		t.Errorf("expected empty initial state, got %v", body["state"])
+	}
+
+	// PUT to set state
+	w = do(srv, "PUT", "/__specter/state", `{"state":"testing"}`)
+	if w.Code != http.StatusNoContent {
+		t.Errorf("expected 204, got %d", w.Code)
+	}
+	if getServerState(srv) != "testing" {
+		t.Errorf("expected state=testing, got %q", getServerState(srv))
+	}
+}
+
 // --- Faker templates ---
 
 func TestFakeTemplateName(t *testing.T) {

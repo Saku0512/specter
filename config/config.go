@@ -17,6 +17,7 @@ type RouteMatch struct {
 	Query       map[string]string `yaml:"query,omitempty"`
 	Body        map[string]any    `yaml:"body,omitempty"`
 	Headers     map[string]string `yaml:"headers,omitempty"`
+	BodyPath    map[string]string `yaml:"body_path,omitempty"` // dot-notation path → regex pattern
 	Status      int               `yaml:"status,omitempty"`
 	ContentType string            `yaml:"content_type,omitempty"`
 	Response    any               `yaml:"response,omitempty"`

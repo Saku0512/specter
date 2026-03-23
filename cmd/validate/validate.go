@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"net/url"
 	"os"
+	"regexp"
 	"strings"
 
 	"github.com/Saku0512/specter/config"
@@ -115,12 +116,17 @@ func check(cfg *config.Config) []string {
 			}
 		}
 		for j, m := range r.Match {
-			if len(m.Query) == 0 && len(m.Body) == 0 && len(m.Headers) == 0 {
+			if len(m.Query) == 0 && len(m.Body) == 0 && len(m.Headers) == 0 && len(m.BodyPath) == 0 {
 				errs = append(errs, prefix+fmt.Sprintf(": match[%d] must have at least one query, body, or headers condition", j))
 			}
 			if m.File != "" {
 				if _, err := os.Stat(m.File); err != nil {
 					errs = append(errs, prefix+fmt.Sprintf(": match[%d] file %q not found", j, m.File))
+				}
+			}
+			for path, pattern := range m.BodyPath {
+				if _, err := regexp.Compile(pattern); err != nil {
+					errs = append(errs, prefix+fmt.Sprintf(": match[%d] body_path[%q] invalid regex: %v", j, path, err))
 				}
 			}
 		}

@@ -10,10 +10,11 @@ import (
 	"net/http"
 	"net/http/httputil"
 	"net/url"
-	"strconv"
-	"strings"
 	"os"
 	"path/filepath"
+	"regexp"
+	"strconv"
+	"strings"
 	"sync"
 	"sync/atomic"
 	"text/template"
@@ -457,7 +458,7 @@ func newEngine(cfg *config.Config, verbose bool, history *RequestHistory, state 
 
 				// match conditions
 				for _, m := range rt.Match {
-					if matchesQuery(c, m.Query) && matchesBody(bodyBytes, m.Body) && matchesHeaders(c, m.Headers) {
+					if matchesQuery(c, m.Query) && matchesBody(bodyBytes, m.Body) && matchesHeaders(c, m.Headers) && matchesBodyPath(bodyBytes, m.BodyPath) {
 						status := m.Status
 						if status == 0 {
 							status = http.StatusOK
@@ -995,6 +996,46 @@ func matchesVars(vs *VarStore, expected map[string]string) bool {
 func matchesQuery(c *gin.Context, query map[string]string) bool {
 	for k, v := range query {
 		if c.Query(k) != v {
+			return false
+		}
+	}
+	return true
+}
+
+// getJSONPath traverses a nested map using a dot-separated path.
+// e.g. "user.role" returns the value at data["user"]["role"].
+func getJSONPath(data map[string]any, path string) (string, bool) {
+	idx := strings.Index(path, ".")
+	if idx < 0 {
+		v, ok := data[path]
+		if !ok {
+			return "", false
+		}
+		return fmt.Sprint(v), true
+	}
+	nested, ok := data[path[:idx]].(map[string]any)
+	if !ok {
+		return "", false
+	}
+	return getJSONPath(nested, path[idx+1:])
+}
+
+// matchesBodyPath checks dot-notation path → regex pattern conditions against the request body.
+func matchesBodyPath(body []byte, paths map[string]string) bool {
+	if len(paths) == 0 {
+		return true
+	}
+	var parsed map[string]any
+	if err := json.Unmarshal(body, &parsed); err != nil {
+		return false
+	}
+	for path, pattern := range paths {
+		actual, ok := getJSONPath(parsed, path)
+		if !ok {
+			return false
+		}
+		re, err := regexp.Compile(pattern)
+		if err != nil || !re.MatchString(actual) {
 			return false
 		}
 	}

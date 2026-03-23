@@ -29,7 +29,7 @@ routes:
 | `headers` | map | Custom response headers |
 | `content_type` | string | Response Content-Type (default: `application/json`) |
 | `delay` | int | Response delay in milliseconds |
-| `match` | list | Conditional responses by query/body/headers |
+| `match` | list | Conditional responses by query/body/headers/body_path |
 | `mode` | string | `sequential` (default) or `random` |
 | `responses` | list | Multiple responses for cycling |
 | `rate_limit` | int | Max requests before returning 429 |
@@ -97,6 +97,37 @@ GET /api/data                                      → 401 { error: unauthorized
 ```
 
 `headers`, `query`, and `body` can be combined in a single `match` entry (all conditions must match).
+
+## JSONPath / Regex Body Matching
+
+Use `body_path` in `match` to match nested fields using dot-notation paths and regular expression patterns. All conditions use AND logic.
+
+```yaml
+- path: /orders
+  method: POST
+  match:
+    - body_path:
+        status: "^(pending|processing)$"
+        user.role: "^admin$"
+      status: 200
+      response: { ok: true }
+    - body_path:
+        status: "^cancelled$"
+      status: 422
+      response: { error: order cancelled }
+  response: { error: no match }
+```
+
+```
+POST /orders {"status":"pending","user":{"role":"admin"}}   → 200 { ok: true }
+POST /orders {"status":"cancelled"}                         → 422 { error: order cancelled }
+POST /orders {"status":"other"}                             → 200 { error: no match }
+```
+
+- Paths use dot notation: `user.role` traverses `{ "user": { "role": "..." } }`
+- Values are Go regular expressions (e.g. `^admin$`, `^(a|b)$`, `\d+`)
+- A plain string like `admin` is treated as a regex and matches any string containing `admin`; use `^admin$` for exact match
+- `body_path` can be combined with `query`, `body`, and `headers` in the same `match` entry
 
 ## Request Body Matching
 

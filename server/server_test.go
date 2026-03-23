@@ -1809,3 +1809,120 @@ func TestOpenAPIValidation_routeNotInSpec(t *testing.T) {
 		t.Errorf("route not in spec should not produce validation error")
 	}
 }
+
+// --- BodyPath / Regex matching ---
+
+func TestBodyPath_exactMatch(t *testing.T) {
+	srv := newSrv(&config.Config{
+		Routes: []config.Route{
+			{
+				Path:   "/users",
+				Method: "POST",
+				Match: []config.RouteMatch{
+					{
+						BodyPath: map[string]string{"role": "admin"},
+						Status:   201,
+						Response: map[string]any{"ok": true},
+					},
+				},
+				Status:   400,
+				Response: map[string]any{"error": "bad"},
+			},
+		},
+	})
+
+	w := do(srv, "POST", "/users", `{"role":"admin"}`)
+	if w.Code != 201 {
+		t.Fatalf("expected 201, got %d", w.Code)
+	}
+	w2 := do(srv, "POST", "/users", `{"role":"user"}`)
+	if w2.Code != 400 {
+		t.Fatalf("expected 400, got %d", w2.Code)
+	}
+}
+
+func TestBodyPath_regexMatch(t *testing.T) {
+	srv := newSrv(&config.Config{
+		Routes: []config.Route{
+			{
+				Path:   "/items",
+				Method: "POST",
+				Match: []config.RouteMatch{
+					{
+						BodyPath: map[string]string{"name": "^pro_"},
+						Status:   200,
+						Response: map[string]any{"tier": "pro"},
+					},
+				},
+				Status:   200,
+				Response: map[string]any{"tier": "free"},
+			},
+		},
+	})
+
+	w := do(srv, "POST", "/items", `{"name":"pro_plan"}`)
+	body := jsonBody(t, w)
+	if body["tier"] != "pro" {
+		t.Fatalf("expected tier=pro, got %v", body["tier"])
+	}
+
+	w2 := do(srv, "POST", "/items", `{"name":"free_plan"}`)
+	body2 := jsonBody(t, w2)
+	if body2["tier"] != "free" {
+		t.Fatalf("expected tier=free, got %v", body2["tier"])
+	}
+}
+
+func TestBodyPath_nestedPath(t *testing.T) {
+	srv := newSrv(&config.Config{
+		Routes: []config.Route{
+			{
+				Path:   "/data",
+				Method: "POST",
+				Match: []config.RouteMatch{
+					{
+						BodyPath: map[string]string{"user.role": "^admin$"},
+						Status:   200,
+						Response: map[string]any{"access": "granted"},
+					},
+				},
+				Status:   403,
+				Response: map[string]any{"access": "denied"},
+			},
+		},
+	})
+
+	w := do(srv, "POST", "/data", `{"user":{"role":"admin"}}`)
+	if w.Code != 200 {
+		t.Fatalf("expected 200, got %d", w.Code)
+	}
+	w2 := do(srv, "POST", "/data", `{"user":{"role":"guest"}}`)
+	if w2.Code != 403 {
+		t.Fatalf("expected 403, got %d", w2.Code)
+	}
+}
+
+func TestBodyPath_missingField(t *testing.T) {
+	srv := newSrv(&config.Config{
+		Routes: []config.Route{
+			{
+				Path:   "/x",
+				Method: "POST",
+				Match: []config.RouteMatch{
+					{
+						BodyPath: map[string]string{"missing": ".*"},
+						Status:   200,
+						Response: map[string]any{"hit": true},
+					},
+				},
+				Status:   404,
+				Response: map[string]any{"hit": false},
+			},
+		},
+	})
+
+	w := do(srv, "POST", "/x", `{"other":"value"}`)
+	if w.Code != 404 {
+		t.Fatalf("expected 404 (field missing), got %d", w.Code)
+	}
+}

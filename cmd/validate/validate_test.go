@@ -175,3 +175,23 @@ func contains(s, sub string) bool {
 		return false
 	}()
 }
+
+func TestCheck_bodyPathInvalidRegex(t *testing.T) {
+	cfg := &config.Config{Routes: []config.Route{{
+		Path:   "/a",
+		Method: "GET",
+		Match:  []config.RouteMatch{{BodyPath: map[string]string{"role": "["}}},
+	}}}
+	assertContains(t, check(cfg), "invalid regex")
+}
+
+func TestCheck_bodyPathOnlyConditionValid(t *testing.T) {
+	cfg := &config.Config{Routes: []config.Route{{
+		Path:   "/a",
+		Method: "GET",
+		Match:  []config.RouteMatch{{BodyPath: map[string]string{"role": "^admin$"}}},
+	}}}
+	if errs := check(cfg); len(errs) != 0 {
+		t.Errorf("expected no errors, got %v", errs)
+	}
+}

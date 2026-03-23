@@ -58,6 +58,17 @@ func newEngine(cfg *config.Config, verbose bool) *gin.Engine {
 				c.Header(k, v)
 			}
 
+			for _, m := range rt.Match {
+				if matchesQuery(c, m.Query) {
+					status := m.Status
+					if status == 0 {
+						status = http.StatusOK
+					}
+					c.JSON(status, applyParams(m.Response, c.Params))
+					return
+				}
+			}
+
 			if len(rt.Responses) > 0 {
 				var picked config.RouteResponse
 				switch rt.Mode {
@@ -138,6 +149,15 @@ func applyParams(v any, params gin.Params) any {
 	default:
 		return v
 	}
+}
+
+func matchesQuery(c *gin.Context, query map[string]string) bool {
+	for k, v := range query {
+		if c.Query(k) != v {
+			return false
+		}
+	}
+	return true
 }
 
 func corsMiddleware() gin.HandlerFunc {

@@ -42,6 +42,21 @@ routes:
     response:
       message: finally
 
+  # Query parameter matching
+  - path: /search
+    method: GET
+    match:
+      - query:
+          q: error
+        status: 500
+        response: { error: something went wrong }
+      - query:
+          q: empty
+        response: []
+    response:
+      - id: 1
+        name: Alice
+
   # Sequential responses — fails first, succeeds on retry
   - path: /unstable
     method: GET

@@ -11,6 +11,12 @@ type RouteResponse struct {
 	Response any `yaml:"response,omitempty"`
 }
 
+type RouteMatch struct {
+	Query    map[string]string `yaml:"query"`
+	Status   int               `yaml:"status,omitempty"`
+	Response any               `yaml:"response,omitempty"`
+}
+
 type Route struct {
 	Path      string            `yaml:"path"`
 	Method    string            `yaml:"method"`
@@ -20,6 +26,7 @@ type Route struct {
 	Response  any               `yaml:"response,omitempty"`
 	Mode      string            `yaml:"mode,omitempty"` // "sequential" (default) or "random"
 	Responses []RouteResponse   `yaml:"responses,omitempty"`
+	Match     []RouteMatch      `yaml:"match,omitempty"`
 }
 
 type Config struct {

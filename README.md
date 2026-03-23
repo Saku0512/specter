@@ -79,6 +79,35 @@ routes:
 
 Both `.yaml` and `.yml` extensions are supported. See [config.example.yml](config.example.yml) for a full example covering all features.
 
+### Query Parameter Matching
+
+Use `match` to return different responses based on query parameters. Falls back to the default `response` if no match.
+
+```yaml
+- path: /users
+  method: GET
+  match:
+    - query:
+        status: active
+      response:
+        - id: 1
+          name: Alice
+    - query:
+        status: inactive
+      status: 404
+      response:
+        error: not found
+  response:
+    - id: 1
+    - id: 2
+```
+
+```sh
+GET /users?status=active   → 200 [{ id: 1, name: Alice }]
+GET /users?status=inactive → 404 { error: not found }
+GET /users                 → 200 [{ id: 1 }, { id: 2 }]
+```
+
 ### Path Parameters in Response
 
 Use `:paramName` in response values to embed path parameters. Numeric values are automatically converted to numbers.

@@ -85,6 +85,7 @@ Flags:
   --host       Host to listen on (default: all interfaces)
   --cert       TLS certificate file (enables HTTPS)
   --key        TLS key file (enables HTTPS)
+  --ui-port    Port for the web UI (default: 4444, set to 0 to disable)
   --verbose    Log request headers and body
   -v, --version  Show version
   -h, --help   Show this help
@@ -96,12 +97,13 @@ Commands:
   record       Proxy a real API and record responses to config.yml
 
 Environment variables:
-  SPECTER_CONFIG   Path to config file
-  SPECTER_PORT     Port to listen on
-  SPECTER_HOST     Host to listen on
-  SPECTER_CERT     TLS certificate file
-  SPECTER_KEY      TLS key file
-  SPECTER_VERBOSE  Set to 1 or true to enable verbose logging
+  SPECTER_CONFIG    Path to config file
+  SPECTER_PORT      Port to listen on
+  SPECTER_HOST      Host to listen on
+  SPECTER_CERT      TLS certificate file
+  SPECTER_KEY       TLS key file
+  SPECTER_VERBOSE   Set to 1 or true to enable verbose logging
+  SPECTER_UI_PORT   Port for the web UI (0 to disable)
 
 Examples:
   specter -c config.yml -p 3000
@@ -137,6 +139,7 @@ func main() {
 	tlsAuto := flag.Bool("tls", false, "enable HTTPS with auto-generated self-signed certificate")
 	cert := flag.String("cert", "", "TLS certificate file")
 	key := flag.String("key", "", "TLS key file")
+	uiPort := flag.String("ui-port", "4444", "port for the web UI (0 to disable)")
 	verbose := flag.Bool("verbose", false, "log request headers and body")
 	v := flag.Bool("v", false, "show version")
 	flag.BoolVar(v, "version", false, "show version")
@@ -176,6 +179,11 @@ func main() {
 			*key = val
 		}
 	}
+	if !set["ui-port"] {
+		if val := os.Getenv("SPECTER_UI_PORT"); val != "" {
+			*uiPort = val
+		}
+	}
 
 	if *v {
 		fmt.Println("specter", version)
@@ -193,6 +201,15 @@ func main() {
 	}
 
 	srv := server.New(cfg, *verbose)
+
+	if *uiPort != "0" && *uiPort != "" {
+		scheme := "http"
+		if *tlsAuto || (*cert != "" && *key != "") {
+			scheme = "https"
+		}
+		apiAddr := fmt.Sprintf("%s://localhost:%s", scheme, *port)
+		go server.StartUI("localhost:"+*uiPort, apiAddr)
+	}
 
 	watcher, err := fsnotify.NewWatcher()
 	if err != nil {

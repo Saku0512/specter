@@ -15,6 +15,7 @@ specter -c config.yml -p 8080
 | `--host` | all interfaces | Host to listen on |
 | `--cert` | — | TLS certificate file (enables HTTPS) |
 | `--key` | — | TLS key file (enables HTTPS) |
+| `--ui-port` | `4444` | Port for the web UI (set to `0` to disable) |
 | `--verbose` | — | Log request headers and body |
 | `-v`, `--version` | — | Show version |
 | `-h`, `--help` | — | Show help |
@@ -31,6 +32,26 @@ Flags take precedence over environment variables.
 | `SPECTER_CERT` | `--cert` |
 | `SPECTER_KEY` | `--key` |
 | `SPECTER_VERBOSE` | `--verbose` |
+| `SPECTER_UI_PORT` | `--ui-port` |
+
+## Web UI
+
+specter ships with a minimal built-in dashboard, served on port `4444` by default. Open it in your browser while the server is running:
+
+```
+http://localhost:4444
+```
+
+The UI shows four tabs that auto-refresh every 2 seconds:
+
+| Tab | What it shows |
+|---|---|
+| **Requests** | Recorded request history (newest first). Includes a Clear button. |
+| **Routes** | All registered routes (config + dynamic), with source and metadata badges. |
+| **State & Vars** | Current server state and all var values. |
+| **Stores** | Contents of every in-memory CRUD store collection. |
+
+To disable the UI, pass `--ui-port 0` or set `SPECTER_UI_PORT=0`.
 
 ## Subcommands
 

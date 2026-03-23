@@ -363,6 +363,32 @@ specter -c config.yml --verbose
   Body: {"name":"Alice"}
 ```
 
+### Request History
+
+specter records incoming requests in memory (up to 200 entries). Use the built-in endpoints to inspect or clear the history.
+
+```sh
+GET    /__specter/requests   # list recorded requests
+DELETE /__specter/requests   # clear history
+```
+
+Example response:
+
+```json
+[
+  {
+    "time": "2024-01-01T00:00:00Z",
+    "method": "POST",
+    "path": "/users",
+    "query": { "v": "2" },
+    "headers": { "Content-Type": "application/json" },
+    "body": "{\"name\":\"Alice\"}"
+  }
+]
+```
+
+`/__specter/*` routes are never recorded in the history.
+
 ### Hot Reload
 
 specter watches the config file and reloads automatically on save. No restart required.

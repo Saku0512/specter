@@ -12,6 +12,7 @@ import (
 	"net/url"
 	"strconv"
 	"strings"
+	"sync"
 	"sync/atomic"
 	"text/template"
 	"time"
@@ -20,26 +21,66 @@ import (
 	"github.com/gin-gonic/gin"
 )
 
+const maxHistory = 200
+
+type RequestEntry struct {
+	Time    time.Time         `json:"time"`
+	Method  string            `json:"method"`
+	Path    string            `json:"path"`
+	Query   map[string]string `json:"query,omitempty"`
+	Headers map[string]string `json:"headers,omitempty"`
+	Body    string            `json:"body,omitempty"`
+}
+
+type RequestHistory struct {
+	mu      sync.Mutex
+	entries []RequestEntry
+}
+
+func (h *RequestHistory) add(e RequestEntry) {
+	h.mu.Lock()
+	defer h.mu.Unlock()
+	h.entries = append(h.entries, e)
+	if len(h.entries) > maxHistory {
+		h.entries = h.entries[len(h.entries)-maxHistory:]
+	}
+}
+
+func (h *RequestHistory) all() []RequestEntry {
+	h.mu.Lock()
+	defer h.mu.Unlock()
+	out := make([]RequestEntry, len(h.entries))
+	copy(out, h.entries)
+	return out
+}
+
+func (h *RequestHistory) clear() {
+	h.mu.Lock()
+	defer h.mu.Unlock()
+	h.entries = nil
+}
+
 type Server struct {
 	engine  atomic.Pointer[gin.Engine]
 	verbose bool
+	history *RequestHistory
 }
 
 func New(cfg *config.Config, verbose bool) *Server {
-	s := &Server{verbose: verbose}
-	s.engine.Store(newEngine(cfg, verbose))
+	s := &Server{verbose: verbose, history: &RequestHistory{}}
+	s.engine.Store(newEngine(cfg, verbose, s.history))
 	return s
 }
 
 func (s *Server) Reload(cfg *config.Config) {
-	s.engine.Store(newEngine(cfg, s.verbose))
+	s.engine.Store(newEngine(cfg, s.verbose, s.history))
 }
 
 func (s *Server) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	s.engine.Load().ServeHTTP(w, r)
 }
 
-func newEngine(cfg *config.Config, verbose bool) *gin.Engine {
+func newEngine(cfg *config.Config, verbose bool, history *RequestHistory) *gin.Engine {
 	r := gin.Default()
 
 	if cfg.CORS {
@@ -49,6 +90,16 @@ func newEngine(cfg *config.Config, verbose bool) *gin.Engine {
 	if verbose {
 		r.Use(verboseLogger())
 	}
+
+	r.Use(historyMiddleware(history))
+
+	r.GET("/__specter/requests", func(c *gin.Context) {
+		c.JSON(http.StatusOK, history.all())
+	})
+	r.DELETE("/__specter/requests", func(c *gin.Context) {
+		history.clear()
+		c.Status(http.StatusNoContent)
+	})
 
 	for _, route := range cfg.Routes {
 		rt := route
@@ -131,6 +182,45 @@ func newEngine(cfg *config.Config, verbose bool) *gin.Engine {
 	}
 
 	return r
+}
+
+func historyMiddleware(h *RequestHistory) gin.HandlerFunc {
+	return func(c *gin.Context) {
+		if strings.HasPrefix(c.Request.URL.Path, "/__specter/") {
+			c.Next()
+			return
+		}
+
+		var bodyStr string
+		if c.Request.Body != nil {
+			b, _ := io.ReadAll(c.Request.Body)
+			c.Request.Body = io.NopCloser(bytes.NewBuffer(b))
+			bodyStr = string(b)
+		}
+
+		query := map[string]string{}
+		for k, vs := range c.Request.URL.Query() {
+			if len(vs) > 0 {
+				query[k] = vs[0]
+			}
+		}
+
+		headers := map[string]string{}
+		for k, vs := range c.Request.Header {
+			headers[k] = strings.Join(vs, ", ")
+		}
+
+		h.add(RequestEntry{
+			Time:    time.Now().UTC(),
+			Method:  c.Request.Method,
+			Path:    c.Request.URL.Path,
+			Query:   query,
+			Headers: headers,
+			Body:    bodyStr,
+		})
+
+		c.Next()
+	}
 }
 
 func verboseLogger() gin.HandlerFunc {

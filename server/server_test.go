@@ -467,6 +467,118 @@ func TestTemplateNoTemplate(t *testing.T) {
 	}
 }
 
+// --- Request history ---
+
+func TestHistoryRecordsRequests(t *testing.T) {
+	srv := newSrv(&config.Config{
+		Routes: []config.Route{
+			{Path: "/hello", Method: "GET", Response: map[string]any{"ok": true}},
+		},
+	})
+
+	do(srv, "GET", "/hello", "")
+	do(srv, "GET", "/hello", "")
+
+	w := do(srv, "GET", "/__specter/requests", "")
+	if w.Code != 200 {
+		t.Fatalf("expected 200, got %d", w.Code)
+	}
+
+	var entries []map[string]any
+	if err := json.Unmarshal(w.Body.Bytes(), &entries); err != nil {
+		t.Fatalf("failed to parse history: %v", err)
+	}
+	if len(entries) != 2 {
+		t.Errorf("expected 2 entries, got %d", len(entries))
+	}
+	if entries[0]["method"] != "GET" || entries[0]["path"] != "/hello" {
+		t.Errorf("unexpected entry: %v", entries[0])
+	}
+}
+
+func TestHistoryExcludesSpecterRoutes(t *testing.T) {
+	srv := newSrv(&config.Config{Routes: []config.Route{}})
+
+	do(srv, "GET", "/__specter/requests", "")
+	do(srv, "GET", "/__specter/requests", "")
+
+	w := do(srv, "GET", "/__specter/requests", "")
+	var entries []map[string]any
+	json.Unmarshal(w.Body.Bytes(), &entries)
+	if len(entries) != 0 {
+		t.Errorf("expected 0 entries (specter routes excluded), got %d", len(entries))
+	}
+}
+
+func TestHistoryClear(t *testing.T) {
+	srv := newSrv(&config.Config{
+		Routes: []config.Route{
+			{Path: "/a", Method: "GET", Response: nil},
+		},
+	})
+
+	do(srv, "GET", "/a", "")
+	do(srv, "GET", "/a", "")
+
+	w := do(srv, "DELETE", "/__specter/requests", "")
+	if w.Code != http.StatusNoContent {
+		t.Errorf("expected 204, got %d", w.Code)
+	}
+
+	w = do(srv, "GET", "/__specter/requests", "")
+	var entries []map[string]any
+	json.Unmarshal(w.Body.Bytes(), &entries)
+	if len(entries) != 0 {
+		t.Errorf("expected 0 after clear, got %d", len(entries))
+	}
+}
+
+func TestHistoryRecordsBody(t *testing.T) {
+	srv := newSrv(&config.Config{
+		Routes: []config.Route{
+			{Path: "/post", Method: "POST", Response: nil},
+		},
+	})
+
+	do(srv, "POST", "/post", `{"name":"Alice"}`)
+
+	w := do(srv, "GET", "/__specter/requests", "")
+	var entries []map[string]any
+	json.Unmarshal(w.Body.Bytes(), &entries)
+	if len(entries) != 1 {
+		t.Fatalf("expected 1 entry, got %d", len(entries))
+	}
+	if entries[0]["body"] != `{"name":"Alice"}` {
+		t.Errorf("unexpected body in history: %v", entries[0]["body"])
+	}
+}
+
+func TestHistoryPersistsAcrossReload(t *testing.T) {
+	cfg := &config.Config{
+		Routes: []config.Route{
+			{Path: "/a", Method: "GET", Response: nil},
+		},
+	}
+	srv := newSrv(cfg)
+
+	do(srv, "GET", "/a", "")
+
+	srv.Reload(&config.Config{
+		Routes: []config.Route{
+			{Path: "/b", Method: "GET", Response: nil},
+		},
+	})
+
+	do(srv, "GET", "/b", "")
+
+	w := do(srv, "GET", "/__specter/requests", "")
+	var entries []map[string]any
+	json.Unmarshal(w.Body.Bytes(), &entries)
+	if len(entries) != 2 {
+		t.Errorf("expected 2 entries after reload, got %d", len(entries))
+	}
+}
+
 // --- Reload ---
 
 func TestReload(t *testing.T) {

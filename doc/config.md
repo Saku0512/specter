@@ -8,6 +8,8 @@ Both `.yaml` and `.yml` extensions are supported. See [config.example.yml](../co
 cors: true               # optional
 proxy: http://api.example.com  # optional
 openapi: ./openapi.yaml  # optional — enables request validation
+include:                 # optional — merge routes from other files
+  - routes/*.yml
 
 routes:
   - path: /users
@@ -686,6 +688,21 @@ POST /orders {"user":"alice"}
 # 2 seconds later, specter sends:
 POST http://localhost:8080/fulfillment {"order_id":42,"user":"alice"}
 ```
+
+## Config Include
+
+Split a large config across multiple files using the `include` field. Patterns are resolved relative to the including file and support standard glob syntax.
+
+```yaml
+include:
+  - routes/users.yml
+  - routes/products.yml
+  - routes/shared/*.yml
+```
+
+Included files contribute only their `routes` to the merged config. Top-level fields (`cors`, `proxy`, `openapi`, etc.) from included files are ignored — set those in the main file.
+
+Includes can be nested: an included file can itself include others. Cycles are silently skipped.
 
 ## OpenAPI Request Validation
 

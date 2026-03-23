@@ -92,6 +92,56 @@ routes: []
 	}
 }
 
+func TestLoad_include_merges_routes(t *testing.T) {
+	dir := t.TempDir()
+	// extra.yml defines one route
+	os.WriteFile(filepath.Join(dir, "extra.yml"), []byte("routes:\n  - path: /extra\n    method: GET\n"), 0644)
+	// main config includes it
+	main := writeTemp(t, "config.yaml", "include:\n  - "+filepath.Join(dir, "extra.yml")+"\nroutes:\n  - path: /main\n    method: GET\n")
+	cfg, err := Load(main)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(cfg.Routes) != 2 {
+		t.Fatalf("expected 2 routes, got %d", len(cfg.Routes))
+	}
+	paths := map[string]bool{cfg.Routes[0].Path: true, cfg.Routes[1].Path: true}
+	if !paths["/main"] || !paths["/extra"] {
+		t.Errorf("unexpected routes: %v", cfg.Routes)
+	}
+}
+
+func TestLoad_include_glob(t *testing.T) {
+	dir := t.TempDir()
+	os.WriteFile(filepath.Join(dir, "a.yml"), []byte("routes:\n  - path: /a\n    method: GET\n"), 0644)
+	os.WriteFile(filepath.Join(dir, "b.yml"), []byte("routes:\n  - path: /b\n    method: GET\n"), 0644)
+	main := writeTemp(t, "config.yaml", "include:\n  - "+filepath.Join(dir, "*.yml")+"\nroutes: []\n")
+	cfg, err := Load(main)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(cfg.Routes) != 2 {
+		t.Fatalf("expected 2 routes from glob, got %d", len(cfg.Routes))
+	}
+}
+
+func TestLoad_include_cycle_detection(t *testing.T) {
+	dir := t.TempDir()
+	aPath := filepath.Join(dir, "a.yml")
+	bPath := filepath.Join(dir, "b.yml")
+	// a includes b, b includes a
+	os.WriteFile(aPath, []byte("include:\n  - "+bPath+"\nroutes:\n  - path: /a\n    method: GET\n"), 0644)
+	os.WriteFile(bPath, []byte("include:\n  - "+aPath+"\nroutes:\n  - path: /b\n    method: GET\n"), 0644)
+	cfg, err := Load(aPath)
+	if err != nil {
+		t.Fatal(err)
+	}
+	// cycle is silently broken; should get 2 unique routes
+	if len(cfg.Routes) != 2 {
+		t.Fatalf("expected 2 routes (cycle broken), got %d: %+v", len(cfg.Routes), cfg.Routes)
+	}
+}
+
 func TestLoad_all_route_fields(t *testing.T) {
 	path := writeTemp(t, "config.yaml", `
 routes:

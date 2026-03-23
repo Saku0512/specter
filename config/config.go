@@ -1,7 +1,9 @@
 package config
 
 import (
+	"fmt"
 	"os"
+	"path/filepath"
 
 	"gopkg.in/yaml.v3"
 )
@@ -74,11 +76,12 @@ type Route struct {
 }
 
 type Config struct {
-	CORS         bool    `yaml:"cors,omitempty"`
-	Proxy        string  `yaml:"proxy,omitempty"`
-	OpenAPI      string  `yaml:"openapi,omitempty"`       // path to OpenAPI spec for request validation
-	OpenAPIStrict bool   `yaml:"openapi_strict,omitempty"` // return 400 on validation failures instead of warning
-	Routes       []Route `yaml:"routes"`
+	CORS          bool     `yaml:"cors,omitempty"`
+	Proxy         string   `yaml:"proxy,omitempty"`
+	OpenAPI       string   `yaml:"openapi,omitempty"`        // path to OpenAPI spec for request validation
+	OpenAPIStrict bool     `yaml:"openapi_strict,omitempty"` // return 400 on validation failures instead of warning
+	Include       []string `yaml:"include,omitempty"`        // glob patterns of additional config files to merge
+	Routes        []Route  `yaml:"routes"`
 }
 
 func Load(path string) (*Config, error) {
@@ -91,9 +94,11 @@ func Load(path string) (*Config, error) {
 
 	var data []byte
 	var err error
+	var resolved string
 	for _, p := range candidates {
 		data, err = os.ReadFile(p)
 		if err == nil {
+			resolved = p
 			break
 		}
 	}
@@ -101,9 +106,44 @@ func Load(path string) (*Config, error) {
 		return nil, err
 	}
 
+	absResolved, _ := filepath.Abs(resolved)
+	seen := map[string]bool{absResolved: true}
+	return loadData(data, filepath.Dir(resolved), seen)
+}
+
+// loadData unmarshals cfg from data and recursively merges any included files.
+// dir is the base directory for resolving relative include patterns.
+// seen prevents re-loading the same file and breaks cycles.
+func loadData(data []byte, dir string, seen map[string]bool) (*Config, error) {
 	var cfg Config
 	if err := yaml.Unmarshal(data, &cfg); err != nil {
 		return nil, err
+	}
+
+	for _, pattern := range cfg.Include {
+		if !filepath.IsAbs(pattern) {
+			pattern = filepath.Join(dir, pattern)
+		}
+		matches, err := filepath.Glob(pattern)
+		if err != nil {
+			return nil, fmt.Errorf("include %q: %w", pattern, err)
+		}
+		for _, match := range matches {
+			abs, _ := filepath.Abs(match)
+			if seen[abs] {
+				continue
+			}
+			seen[abs] = true
+			fileData, err := os.ReadFile(match)
+			if err != nil {
+				return nil, fmt.Errorf("include %q: %w", match, err)
+			}
+			sub, err := loadData(fileData, filepath.Dir(match), seen)
+			if err != nil {
+				return nil, fmt.Errorf("include %q: %w", match, err)
+			}
+			cfg.Routes = append(cfg.Routes, sub.Routes...)
+		}
 	}
 
 	return &cfg, nil

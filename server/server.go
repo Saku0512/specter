@@ -242,7 +242,7 @@ func newEngine(cfg *config.Config, verbose bool, history *RequestHistory, state 
 
 				// match conditions
 				for _, m := range rt.Match {
-					if matchesQuery(c, m.Query) && matchesBody(bodyBytes, m.Body) {
+					if matchesQuery(c, m.Query) && matchesBody(bodyBytes, m.Body) && matchesHeaders(c, m.Headers) {
 						status := m.Status
 						if status == 0 {
 							status = http.StatusOK
@@ -629,6 +629,15 @@ func matchesBody(body []byte, expected map[string]any) bool {
 	}
 	for k, v := range expected {
 		if fmt.Sprint(parsed[k]) != fmt.Sprint(v) {
+			return false
+		}
+	}
+	return true
+}
+
+func matchesHeaders(c *gin.Context, headers map[string]string) bool {
+	for k, v := range headers {
+		if c.GetHeader(k) != v {
 			return false
 		}
 	}

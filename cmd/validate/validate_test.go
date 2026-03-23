@@ -68,7 +68,22 @@ func TestCheck_matchNoCondition(t *testing.T) {
 		},
 	}
 	errs := check(cfg)
-	assertContains(t, errs, "must have at least one query or body condition")
+	assertContains(t, errs, "must have at least one query, body, or headers condition")
+}
+
+func TestCheck_matchHeadersOnly(t *testing.T) {
+	cfg := &config.Config{
+		Routes: []config.Route{
+			{
+				Path:   "/a",
+				Method: "GET",
+				Match:  []config.RouteMatch{{Headers: map[string]string{"Authorization": "Bearer token"}}},
+			},
+		},
+	}
+	if errs := check(cfg); len(errs) != 0 {
+		t.Errorf("expected no errors, got %v", errs)
+	}
 }
 
 func TestCheck_matchQueryOnly(t *testing.T) {

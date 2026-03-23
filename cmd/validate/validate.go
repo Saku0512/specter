@@ -90,8 +90,8 @@ func check(cfg *config.Config) []string {
 			}
 		}
 		for j, m := range r.Match {
-			if len(m.Query) == 0 && len(m.Body) == 0 {
-				errs = append(errs, prefix+fmt.Sprintf(": match[%d] must have at least one query or body condition", j))
+			if len(m.Query) == 0 && len(m.Body) == 0 && len(m.Headers) == 0 {
+				errs = append(errs, prefix+fmt.Sprintf(": match[%d] must have at least one query, body, or headers condition", j))
 			}
 		}
 	}

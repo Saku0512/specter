@@ -15,6 +15,7 @@ type RouteResponse struct {
 type RouteMatch struct {
 	Query       map[string]string `yaml:"query,omitempty"`
 	Body        map[string]any    `yaml:"body,omitempty"`
+	Headers     map[string]string `yaml:"headers,omitempty"`
 	Status      int               `yaml:"status,omitempty"`
 	ContentType string            `yaml:"content_type,omitempty"`
 	Response    any               `yaml:"response,omitempty"`

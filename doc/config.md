@@ -28,7 +28,7 @@ routes:
 | `headers` | map | Custom response headers |
 | `content_type` | string | Response Content-Type (default: `application/json`) |
 | `delay` | int | Response delay in milliseconds |
-| `match` | list | Conditional responses by query/body |
+| `match` | list | Conditional responses by query/body/headers |
 | `mode` | string | `sequential` (default) or `random` |
 | `responses` | list | Multiple responses for cycling |
 | `rate_limit` | int | Max requests before returning 429 |
@@ -66,6 +66,32 @@ GET /users?status=active   → 200 [{ id: 1, name: Alice }]
 GET /users?status=inactive → 404 { error: not found }
 GET /users                 → 200 [{ id: 1 }, { id: 2 }]
 ```
+
+## Request Header Matching
+
+Use `headers` in `match` to branch on request headers. Matching is case-insensitive on header names.
+
+```yaml
+- path: /api/data
+  method: GET
+  match:
+    - headers:
+        Authorization: Bearer secret-token
+      response: { data: secret }
+    - headers:
+        X-Role: admin
+      response: { data: admin-only }
+  status: 401
+  response: { error: unauthorized }
+```
+
+```
+GET /api/data  Authorization: Bearer secret-token  → 200 { data: secret }
+GET /api/data  X-Role: admin                       → 200 { data: admin-only }
+GET /api/data                                      → 401 { error: unauthorized }
+```
+
+`headers`, `query`, and `body` can be combined in a single `match` entry (all conditions must match).
 
 ## Request Body Matching
 

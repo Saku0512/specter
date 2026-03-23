@@ -467,6 +467,119 @@ func TestTemplateNoTemplate(t *testing.T) {
 	}
 }
 
+// --- Header matching ---
+
+func doWithHeader(srv *Server, method, path, body, key, value string) *httptest.ResponseRecorder {
+	req := httptest.NewRequest(method, path, strings.NewReader(body))
+	if body != "" {
+		req.Header.Set("Content-Type", "application/json")
+	}
+	req.Header.Set(key, value)
+	w := httptest.NewRecorder()
+	srv.ServeHTTP(w, req)
+	return w
+}
+
+func TestHeaderMatch(t *testing.T) {
+	srv := newSrv(&config.Config{
+		Routes: []config.Route{
+			{
+				Path:   "/secure",
+				Method: "GET",
+				Match: []config.RouteMatch{
+					{
+						Headers:  map[string]string{"Authorization": "Bearer secret"},
+						Response: map[string]any{"auth": true},
+					},
+				},
+				Status:   401,
+				Response: map[string]any{"auth": false},
+			},
+		},
+	})
+
+	// Correct token → matched response
+	w := doWithHeader(srv, "GET", "/secure", "", "Authorization", "Bearer secret")
+	if w.Code != 200 {
+		t.Errorf("expected 200, got %d", w.Code)
+	}
+	body := jsonBody(t, w)
+	if body["auth"] != true {
+		t.Errorf("expected auth:true, got %v", body["auth"])
+	}
+
+	// No token → fallback
+	w = do(srv, "GET", "/secure", "")
+	if w.Code != 401 {
+		t.Errorf("expected 401 fallback, got %d", w.Code)
+	}
+}
+
+func TestHeaderMatch_caseInsensitiveName(t *testing.T) {
+	srv := newSrv(&config.Config{
+		Routes: []config.Route{
+			{
+				Path:   "/h",
+				Method: "GET",
+				Match: []config.RouteMatch{
+					{
+						Headers:  map[string]string{"x-api-key": "mykey"},
+						Response: map[string]any{"ok": true},
+					},
+				},
+				Response: map[string]any{"ok": false},
+			},
+		},
+	})
+
+	w := doWithHeader(srv, "GET", "/h", "", "X-Api-Key", "mykey")
+	body := jsonBody(t, w)
+	if body["ok"] != true {
+		t.Errorf("expected ok:true for case-insensitive header match, got %v", body)
+	}
+}
+
+func TestHeaderMatch_combined(t *testing.T) {
+	srv := newSrv(&config.Config{
+		Routes: []config.Route{
+			{
+				Path:   "/combo",
+				Method: "POST",
+				Match: []config.RouteMatch{
+					{
+						Headers:  map[string]string{"X-Role": "admin"},
+						Body:     map[string]any{"action": "delete"},
+						Status:   200,
+						Response: map[string]any{"allowed": true},
+					},
+				},
+				Status:   403,
+				Response: map[string]any{"allowed": false},
+			},
+		},
+	})
+
+	// Both match
+	req := httptest.NewRequest("POST", "/combo", strings.NewReader(`{"action":"delete"}`))
+	req.Header.Set("Content-Type", "application/json")
+	req.Header.Set("X-Role", "admin")
+	w := httptest.NewRecorder()
+	srv.ServeHTTP(w, req)
+	if w.Code != 200 {
+		t.Errorf("expected 200, got %d", w.Code)
+	}
+
+	// Header matches but body doesn't
+	req = httptest.NewRequest("POST", "/combo", strings.NewReader(`{"action":"read"}`))
+	req.Header.Set("Content-Type", "application/json")
+	req.Header.Set("X-Role", "admin")
+	w = httptest.NewRecorder()
+	srv.ServeHTTP(w, req)
+	if w.Code != 403 {
+		t.Errorf("expected 403 fallback, got %d", w.Code)
+	}
+}
+
 // --- Request verification ---
 
 func assertAPI(srv *Server, body string) *httptest.ResponseRecorder {

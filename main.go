@@ -29,6 +29,7 @@ Usage:
 Flags:
   -c <path>    Path to config file (default: config.yaml)
   -p <port>    Port to listen on (default: 8080)
+  --host       Host to listen on (default: all interfaces)
   --verbose    Log request headers and body
   -v, --version  Show version
   -h, --help   Show this help
@@ -39,6 +40,7 @@ Commands:
 Environment variables:
   SPECTER_CONFIG   Path to config file
   SPECTER_PORT     Port to listen on
+  SPECTER_HOST     Host to listen on
   SPECTER_VERBOSE  Set to 1 or true to enable verbose logging
 
 Examples:
@@ -59,6 +61,7 @@ func main() {
 
 	configPath := flag.String("c", "config.yaml", "path to config file")
 	port := flag.String("p", "8080", "port to listen on")
+	host := flag.String("host", "", "host to listen on (default: all interfaces)")
 	verbose := flag.Bool("verbose", false, "log request headers and body")
 	v := flag.Bool("v", false, "show version")
 	flag.BoolVar(v, "version", false, "show version")
@@ -81,6 +84,11 @@ func main() {
 	if !set["verbose"] {
 		if val := os.Getenv("SPECTER_VERBOSE"); val == "1" || val == "true" {
 			*verbose = true
+		}
+	}
+	if !set["host"] {
+		if val := os.Getenv("SPECTER_HOST"); val != "" {
+			*host = val
 		}
 	}
 
@@ -137,7 +145,7 @@ func main() {
 	}()
 
 	httpSrv := &http.Server{
-		Addr:    ":" + *port,
+		Addr:    *host + ":" + *port,
 		Handler: srv,
 	}
 

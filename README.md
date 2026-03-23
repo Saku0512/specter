@@ -22,6 +22,7 @@ specter -c config.yml -p 8080
 |------|---------|-------------|
 | `-c` | `config.yaml` | Path to config file |
 | `-p` | `8080` | Port to listen on |
+| `--host` | all interfaces | Host to listen on |
 | `-v`, `--version` | — | Show version |
 | `--verbose` | — | Log request headers and body |
 
@@ -31,6 +32,7 @@ Flags take precedence over environment variables.
 |----------------------|-----------------|
 | `SPECTER_CONFIG` | `-c` |
 | `SPECTER_PORT` | `-p` |
+| `SPECTER_HOST` | `--host` |
 | `SPECTER_VERBOSE` | `--verbose` |
 
 ## Generate config from OpenAPI

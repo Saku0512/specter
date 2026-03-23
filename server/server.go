@@ -1,6 +1,7 @@
 package server
 
 import (
+	"math/rand/v2"
 	"net/http"
 	"sync/atomic"
 	"time"
@@ -36,6 +37,9 @@ func newEngine(cfg *config.Config) *gin.Engine {
 
 	for _, route := range cfg.Routes {
 		rt := route
+
+		var counter atomic.Uint64
+
 		r.Handle(rt.Method, rt.Path, func(c *gin.Context) {
 			if rt.Delay > 0 {
 				time.Sleep(time.Duration(rt.Delay) * time.Millisecond)
@@ -43,6 +47,24 @@ func newEngine(cfg *config.Config) *gin.Engine {
 			for k, v := range rt.Headers {
 				c.Header(k, v)
 			}
+
+			if len(rt.Responses) > 0 {
+				var picked config.RouteResponse
+				switch rt.Mode {
+				case "random":
+					picked = rt.Responses[rand.IntN(len(rt.Responses))]
+				default: // sequential
+					idx := counter.Add(1) - 1
+					picked = rt.Responses[idx%uint64(len(rt.Responses))]
+				}
+				status := picked.Status
+				if status == 0 {
+					status = http.StatusOK
+				}
+				c.JSON(status, picked.Response)
+				return
+			}
+
 			status := rt.Status
 			if status == 0 {
 				status = http.StatusOK

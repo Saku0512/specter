@@ -53,6 +53,37 @@ routes:
 
 Both `.yaml` and `.yml` extensions are supported.
 
+### Multiple Responses
+
+Use `responses` to return different responses per request. Control the behavior with `mode`.
+
+| mode | behavior |
+|------|----------|
+| `sequential` (default) | Returns responses in order, loops when exhausted |
+| `random` | Picks a response randomly each time |
+
+```yaml
+# Retry simulation: fails first, succeeds on retry
+- path: /unstable
+  method: GET
+  mode: sequential
+  responses:
+    - status: 500
+      response: { error: internal }
+    - status: 200
+      response: { ok: true }
+
+# Random failure simulation
+- path: /flaky
+  method: GET
+  mode: random
+  responses:
+    - status: 200
+      response: { ok: true }
+    - status: 503
+      response: { error: unavailable }
+```
+
 ### CORS
 
 Set `cors: true` to enable CORS headers for all routes. Preflight (`OPTIONS`) requests are handled automatically.

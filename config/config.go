@@ -10,6 +10,7 @@ type RouteResponse struct {
 	Status      int    `yaml:"status,omitempty"`
 	ContentType string `yaml:"content_type,omitempty"`
 	Response    any    `yaml:"response,omitempty"`
+	File        string `yaml:"file,omitempty"`
 }
 
 type RouteMatch struct {
@@ -19,6 +20,7 @@ type RouteMatch struct {
 	Status      int               `yaml:"status,omitempty"`
 	ContentType string            `yaml:"content_type,omitempty"`
 	Response    any               `yaml:"response,omitempty"`
+	File        string            `yaml:"file,omitempty"`
 }
 
 type Webhook struct {
@@ -45,6 +47,7 @@ type Route struct {
 	State       string            `yaml:"state,omitempty"`       // required server state to match
 	SetState    *string           `yaml:"set_state,omitempty"`   // state to set after responding
 	Webhook     *Webhook          `yaml:"webhook,omitempty"`     // outgoing callback after responding
+	File        string            `yaml:"file,omitempty"`        // path to response file (.json/.yaml/.yml)
 }
 
 type Config struct {

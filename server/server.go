@@ -12,12 +12,15 @@ import (
 	"net/url"
 	"strconv"
 	"strings"
+	"os"
+	"path/filepath"
 	"sync"
 	"sync/atomic"
 	"text/template"
 	"time"
 
 	"github.com/Saku0512/specter/config"
+	"gopkg.in/yaml.v3"
 	"github.com/brianvoe/gofakeit/v6"
 	"github.com/gin-gonic/gin"
 )
@@ -247,11 +250,15 @@ func newEngine(cfg *config.Config, verbose bool, history *RequestHistory, state 
 						if status == 0 {
 							status = http.StatusOK
 						}
+						body, fileCT := resolveBody(m.Response, m.File, tmplData, c.Params)
 						ct := m.ContentType
+						if ct == "" {
+							ct = fileCT
+						}
 						if ct == "" {
 							ct = rt.ContentType
 						}
-						respond(c, status, ct, applyParams(applyTemplate(m.Response, tmplData), c.Params))
+						respond(c, status, ct, body)
 						if rt.SetState != nil {
 							state.Set(*rt.SetState)
 						}
@@ -274,11 +281,15 @@ func newEngine(cfg *config.Config, verbose bool, history *RequestHistory, state 
 					if status == 0 {
 						status = http.StatusOK
 					}
+					body, fileCT := resolveBody(picked.Response, picked.File, tmplData, c.Params)
 					ct := picked.ContentType
+					if ct == "" {
+						ct = fileCT
+					}
 					if ct == "" {
 						ct = rt.ContentType
 					}
-					respond(c, status, ct, applyParams(applyTemplate(picked.Response, tmplData), c.Params))
+					respond(c, status, ct, body)
 					if rt.SetState != nil {
 						state.Set(*rt.SetState)
 					}
@@ -291,7 +302,12 @@ func newEngine(cfg *config.Config, verbose bool, history *RequestHistory, state 
 				if status == 0 {
 					status = http.StatusOK
 				}
-				respond(c, status, rt.ContentType, applyParams(applyTemplate(rt.Response, tmplData), c.Params))
+				body, fileCT := resolveBody(rt.Response, rt.File, tmplData, c.Params)
+				ct := rt.ContentType
+				if ct == "" {
+					ct = fileCT
+				}
+				respond(c, status, ct, body)
 				if rt.SetState != nil {
 					state.Set(*rt.SetState)
 				}
@@ -670,6 +686,46 @@ func fireWebhook(wh *config.Webhook, tmplData map[string]any, params gin.Params)
 		resp.Body.Close()
 		log.Printf("webhook: %s %s → %d", method, targetURL, resp.StatusCode)
 	}()
+}
+
+// loadFile reads a file and returns its parsed content and an inferred content type.
+// .json files are parsed as JSON, .yaml/.yml as YAML (served as JSON-compatible data).
+// All other files are returned as a raw string with an empty content type.
+func loadFile(path string) (any, string, error) {
+	data, err := os.ReadFile(path)
+	if err != nil {
+		return nil, "", err
+	}
+	switch strings.ToLower(filepath.Ext(path)) {
+	case ".json":
+		var v any
+		if err := json.Unmarshal(data, &v); err != nil {
+			return nil, "", fmt.Errorf("parse %s: %w", path, err)
+		}
+		return v, "application/json", nil
+	case ".yaml", ".yml":
+		var v any
+		if err := yaml.Unmarshal(data, &v); err != nil {
+			return nil, "", fmt.Errorf("parse %s: %w", path, err)
+		}
+		return v, "application/json", nil
+	default:
+		return string(data), "", nil
+	}
+}
+
+// resolveBody returns the response body and an inferred content type.
+// If file is non-empty it takes precedence over body.
+func resolveBody(body any, file string, tmplData map[string]any, params gin.Params) (any, string) {
+	if file != "" {
+		data, ct, err := loadFile(file)
+		if err != nil {
+			log.Printf("file response: %v", err)
+			return map[string]any{"error": "failed to load response file"}, ""
+		}
+		return applyParams(applyTemplate(data, tmplData), params), ct
+	}
+	return applyParams(applyTemplate(body, tmplData), params), ""
 }
 
 func respond(c *gin.Context, status int, contentType string, body any) {

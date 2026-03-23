@@ -36,6 +36,7 @@ routes:
 | `state` | string | Only match when server is in this state |
 | `set_state` | string | Transition server to this state after responding |
 | `webhook` | object | Outgoing HTTP callback fired after responding |
+| `file` | string | Path to a `.json`, `.yaml`, `.yml`, or text file to serve as the response body |
 
 ---
 
@@ -287,6 +288,54 @@ GET  /profile → 401 { error: unauthorized }
 ```
 
 See [introspection.md](introspection.md) for the `/__specter/state` endpoint.
+
+## File Response
+
+Use `file` to serve a response body from an external file instead of inlining it in the config. Useful for large or complex fixtures.
+
+Supported formats:
+
+| Extension | Behaviour |
+|---|---|
+| `.json` | Parsed and served as `application/json` |
+| `.yaml` / `.yml` | Parsed and served as `application/json` |
+| anything else | Served as raw text; set `content_type` explicitly if needed |
+
+```yaml
+- path: /users
+  method: GET
+  file: fixtures/users.json    # served as application/json
+
+- path: /health
+  method: GET
+  content_type: text/plain
+  file: fixtures/health.txt
+
+- path: /config
+  method: GET
+  file: fixtures/config.yaml   # YAML parsed → served as JSON
+```
+
+`file` can also be set per entry in `responses` and `match`:
+
+```yaml
+- path: /items
+  method: GET
+  mode: sequential
+  responses:
+    - file: fixtures/items_v1.json
+    - file: fixtures/items_v2.json
+
+- path: /search
+  method: GET
+  match:
+    - query:
+        type: premium
+      file: fixtures/premium.json
+  file: fixtures/default.json
+```
+
+File paths are resolved relative to the working directory where specter is started.
 
 ## Webhook / Callback
 

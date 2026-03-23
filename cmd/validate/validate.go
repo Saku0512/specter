@@ -84,14 +84,29 @@ func check(cfg *config.Config) []string {
 		if r.RateReset > 0 && r.RateLimit == 0 {
 			errs = append(errs, prefix+": rate_reset requires rate_limit to be set")
 		}
+		if r.File != "" {
+			if _, err := os.Stat(r.File); err != nil {
+				errs = append(errs, prefix+fmt.Sprintf(": file %q not found", r.File))
+			}
+		}
 		for j, resp := range r.Responses {
 			if resp.Status != 0 && (resp.Status < 100 || resp.Status > 599) {
 				errs = append(errs, prefix+fmt.Sprintf(": responses[%d] invalid status %d", j, resp.Status))
+			}
+			if resp.File != "" {
+				if _, err := os.Stat(resp.File); err != nil {
+					errs = append(errs, prefix+fmt.Sprintf(": responses[%d] file %q not found", j, resp.File))
+				}
 			}
 		}
 		for j, m := range r.Match {
 			if len(m.Query) == 0 && len(m.Body) == 0 && len(m.Headers) == 0 {
 				errs = append(errs, prefix+fmt.Sprintf(": match[%d] must have at least one query, body, or headers condition", j))
+			}
+			if m.File != "" {
+				if _, err := os.Stat(m.File); err != nil {
+					errs = append(errs, prefix+fmt.Sprintf(": match[%d] file %q not found", j, m.File))
+				}
 			}
 		}
 		if wh := r.Webhook; wh != nil {

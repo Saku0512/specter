@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"encoding/json"
 	"io"
+	"os"
 	"net/http"
 	"net/http/httptest"
 	"strings"
@@ -1250,4 +1251,151 @@ func waitTimeout(ms int) <-chan struct{} {
 		close(ch)
 	}()
 	return ch
+}
+
+// --- File Response ---
+
+func TestFileResponse_json(t *testing.T) {
+	f, err := os.CreateTemp(t.TempDir(), "*.json")
+	if err != nil {
+		t.Fatal(err)
+	}
+	f.WriteString(`{"id":1,"name":"Alice"}`)
+	f.Close()
+
+	srv := newSrv(&config.Config{
+		Routes: []config.Route{
+			{Path: "/u", Method: "GET", File: f.Name()},
+		},
+	})
+
+	w := do(srv, "GET", "/u", "")
+	if w.Code != 200 {
+		t.Fatalf("expected 200, got %d", w.Code)
+	}
+	m := jsonBody(t, w)
+	if m["name"] != "Alice" {
+		t.Errorf("unexpected body: %v", m)
+	}
+}
+
+func TestFileResponse_yaml(t *testing.T) {
+	f, err := os.CreateTemp(t.TempDir(), "*.yaml")
+	if err != nil {
+		t.Fatal(err)
+	}
+	f.WriteString("id: 2\nname: Bob\n")
+	f.Close()
+
+	srv := newSrv(&config.Config{
+		Routes: []config.Route{
+			{Path: "/u", Method: "GET", File: f.Name()},
+		},
+	})
+
+	w := do(srv, "GET", "/u", "")
+	if w.Code != 200 {
+		t.Fatalf("expected 200, got %d", w.Code)
+	}
+	m := jsonBody(t, w)
+	if m["name"] != "Bob" {
+		t.Errorf("unexpected body: %v", m)
+	}
+}
+
+func TestFileResponse_yml(t *testing.T) {
+	f, err := os.CreateTemp(t.TempDir(), "*.yml")
+	if err != nil {
+		t.Fatal(err)
+	}
+	f.WriteString("status: ok\n")
+	f.Close()
+
+	srv := newSrv(&config.Config{
+		Routes: []config.Route{
+			{Path: "/s", Method: "GET", File: f.Name()},
+		},
+	})
+
+	w := do(srv, "GET", "/s", "")
+	if w.Code != 200 {
+		t.Fatalf("expected 200, got %d", w.Code)
+	}
+	m := jsonBody(t, w)
+	if m["status"] != "ok" {
+		t.Errorf("unexpected body: %v", m)
+	}
+}
+
+func TestFileResponse_plainText(t *testing.T) {
+	f, err := os.CreateTemp(t.TempDir(), "*.txt")
+	if err != nil {
+		t.Fatal(err)
+	}
+	f.WriteString("hello world")
+	f.Close()
+
+	srv := newSrv(&config.Config{
+		Routes: []config.Route{
+			{Path: "/t", Method: "GET", File: f.Name(), ContentType: "text/plain"},
+		},
+	})
+
+	w := do(srv, "GET", "/t", "")
+	if w.Code != 200 {
+		t.Fatalf("expected 200, got %d", w.Code)
+	}
+	if !strings.Contains(w.Body.String(), "hello world") {
+		t.Errorf("unexpected body: %s", w.Body.String())
+	}
+}
+
+func TestFileResponse_missingFile(t *testing.T) {
+	srv := newSrv(&config.Config{
+		Routes: []config.Route{
+			{Path: "/x", Method: "GET", File: "/nonexistent/file.json"},
+		},
+	})
+
+	w := do(srv, "GET", "/x", "")
+	if w.Code != 200 {
+		t.Fatalf("expected 200, got %d", w.Code)
+	}
+	m := jsonBody(t, w)
+	if m["error"] == nil {
+		t.Errorf("expected error key in body, got %v", m)
+	}
+}
+
+func TestFileResponse_inResponses(t *testing.T) {
+	f, err := os.CreateTemp(t.TempDir(), "*.json")
+	if err != nil {
+		t.Fatal(err)
+	}
+	f.WriteString(`{"seq":1}`)
+	f.Close()
+
+	srv := newSrv(&config.Config{
+		Routes: []config.Route{
+			{
+				Path:   "/r",
+				Method: "GET",
+				Responses: []config.RouteResponse{
+					{File: f.Name()},
+					{Status: 204},
+				},
+			},
+		},
+	})
+
+	w := do(srv, "GET", "/r", "")
+	m := jsonBody(t, w)
+	if m["seq"] != float64(1) {
+		t.Errorf("expected seq=1, got %v", m)
+	}
+
+	w = do(srv, "GET", "/r", "")
+	if w.Code != 204 {
+		t.Errorf("expected 204 on second call, got %d", w.Code)
+	}
 }

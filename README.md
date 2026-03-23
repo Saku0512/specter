@@ -18,6 +18,7 @@ specter -c config.yml -p 8080
 |------|---------|-------------|
 | `-c` | `config.yaml` | Path to config file |
 | `-p` | `8080` | Port to listen on |
+| `-v`, `--version` | — | Show version |
 
 ## Config
 

@@ -472,7 +472,10 @@ func newEngine(cfg *config.Config, verbose bool, history *RequestHistory, state 
 						if status == 0 {
 							status = http.StatusOK
 						}
-						body, fileCT := resolveBody(m.Response, m.File, m.Script, tmplData, c.Params)
+						body, fileCT, scriptStatus := resolveBody(m.Response, m.File, m.Script, tmplData, c.Params)
+						if scriptStatus != 0 {
+							status = scriptStatus
+						}
 						ct := m.ContentType
 						if ct == "" {
 							ct = fileCT
@@ -533,7 +536,10 @@ func newEngine(cfg *config.Config, verbose bool, history *RequestHistory, state 
 					if status == 0 {
 						status = http.StatusOK
 					}
-					body, fileCT := resolveBody(picked.Response, picked.File, picked.Script, tmplData, c.Params)
+					body, fileCT, scriptStatus2 := resolveBody(picked.Response, picked.File, picked.Script, tmplData, c.Params)
+					if scriptStatus2 != 0 {
+						status = scriptStatus2
+					}
 					ct := picked.ContentType
 					if ct == "" {
 						ct = fileCT
@@ -557,7 +563,10 @@ func newEngine(cfg *config.Config, verbose bool, history *RequestHistory, state 
 				if status == 0 {
 					status = http.StatusOK
 				}
-				body, fileCT := resolveBody(rt.Response, rt.File, rt.Script, tmplData, c.Params)
+				body, fileCT, scriptStatus3 := resolveBody(rt.Response, rt.File, rt.Script, tmplData, c.Params)
+				if scriptStatus3 != 0 {
+					status = scriptStatus3
+				}
 				ct := rt.ContentType
 				if ct == "" {
 					ct = fileCT
@@ -825,28 +834,36 @@ var templateFuncs = template.FuncMap{
 	"sub":    func(a, b int) int { return a - b },
 }
 
-// execScript renders a Go template script and returns the result as any.
+// execScript renders a Go template script and returns the result plus an optional
+// HTTP status override. If the JSON output contains a "_status" key (integer 100-599)
+// it is extracted and returned as the status override; the key is removed from the body.
 // If the output is valid JSON it is decoded; otherwise the raw string is returned.
-func execScript(script string, data map[string]any) any {
+func execScript(script string, data map[string]any) (body any, statusOverride int) {
 	if script == "" {
-		return nil
+		return nil, 0
 	}
 	tmpl, err := template.New("").Funcs(templateFuncs).Parse(script)
 	if err != nil {
 		log.Printf("script: parse error: %v", err)
-		return nil
+		return nil, 0
 	}
 	var buf bytes.Buffer
 	if err := tmpl.Execute(&buf, data); err != nil {
 		log.Printf("script: execute error: %v", err)
-		return nil
+		return nil, 0
 	}
 	out := strings.TrimSpace(buf.String())
 	var v any
 	if err := json.Unmarshal([]byte(out), &v); err == nil {
-		return v
+		if m, ok := v.(map[string]any); ok {
+			if s, ok := m["_status"].(float64); ok && s >= 100 && s < 600 {
+				delete(m, "_status")
+				return m, int(s)
+			}
+		}
+		return v, 0
 	}
-	return out
+	return out, 0
 }
 
 func applyTemplate(v any, data map[string]any) any {
@@ -1019,21 +1036,23 @@ func loadFile(path string) (any, string, error) {
 	}
 }
 
-// resolveBody returns the response body and an inferred content type.
+// resolveBody returns the response body, an inferred content type, and an optional
+// HTTP status override (non-zero only when script uses the _status envelope).
 // Priority: script > file > body.
-func resolveBody(body any, file, script string, tmplData map[string]any, params gin.Params) (any, string) {
+func resolveBody(body any, file, script string, tmplData map[string]any, params gin.Params) (any, string, int) {
 	if script != "" {
-		return execScript(script, tmplData), ""
+		b, statusOverride := execScript(script, tmplData)
+		return b, "", statusOverride
 	}
 	if file != "" {
 		data, ct, err := loadFile(file)
 		if err != nil {
 			log.Printf("file response: %v", err)
-			return map[string]any{"error": "failed to load response file"}, ""
+			return map[string]any{"error": "failed to load response file"}, "", 0
 		}
-		return applyParams(applyTemplate(data, tmplData), params), ct
+		return applyParams(applyTemplate(data, tmplData), params), ct, 0
 	}
-	return applyParams(applyTemplate(body, tmplData), params), ""
+	return applyParams(applyTemplate(body, tmplData), params), "", 0
 }
 
 func respond(c *gin.Context, status int, contentType string, body any) {

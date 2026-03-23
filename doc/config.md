@@ -306,6 +306,28 @@ Use `script` to generate a response body using a Go template. The template has a
 
 All [Faker](#faker) types are also available via `{{ fake "type" }}`.
 
+### Dynamic status code from script
+
+Include `"_status"` in the script's JSON output to set the HTTP status code dynamically. The key is removed from the response body.
+
+```yaml
+- path: /orders
+  method: POST
+  script: |
+    {{- if eq .body.type "premium" -}}
+    {"_status": 201, "tier": "premium"}
+    {{- else -}}
+    {"_status": 400, "error": "invalid type"}
+    {{- end -}}
+```
+
+```
+POST /orders {"type":"premium"}  → 201 { "tier": "premium" }
+POST /orders {"type":"free"}     → 400 { "error": "invalid type" }
+```
+
+`_status` works in route-level `script`, `match[].script`, and `responses[].script`.
+
 ### Using script in match and responses
 
 ```yaml

@@ -2295,3 +2295,83 @@ func TestHeadersRegex_match(t *testing.T) {
 		t.Fatalf("expected 401, got %d", w2.Code)
 	}
 }
+
+// --- script _status envelope ---
+
+func TestScript_statusEnvelope(t *testing.T) {
+	srv := newSrv(&config.Config{
+		Routes: []config.Route{{
+			Path:   "/order",
+			Method: "POST",
+			Script: `
+{{- if eq .body.type "premium" -}}
+{"_status": 201, "tier": "premium"}
+{{- else -}}
+{"_status": 400, "error": "invalid type"}
+{{- end -}}`,
+		}},
+	})
+
+	w := do(srv, "POST", "/order", `{"type":"premium"}`)
+	if w.Code != 201 {
+		t.Fatalf("expected 201, got %d", w.Code)
+	}
+	b := jsonBody(t, w)
+	if b["tier"] != "premium" {
+		t.Fatalf("expected tier=premium, got %v", b)
+	}
+	if _, hasStatus := b["_status"]; hasStatus {
+		t.Error("_status should be removed from response body")
+	}
+
+	w2 := do(srv, "POST", "/order", `{"type":"free"}`)
+	if w2.Code != 400 {
+		t.Fatalf("expected 400, got %d", w2.Code)
+	}
+}
+
+func TestScript_statusEnvelopeInMatch(t *testing.T) {
+	srv := newSrv(&config.Config{
+		Routes: []config.Route{{
+			Path:   "/items",
+			Method: "POST",
+			Match: []config.RouteMatch{{
+				Body:   map[string]any{"dynamic": true},
+				Script: `{"_status": 202, "queued": true}`,
+			}},
+			Status:   200,
+			Response: map[string]any{"queued": false},
+		}},
+	})
+
+	w := do(srv, "POST", "/items", `{"dynamic":true}`)
+	if w.Code != 202 {
+		t.Fatalf("expected 202, got %d", w.Code)
+	}
+	b := jsonBody(t, w)
+	if b["queued"] != true {
+		t.Fatalf("expected queued=true, got %v", b)
+	}
+}
+
+func TestScript_statusEnvelopeInResponses(t *testing.T) {
+	srv := newSrv(&config.Config{
+		Routes: []config.Route{{
+			Path:   "/seq",
+			Method: "GET",
+			Responses: []config.RouteResponse{
+				{Script: `{"_status": 503, "error": "down"}`},
+				{Script: `{"_status": 200, "ok": true}`},
+			},
+		}},
+	})
+
+	w1 := do(srv, "GET", "/seq", "")
+	if w1.Code != 503 {
+		t.Fatalf("call 1: expected 503, got %d", w1.Code)
+	}
+	w2 := do(srv, "GET", "/seq", "")
+	if w2.Code != 200 {
+		t.Fatalf("call 2: expected 200, got %d", w2.Code)
+	}
+}

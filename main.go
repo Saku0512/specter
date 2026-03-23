@@ -15,11 +15,37 @@ import (
 
 var version = "dev"
 
+func usage() {
+	fmt.Fprintf(os.Stderr, `👻 specter %s — lightweight mock API server
+
+Usage:
+  specter [flags]
+  specter gen -i openapi.yml [-o config.yml]
+
+Flags:
+  -c <path>    Path to config file (default: config.yaml)
+  -p <port>    Port to listen on (default: 8080)
+  --verbose    Log request headers and body
+  -v, --version  Show version
+  -h, --help   Show this help
+
+Commands:
+  gen          Generate config from an OpenAPI spec
+
+Examples:
+  specter -c config.yml -p 3000
+  specter gen -i openapi.yml -o config.yml
+
+`, version)
+}
+
 func main() {
 	if len(os.Args) > 1 && os.Args[1] == "gen" {
 		gen.Run(os.Args[2:])
 		return
 	}
+
+	flag.Usage = usage
 
 	configPath := flag.String("c", "config.yaml", "path to config file")
 	port := flag.String("p", "8080", "port to listen on")
@@ -30,6 +56,11 @@ func main() {
 
 	if *v {
 		fmt.Println("specter", version)
+		os.Exit(0)
+	}
+
+	if len(os.Args) == 1 {
+		usage()
 		os.Exit(0)
 	}
 

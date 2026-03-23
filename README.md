@@ -44,6 +44,8 @@ specter -c config.yml -p 8080
 | `-c` | `config.yaml` | Path to config file |
 | `-p` | `8080` | Port to listen on |
 | `--host` | all interfaces | Host to listen on |
+| `--cert` | — | TLS certificate file (enables HTTPS) |
+| `--key` | — | TLS key file (enables HTTPS) |
 | `-v`, `--version` | — | Show version |
 | `--verbose` | — | Log request headers and body |
 
@@ -54,6 +56,8 @@ Flags take precedence over environment variables.
 | `SPECTER_CONFIG` | `-c` |
 | `SPECTER_PORT` | `-p` |
 | `SPECTER_HOST` | `--host` |
+| `SPECTER_CERT` | `--cert` |
+| `SPECTER_KEY` | `--key` |
 | `SPECTER_VERBOSE` | `--verbose` |
 
 ## Quick start
@@ -271,6 +275,21 @@ routes:
     delay: 1000
     response:
       message: finally
+```
+
+### HTTPS
+
+Pass `--cert` and `--key` to enable TLS.
+
+```sh
+specter -c config.yml --cert cert.pem --key key.pem
+# 👻 Specter running on :8080 (TLS)
+```
+
+For local development, you can generate a self-signed certificate with:
+
+```sh
+openssl req -x509 -newkey rsa:4096 -keyout key.pem -out cert.pem -days 365 -nodes -subj '/CN=localhost'
 ```
 
 ### Verbose Logging

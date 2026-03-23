@@ -40,6 +40,8 @@ Flags:
   -c <path>    Path to config file (default: config.yaml)
   -p <port>    Port to listen on (default: 8080)
   --host       Host to listen on (default: all interfaces)
+  --cert       TLS certificate file (enables HTTPS)
+  --key        TLS key file (enables HTTPS)
   --verbose    Log request headers and body
   -v, --version  Show version
   -h, --help   Show this help
@@ -53,6 +55,8 @@ Environment variables:
   SPECTER_CONFIG   Path to config file
   SPECTER_PORT     Port to listen on
   SPECTER_HOST     Host to listen on
+  SPECTER_CERT     TLS certificate file
+  SPECTER_KEY      TLS key file
   SPECTER_VERBOSE  Set to 1 or true to enable verbose logging
 
 Examples:
@@ -82,6 +86,8 @@ func main() {
 	configPath := flag.String("c", "config.yaml", "path to config file")
 	port := flag.String("p", "8080", "port to listen on")
 	host := flag.String("host", "", "host to listen on (default: all interfaces)")
+	cert := flag.String("cert", "", "TLS certificate file")
+	key := flag.String("key", "", "TLS key file")
 	verbose := flag.Bool("verbose", false, "log request headers and body")
 	v := flag.Bool("v", false, "show version")
 	flag.BoolVar(v, "version", false, "show version")
@@ -109,6 +115,16 @@ func main() {
 	if !set["host"] {
 		if val := os.Getenv("SPECTER_HOST"); val != "" {
 			*host = val
+		}
+	}
+	if !set["cert"] {
+		if val := os.Getenv("SPECTER_CERT"); val != "" {
+			*cert = val
+		}
+	}
+	if !set["key"] {
+		if val := os.Getenv("SPECTER_KEY"); val != "" {
+			*key = val
 		}
 	}
 
@@ -175,9 +191,16 @@ func main() {
 	printRoutes(cfg)
 
 	go func() {
-		log.Printf("👻 Specter running on :%s", *port)
-		if err := httpSrv.ListenAndServe(); err != nil && err != http.ErrServerClosed {
-			log.Fatalf("server error: %v", err)
+		if *cert != "" && *key != "" {
+			log.Printf("👻 Specter running on :%s (TLS)", *port)
+			if err := httpSrv.ListenAndServeTLS(*cert, *key); err != nil && err != http.ErrServerClosed {
+				log.Fatalf("server error: %v", err)
+			}
+		} else {
+			log.Printf("👻 Specter running on :%s", *port)
+			if err := httpSrv.ListenAndServe(); err != nil && err != http.ErrServerClosed {
+				log.Fatalf("server error: %v", err)
+			}
 		}
 	}()
 

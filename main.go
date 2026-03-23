@@ -14,6 +14,7 @@ import (
 	"github.com/Saku0512/specter/config"
 	"github.com/Saku0512/specter/gen"
 	"github.com/Saku0512/specter/server"
+	"github.com/Saku0512/specter/validate"
 	"github.com/fsnotify/fsnotify"
 )
 
@@ -36,6 +37,7 @@ Flags:
 
 Commands:
   gen          Generate config from an OpenAPI spec
+  validate     Validate a config file
 
 Environment variables:
   SPECTER_CONFIG   Path to config file
@@ -54,6 +56,10 @@ Examples:
 func main() {
 	if len(os.Args) > 1 && os.Args[1] == "gen" {
 		gen.Run(os.Args[2:])
+		return
+	}
+	if len(os.Args) > 1 && os.Args[1] == "validate" {
+		validate.Run(os.Args[2:])
 		return
 	}
 

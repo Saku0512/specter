@@ -20,6 +20,14 @@ import (
 
 var version = "dev"
 
+func printRoutes(cfg *config.Config) {
+	fmt.Printf("\nregistered %d route(s):\n", len(cfg.Routes))
+	for _, r := range cfg.Routes {
+		fmt.Printf("  %-8s %s\n", r.Method, r.Path)
+	}
+	fmt.Println()
+}
+
 func usage() {
 	fmt.Fprintf(os.Stderr, `👻 specter %s — lightweight mock API server
 
@@ -157,6 +165,8 @@ func main() {
 
 	quit := make(chan os.Signal, 1)
 	signal.Notify(quit, syscall.SIGINT, syscall.SIGTERM)
+
+	printRoutes(cfg)
 
 	go func() {
 		log.Printf("👻 Specter running on :%s", *port)

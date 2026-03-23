@@ -8,6 +8,7 @@ import (
 	"os"
 
 	"github.com/Saku0512/specter/config"
+	"github.com/Saku0512/specter/gen"
 	"github.com/Saku0512/specter/server"
 	"github.com/fsnotify/fsnotify"
 )
@@ -15,6 +16,11 @@ import (
 var version = "dev"
 
 func main() {
+	if len(os.Args) > 1 && os.Args[1] == "gen" {
+		gen.Run(os.Args[2:])
+		return
+	}
+
 	configPath := flag.String("c", "config.yaml", "path to config file")
 	port := flag.String("p", "8080", "port to listen on")
 	verbose := flag.Bool("verbose", false, "log request headers and body")

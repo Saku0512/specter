@@ -7,23 +7,23 @@ import (
 )
 
 type RouteResponse struct {
-	Status   int `yaml:"status"`
-	Response any `yaml:"response"`
+	Status   int `yaml:"status,omitempty"`
+	Response any `yaml:"response,omitempty"`
 }
 
 type Route struct {
 	Path      string            `yaml:"path"`
 	Method    string            `yaml:"method"`
-	Status    int               `yaml:"status"`
-	Delay     int               `yaml:"delay"` // milliseconds
-	Headers   map[string]string `yaml:"headers"`
-	Response  any               `yaml:"response"`
-	Mode      string            `yaml:"mode"` // "sequential" (default) or "random"
-	Responses []RouteResponse   `yaml:"responses"`
+	Status    int               `yaml:"status,omitempty"`
+	Delay     int               `yaml:"delay,omitempty"` // milliseconds
+	Headers   map[string]string `yaml:"headers,omitempty"`
+	Response  any               `yaml:"response,omitempty"`
+	Mode      string            `yaml:"mode,omitempty"` // "sequential" (default) or "random"
+	Responses []RouteResponse   `yaml:"responses,omitempty"`
 }
 
 type Config struct {
-	CORS   bool    `yaml:"cors"`
+	CORS   bool    `yaml:"cors,omitempty"`
 	Routes []Route `yaml:"routes"`
 }
 

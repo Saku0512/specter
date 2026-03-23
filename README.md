@@ -25,6 +25,21 @@ specter -c config.yml -p 8080
 | `-v`, `--version` | — | Show version |
 | `--verbose` | — | Log request headers and body |
 
+## Generate config from OpenAPI
+
+```sh
+specter gen -i openapi.yml -o config.yml
+```
+
+| Flag | Default | Description |
+|------|---------|-------------|
+| `-i` | — | Path to OpenAPI spec (YAML or JSON) |
+| `-o` | `config.yml` | Output config file |
+
+- Converts `{param}` path parameters to `:param`
+- Uses `example` / `examples` fields if defined
+- Falls back to schema-based dummy values when no example is present
+
 ## Config
 
 ```yaml

@@ -82,3 +82,19 @@ curl -X PUT http://localhost:8080/__specter/state \
 ```
 
 The state persists across hot reloads but resets when the server restarts.
+
+## Vars (multi-variable state store)
+
+A key-value store for more complex stateful scenarios. See [config.md](config.md#multi-variable-state) for route-level `vars` / `set_vars` fields.
+
+```sh
+GET    /__specter/vars           # get all vars  → { "role": "admin", ... }
+PUT    /__specter/vars           # set multiple  ← { "role": "admin", "tier": "gold" }
+DELETE /__specter/vars           # clear all vars
+
+GET    /__specter/vars/:key      # get one var   → { "key": "role", "value": "admin" }
+PUT    /__specter/vars/:key      # set one var   ← { "value": "admin" }
+DELETE /__specter/vars/:key      # delete one var
+```
+
+Vars persist across hot reloads but reset when the server restarts.

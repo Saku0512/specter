@@ -46,6 +46,8 @@ type Route struct {
 	RateReset   int               `yaml:"rate_reset,omitempty"`  // seconds until count resets
 	State       string            `yaml:"state,omitempty"`       // required server state to match
 	SetState    *string           `yaml:"set_state,omitempty"`   // state to set after responding
+	Vars        map[string]string `yaml:"vars,omitempty"`        // require these vars to match
+	SetVars     map[string]string `yaml:"set_vars,omitempty"`    // set these vars after responding
 	Webhook     *Webhook          `yaml:"webhook,omitempty"`     // outgoing callback after responding
 	File        string            `yaml:"file,omitempty"`        // path to response file (.json/.yaml/.yml)
 	ErrorRate   float64           `yaml:"error_rate,omitempty"`  // 0.0-1.0 probability of injecting an error

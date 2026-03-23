@@ -81,21 +81,64 @@ func (s *StateStore) Set(v string) {
 	s.value = v
 }
 
+
+type VarStore struct {
+	mu   sync.Mutex
+	vars map[string]string
+}
+
+func newVarStore() *VarStore { return &VarStore{vars: map[string]string{}} }
+
+func (v *VarStore) Get(key string) string {
+	v.mu.Lock()
+	defer v.mu.Unlock()
+	return v.vars[key]
+}
+
+func (v *VarStore) Set(key, val string) {
+	v.mu.Lock()
+	defer v.mu.Unlock()
+	v.vars[key] = val
+}
+
+func (v *VarStore) Delete(key string) {
+	v.mu.Lock()
+	defer v.mu.Unlock()
+	delete(v.vars, key)
+}
+
+func (v *VarStore) All() map[string]string {
+	v.mu.Lock()
+	defer v.mu.Unlock()
+	out := make(map[string]string, len(v.vars))
+	for k, val := range v.vars {
+		out[k] = val
+	}
+	return out
+}
+
+func (v *VarStore) Clear() {
+	v.mu.Lock()
+	defer v.mu.Unlock()
+	v.vars = map[string]string{}
+}
+
 type Server struct {
 	engine  atomic.Pointer[gin.Engine]
 	verbose bool
 	history *RequestHistory
 	state   *StateStore
+	vars    *VarStore
 }
 
 func New(cfg *config.Config, verbose bool) *Server {
-	s := &Server{verbose: verbose, history: &RequestHistory{}, state: &StateStore{}}
-	s.engine.Store(newEngine(cfg, verbose, s.history, s.state))
+	s := &Server{verbose: verbose, history: &RequestHistory{}, state: &StateStore{}, vars: newVarStore()}
+	s.engine.Store(newEngine(cfg, verbose, s.history, s.state, s.vars))
 	return s
 }
 
 func (s *Server) Reload(cfg *config.Config) {
-	s.engine.Store(newEngine(cfg, s.verbose, s.history, s.state))
+	s.engine.Store(newEngine(cfg, s.verbose, s.history, s.state, s.vars))
 }
 
 func (s *Server) ServeHTTP(w http.ResponseWriter, r *http.Request) {
@@ -108,7 +151,7 @@ type routeEntry struct {
 	limiter *rateLimiter
 }
 
-func newEngine(cfg *config.Config, verbose bool, history *RequestHistory, state *StateStore) *gin.Engine {
+func newEngine(cfg *config.Config, verbose bool, history *RequestHistory, state *StateStore, vars *VarStore) *gin.Engine {
 	r := gin.Default()
 
 	if cfg.CORS {
@@ -184,6 +227,46 @@ func newEngine(cfg *config.Config, verbose bool, history *RequestHistory, state 
 		c.Status(http.StatusNoContent)
 	})
 
+	// Vars endpoints
+	r.GET("/__specter/vars", func(c *gin.Context) {
+		c.JSON(http.StatusOK, vars.All())
+	})
+	r.PUT("/__specter/vars", func(c *gin.Context) {
+		var body map[string]string
+		if err := c.ShouldBindJSON(&body); err != nil {
+			c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+			return
+		}
+		for k, v := range body {
+			vars.Set(k, v)
+		}
+		c.Status(http.StatusNoContent)
+	})
+	r.DELETE("/__specter/vars", func(c *gin.Context) {
+		vars.Clear()
+		c.Status(http.StatusNoContent)
+	})
+	r.GET("/__specter/vars/:key", func(c *gin.Context) {
+		key := c.Param("key")
+		val := vars.Get(key)
+		c.JSON(http.StatusOK, gin.H{"key": key, "value": val})
+	})
+	r.PUT("/__specter/vars/:key", func(c *gin.Context) {
+		var body struct {
+			Value string `json:"value"`
+		}
+		if err := c.ShouldBindJSON(&body); err != nil {
+			c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+			return
+		}
+		vars.Set(c.Param("key"), body.Value)
+		c.Status(http.StatusNoContent)
+	})
+	r.DELETE("/__specter/vars/:key", func(c *gin.Context) {
+		vars.Delete(c.Param("key"))
+		c.Status(http.StatusNoContent)
+	})
+
 	// Group routes by (method, path) to support multiple state-conditional
 	// entries for the same endpoint.
 	type routeKey struct{ method, path string }
@@ -220,8 +303,11 @@ func newEngine(cfg *config.Config, verbose bool, history *RequestHistory, state 
 			for _, e := range entries {
 				rt := e.route
 
-				// Skip entries whose state condition doesn't match
+				// Skip entries whose state or vars conditions don't match
 				if rt.State != "" && rt.State != currentState {
+					continue
+				}
+				if !matchesVars(vars, rt.Vars) {
 					continue
 				}
 
@@ -278,6 +364,9 @@ func newEngine(cfg *config.Config, verbose bool, history *RequestHistory, state 
 						if rt.SetState != nil {
 							state.Set(*rt.SetState)
 						}
+						for k, v := range rt.SetVars {
+							vars.Set(k, v)
+						}
 						fireWebhook(rt.Webhook, tmplData, c.Params)
 						return
 					}
@@ -309,6 +398,9 @@ func newEngine(cfg *config.Config, verbose bool, history *RequestHistory, state 
 					if rt.SetState != nil {
 						state.Set(*rt.SetState)
 					}
+					for k, v := range rt.SetVars {
+						vars.Set(k, v)
+					}
 					fireWebhook(rt.Webhook, tmplData, c.Params)
 					return
 				}
@@ -326,6 +418,9 @@ func newEngine(cfg *config.Config, verbose bool, history *RequestHistory, state 
 				respond(c, status, ct, body)
 				if rt.SetState != nil {
 					state.Set(*rt.SetState)
+				}
+				for k, v := range rt.SetVars {
+					vars.Set(k, v)
 				}
 				fireWebhook(rt.Webhook, tmplData, c.Params)
 				return
@@ -772,6 +867,15 @@ func matchesBody(body []byte, expected map[string]any) bool {
 func matchesHeaders(c *gin.Context, headers map[string]string) bool {
 	for k, v := range headers {
 		if c.GetHeader(k) != v {
+			return false
+		}
+	}
+	return true
+}
+
+func matchesVars(vs *VarStore, expected map[string]string) bool {
+	for k, v := range expected {
+		if vs.Get(k) != v {
 			return false
 		}
 	}

@@ -1451,3 +1451,161 @@ func TestDelayRange_valid(t *testing.T) {
 		t.Errorf("expected 200, got %d", w.Code)
 	}
 }
+
+// --- VarStore / Multi-variable state ---
+
+func putVars(srv *Server, body string) *httptest.ResponseRecorder {
+	req := httptest.NewRequest(http.MethodPut, "/__specter/vars", bytes.NewBufferString(body))
+	req.Header.Set("Content-Type", "application/json")
+	w := httptest.NewRecorder()
+	srv.ServeHTTP(w, req)
+	return w
+}
+
+func TestVars_setAndGet(t *testing.T) {
+	srv := newSrv(&config.Config{Routes: []config.Route{}})
+
+	w := putVars(srv, `{"role":"admin","tier":"gold"}`)
+	if w.Code != http.StatusNoContent {
+		t.Fatalf("PUT vars: expected 204, got %d", w.Code)
+	}
+
+	req := httptest.NewRequest(http.MethodGet, "/__specter/vars", nil)
+	rec := httptest.NewRecorder()
+	srv.ServeHTTP(rec, req)
+	var m map[string]string
+	json.Unmarshal(rec.Body.Bytes(), &m)
+	if m["role"] != "admin" || m["tier"] != "gold" {
+		t.Errorf("unexpected vars: %v", m)
+	}
+}
+
+func TestVars_perKeyPutAndDelete(t *testing.T) {
+	srv := newSrv(&config.Config{Routes: []config.Route{}})
+
+	req := httptest.NewRequest(http.MethodPut, "/__specter/vars/color",
+		bytes.NewBufferString(`{"value":"blue"}`))
+	req.Header.Set("Content-Type", "application/json")
+	rec := httptest.NewRecorder()
+	srv.ServeHTTP(rec, req)
+	if rec.Code != http.StatusNoContent {
+		t.Fatalf("expected 204, got %d", rec.Code)
+	}
+
+	req = httptest.NewRequest(http.MethodGet, "/__specter/vars/color", nil)
+	rec = httptest.NewRecorder()
+	srv.ServeHTTP(rec, req)
+	var m map[string]any
+	json.Unmarshal(rec.Body.Bytes(), &m)
+	if m["value"] != "blue" {
+		t.Errorf("expected blue, got %v", m)
+	}
+
+	req = httptest.NewRequest(http.MethodDelete, "/__specter/vars/color", nil)
+	rec = httptest.NewRecorder()
+	srv.ServeHTTP(rec, req)
+	if rec.Code != http.StatusNoContent {
+		t.Fatalf("expected 204, got %d", rec.Code)
+	}
+
+	req = httptest.NewRequest(http.MethodGet, "/__specter/vars/color", nil)
+	rec = httptest.NewRecorder()
+	srv.ServeHTTP(rec, req)
+	json.Unmarshal(rec.Body.Bytes(), &m)
+	if m["value"] != "" {
+		t.Errorf("expected empty after delete, got %v", m)
+	}
+}
+
+func TestVars_clear(t *testing.T) {
+	srv := newSrv(&config.Config{Routes: []config.Route{}})
+	putVars(srv, `{"a":"1","b":"2"}`)
+
+	req := httptest.NewRequest(http.MethodDelete, "/__specter/vars", nil)
+	rec := httptest.NewRecorder()
+	srv.ServeHTTP(rec, req)
+	if rec.Code != http.StatusNoContent {
+		t.Fatalf("expected 204, got %d", rec.Code)
+	}
+
+	req = httptest.NewRequest(http.MethodGet, "/__specter/vars", nil)
+	rec = httptest.NewRecorder()
+	srv.ServeHTTP(rec, req)
+	var m map[string]string
+	json.Unmarshal(rec.Body.Bytes(), &m)
+	if len(m) != 0 {
+		t.Errorf("expected empty vars after clear, got %v", m)
+	}
+}
+
+func TestVars_routeMatchCondition(t *testing.T) {
+	srv := newSrv(&config.Config{
+		Routes: []config.Route{
+			{
+				Path:   "/data",
+				Method: "GET",
+				Vars:   map[string]string{"role": "admin"},
+				Status: 200,
+				Response: map[string]any{"access": "granted"},
+			},
+			{
+				Path:     "/data",
+				Method:   "GET",
+				Status:   403,
+				Response: map[string]any{"access": "denied"},
+			},
+		},
+	})
+
+	// Without vars set → 403
+	w := do(srv, "GET", "/data", "")
+	if w.Code != 403 {
+		t.Errorf("expected 403 without vars, got %d", w.Code)
+	}
+
+	// Set role=admin → 200
+	putVars(srv, `{"role":"admin"}`)
+	w = do(srv, "GET", "/data", "")
+	if w.Code != 200 {
+		t.Errorf("expected 200 with role=admin, got %d", w.Code)
+	}
+}
+
+func TestVars_setVarsOnResponse(t *testing.T) {
+	srv := newSrv(&config.Config{
+		Routes: []config.Route{
+			{
+				Path:     "/login",
+				Method:   "POST",
+				Status:   200,
+				Response: map[string]any{"ok": true},
+				SetVars:  map[string]string{"logged_in": "true", "user": "alice"},
+			},
+			{
+				Path:   "/profile",
+				Method: "GET",
+				Vars:   map[string]string{"logged_in": "true"},
+				Status: 200,
+				Response: map[string]any{"name": "alice"},
+			},
+			{
+				Path:     "/profile",
+				Method:   "GET",
+				Status:   401,
+				Response: map[string]any{"error": "unauthorized"},
+			},
+		},
+	})
+
+	w := do(srv, "GET", "/profile", "")
+	if w.Code != 401 {
+		t.Errorf("expected 401 before login, got %d", w.Code)
+	}
+
+	do(srv, "POST", "/login", `{}`)
+
+	w = do(srv, "GET", "/profile", "")
+	if w.Code != 200 {
+		t.Errorf("expected 200 after login, got %d", w.Code)
+	}
+}

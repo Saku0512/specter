@@ -35,6 +35,8 @@ routes:
 | `rate_reset` | int | Seconds until rate limit counter resets |
 | `state` | string | Only match when server is in this state |
 | `set_state` | string | Transition server to this state after responding |
+| `vars` | map | Only match when all specified vars equal the given values |
+| `set_vars` | map | Set these vars after responding |
 | `webhook` | object | Outgoing HTTP callback fired after responding |
 | `file` | string | Path to a `.json`, `.yaml`, `.yml`, or text file to serve as the response body |
 
@@ -288,6 +290,51 @@ GET  /profile → 401 { error: unauthorized }
 ```
 
 See [introspection.md](introspection.md) for the `/__specter/state` endpoint.
+
+## Multi-variable State
+
+For scenarios that need multiple independent variables, use `vars` / `set_vars` alongside (or instead of) the single `state` field.
+
+```yaml
+routes:
+  - path: /login
+    method: POST
+    set_vars:
+      logged_in: "true"
+      role: "{{ .body.role }}"   # template supported
+    response: { token: abc }
+
+  - path: /admin
+    method: GET
+    vars:
+      logged_in: "true"
+      role: admin
+    response: { secret: data }
+
+  - path: /admin
+    method: GET
+    vars:
+      logged_in: "true"
+    status: 403
+    response: { error: forbidden }
+
+  - path: /admin
+    method: GET
+    status: 401
+    response: { error: unauthorized }
+```
+
+```
+POST /login {"role":"admin"}  → 200   (logged_in=true, role=admin)
+GET  /admin                   → 200 { secret: data }
+
+POST /login {"role":"user"}   → 200   (logged_in=true, role=user)
+GET  /admin                   → 403 { error: forbidden }
+```
+
+`vars` conditions use AND logic (all specified keys must match). Multiple routes with the same path are evaluated in order — first match wins.
+
+See [introspection.md](introspection.md) for the `/__specter/vars` endpoint to read/write vars from tests.
 
 ## Chaos / Fault Injection
 

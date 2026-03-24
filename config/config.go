@@ -30,6 +30,7 @@ type RouteMatch struct {
 	Form            map[string]string `yaml:"form,omitempty"`             // match application/x-www-form-urlencoded fields (regex)
 	GraphQL         *GraphQLMatch     `yaml:"graphql,omitempty"`          // match GraphQL operationName / variables
 	Cookies         map[string]string `yaml:"cookies,omitempty"`          // match cookie name → regex/exact
+	BodySchema      map[string]any    `yaml:"body_schema,omitempty"`      // JSON Schema the request body must conform to
 	SetState        *string           `yaml:"set_state,omitempty"`        // transition server state after this match
 	SetVars         map[string]string `yaml:"set_vars,omitempty"`         // set vars after this match
 	ResponseHeaders map[string]string `yaml:"response_headers,omitempty"` // response headers to set/override when this match fires

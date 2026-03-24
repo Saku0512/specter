@@ -394,7 +394,8 @@ func newEngine(cfg *config.Config, verbose bool, history *RequestHistory, state 
 						matchesBodyPath(bodyBytes, m.BodyPath) &&
 						matchesForm(c, bodyBytes, m.Form) &&
 						matchesGraphQL(bodyBytes, m.GraphQL) &&
-						matchesCookies(c, m.Cookies) {
+						matchesCookies(c, m.Cookies) &&
+						matchesBodySchema(bodyBytes, m.BodySchema) {
 						status := m.Status
 						if status == 0 {
 							status = http.StatusOK

@@ -134,7 +134,8 @@ func check(cfg *config.Config) []string {
 		}
 		for j, m := range r.Match {
 			hasCondition := len(m.Query) > 0 || len(m.Body) > 0 || len(m.Headers) > 0 ||
-				len(m.BodyPath) > 0 || len(m.Form) > 0 || m.GraphQL != nil || len(m.Cookies) > 0
+				len(m.BodyPath) > 0 || len(m.Form) > 0 || m.GraphQL != nil || len(m.Cookies) > 0 ||
+				len(m.BodySchema) > 0
 			if !hasCondition {
 				errs = append(errs, prefix+fmt.Sprintf(": match[%d] must have at least one condition", j))
 			}

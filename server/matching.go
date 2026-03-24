@@ -9,6 +9,7 @@ import (
 	"strings"
 
 	"github.com/Saku0512/specter/config"
+	"github.com/getkin/kin-openapi/openapi3"
 	"github.com/gin-gonic/gin"
 )
 
@@ -193,4 +194,25 @@ func applySetCookies(c *gin.Context, cookies []config.SetCookie) {
 			SameSite: sameSite,
 		})
 	}
+}
+
+// matchesBodySchema validates the request body against an inline JSON Schema.
+// The schema is expressed as a map[string]any (same structure as an OpenAPI schema object).
+func matchesBodySchema(body []byte, schema map[string]any) bool {
+	if len(schema) == 0 {
+		return true
+	}
+	schemaBytes, err := json.Marshal(schema)
+	if err != nil {
+		return false
+	}
+	sc := &openapi3.Schema{}
+	if err = json.Unmarshal(schemaBytes, sc); err != nil {
+		return false
+	}
+	var value any
+	if err := json.Unmarshal(body, &value); err != nil {
+		return false
+	}
+	return sc.VisitJSON(value) == nil
 }

@@ -3481,3 +3481,64 @@ func TestTimes_exhaustion(t *testing.T) {
 		t.Fatalf("call 3: expected 404 after exhaustion, got %d", w.Code)
 	}
 }
+
+func TestMatch_BodySchema_hit(t *testing.T) {
+	srv := newSrv(&config.Config{
+		Routes: []config.Route{
+			{
+				Path:   "/items",
+				Method: "POST",
+				Match: []config.RouteMatch{
+					{
+						BodySchema: map[string]any{
+							"type":     "object",
+							"required": []any{"name"},
+							"properties": map[string]any{
+								"name": map[string]any{"type": "string"},
+							},
+						},
+						Status:   201,
+						Response: "created",
+					},
+				},
+				Status:   400,
+				Response: "bad request",
+			},
+		},
+	})
+	w := do(srv, "POST", "/items", `{"name":"alice"}`)
+	if w.Code != 201 {
+		t.Fatalf("expected 201, got %d", w.Code)
+	}
+}
+
+func TestMatch_BodySchema_miss(t *testing.T) {
+	srv := newSrv(&config.Config{
+		Routes: []config.Route{
+			{
+				Path:   "/items",
+				Method: "POST",
+				Match: []config.RouteMatch{
+					{
+						BodySchema: map[string]any{
+							"type":     "object",
+							"required": []any{"name"},
+							"properties": map[string]any{
+								"name": map[string]any{"type": "string"},
+							},
+						},
+						Status:   201,
+						Response: "created",
+					},
+				},
+				Status:   400,
+				Response: "bad request",
+			},
+		},
+	})
+	// missing required field "name"
+	w := do(srv, "POST", "/items", `{"age":30}`)
+	if w.Code != 400 {
+		t.Fatalf("expected 400 for schema mismatch, got %d", w.Code)
+	}
+}

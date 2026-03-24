@@ -196,6 +196,29 @@ POST /users {"role":"guest"}  → 403 { error: forbidden }
 POST /users {"role":"user"}   → 200 { id: 2 }
 ```
 
+## Form Body Matching
+
+Use `form` in `match` to branch on `application/x-www-form-urlencoded` request bodies. Values support regex (same as `query` and `headers`).
+
+```yaml
+- path: /token
+  method: POST
+  match:
+    - form:
+        grant_type: ^client_credentials$
+        client_id: my-app
+      status: 200
+      response: { access_token: tok-abc, token_type: bearer }
+    - form:
+        grant_type: password
+      status: 200
+      response: { access_token: tok-xyz, token_type: bearer }
+  status: 401
+  response: { error: invalid_grant }
+```
+
+`form` only matches when the request `Content-Type` is `application/x-www-form-urlencoded`. Requests with a JSON body will fall through to the default response.
+
 ## Path Parameters in Response
 
 Use `:paramName` in response values to embed path parameters. Numeric values are automatically converted to numbers.

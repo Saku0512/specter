@@ -127,8 +127,10 @@ func check(cfg *config.Config) []string {
 			errs = append(errs, prefix+": on_call must be non-negative")
 		}
 		for j, m := range r.Match {
-			if len(m.Query) == 0 && len(m.Body) == 0 && len(m.Headers) == 0 && len(m.BodyPath) == 0 {
-				errs = append(errs, prefix+fmt.Sprintf(": match[%d] must have at least one query, body, or headers condition", j))
+			hasCondition := len(m.Query) > 0 || len(m.Body) > 0 || len(m.Headers) > 0 ||
+				len(m.BodyPath) > 0 || len(m.Form) > 0 || m.GraphQL != nil
+			if !hasCondition {
+				errs = append(errs, prefix+fmt.Sprintf(": match[%d] must have at least one condition", j))
 			}
 			if m.File != "" {
 				if _, err := os.Stat(m.File); err != nil {
@@ -148,6 +150,21 @@ func check(cfg *config.Config) []string {
 			for key, pattern := range m.Headers {
 				if _, err := regexp.Compile(pattern); err != nil {
 					errs = append(errs, prefix+fmt.Sprintf(": match[%d] headers[%q] invalid regex: %v", j, key, err))
+				}
+			}
+			for key, pattern := range m.Form {
+				if _, err := regexp.Compile(pattern); err != nil {
+					errs = append(errs, prefix+fmt.Sprintf(": match[%d] form[%q] invalid regex: %v", j, key, err))
+				}
+			}
+			if gql := m.GraphQL; gql != nil {
+				if gql.Operation == "" && len(gql.Variables) == 0 {
+					errs = append(errs, prefix+fmt.Sprintf(": match[%d] graphql must have operation or variables", j))
+				}
+				for key, pattern := range gql.Variables {
+					if _, err := regexp.Compile(pattern); err != nil {
+						errs = append(errs, prefix+fmt.Sprintf(": match[%d] graphql.variables[%q] invalid regex: %v", j, key, err))
+					}
 				}
 			}
 		}

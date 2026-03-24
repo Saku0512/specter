@@ -68,7 +68,7 @@ func TestCheck_matchNoCondition(t *testing.T) {
 		},
 	}
 	errs := check(cfg)
-	assertContains(t, errs, "must have at least one query, body, or headers condition")
+	assertContains(t, errs, "must have at least one condition")
 }
 
 func TestCheck_matchHeadersOnly(t *testing.T) {

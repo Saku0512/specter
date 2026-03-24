@@ -2749,6 +2749,53 @@ func TestStore_Clear(t *testing.T) {
 	}
 }
 
+func TestMatch_Form(t *testing.T) {
+	srv := newSrv(&config.Config{
+		Routes: []config.Route{
+			{
+				Path:   "/login",
+				Method: "POST",
+				Match: []config.RouteMatch{
+					{
+						Form:     map[string]string{"grant_type": "^client_credentials$", "client_id": "app1"},
+						Status:   200,
+						Response: map[string]any{"token": "abc"},
+					},
+				},
+				Status:   401,
+				Response: map[string]any{"error": "unauthorized"},
+			},
+		},
+	})
+
+	// matching form data
+	req := httptest.NewRequest("POST", "/login", strings.NewReader("grant_type=client_credentials&client_id=app1"))
+	req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
+	rec := httptest.NewRecorder()
+	srv.ServeHTTP(rec, req)
+	if rec.Code != 200 {
+		t.Fatalf("expected 200 for matching form, got %d: %s", rec.Code, rec.Body.String())
+	}
+
+	// wrong client_id → fallback
+	req2 := httptest.NewRequest("POST", "/login", strings.NewReader("grant_type=client_credentials&client_id=other"))
+	req2.Header.Set("Content-Type", "application/x-www-form-urlencoded")
+	rec2 := httptest.NewRecorder()
+	srv.ServeHTTP(rec2, req2)
+	if rec2.Code != 401 {
+		t.Fatalf("expected 401 for non-matching form, got %d", rec2.Code)
+	}
+
+	// JSON body (wrong content type) → fallback
+	req3 := httptest.NewRequest("POST", "/login", strings.NewReader(`{"grant_type":"client_credentials"}`))
+	req3.Header.Set("Content-Type", "application/json")
+	rec3 := httptest.NewRecorder()
+	srv.ServeHTTP(rec3, req3)
+	if rec3.Code != 401 {
+		t.Fatalf("expected 401 for JSON body (wrong CT), got %d", rec3.Code)
+	}
+}
+
 func TestSSE_basic(t *testing.T) {
 	srv := newSrv(&config.Config{
 		Routes: []config.Route{

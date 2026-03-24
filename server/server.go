@@ -557,7 +557,11 @@ func newEngine(cfg *config.Config, verbose bool, history *RequestHistory, state 
 
 				// match conditions
 				for _, m := range rt.Match {
-					if matchesQuery(c, m.Query) && matchesBody(bodyBytes, m.Body) && matchesHeaders(c, m.Headers) && matchesBodyPath(bodyBytes, m.BodyPath) {
+					if matchesQuery(c, m.Query) &&
+						matchesBody(bodyBytes, m.Body) &&
+						matchesHeaders(c, m.Headers) &&
+						matchesBodyPath(bodyBytes, m.BodyPath) &&
+						matchesForm(c, bodyBytes, m.Form) {
 						status := m.Status
 						if status == 0 {
 							status = http.StatusOK
@@ -1366,6 +1370,26 @@ func getJSONPath(data map[string]any, path string) (string, bool) {
 		return "", false
 	}
 	return getJSONPath(nested, path[idx+1:])
+}
+
+// matchesForm checks application/x-www-form-urlencoded fields against expected key→regex/exact patterns.
+func matchesForm(c *gin.Context, body []byte, form map[string]string) bool {
+	if len(form) == 0 {
+		return true
+	}
+	if !strings.Contains(c.ContentType(), "application/x-www-form-urlencoded") {
+		return false
+	}
+	values, err := url.ParseQuery(string(body))
+	if err != nil {
+		return false
+	}
+	for k, pattern := range form {
+		if !matchRegexOrExact(values.Get(k), pattern) {
+			return false
+		}
+	}
+	return true
 }
 
 // matchesBodyPath checks dot-notation path → regex pattern conditions against the request body.

@@ -2749,6 +2749,64 @@ func TestStore_Clear(t *testing.T) {
 	}
 }
 
+func TestSSE_basic(t *testing.T) {
+	srv := newSrv(&config.Config{
+		Routes: []config.Route{
+			{
+				Path:   "/events",
+				Method: "GET",
+				Stream: true,
+				Events: []config.StreamEvent{
+					{Data: map[string]any{"type": "hello"}, Delay: 0},
+					{Data: "world", Event: "msg", ID: "1"},
+				},
+			},
+		},
+	})
+
+	w := do(srv, "GET", "/events", "")
+	if w.Code != 200 {
+		t.Fatalf("expected 200, got %d", w.Code)
+	}
+	ct := w.Header().Get("Content-Type")
+	if !strings.Contains(ct, "text/event-stream") {
+		t.Errorf("expected Content-Type text/event-stream, got %s", ct)
+	}
+
+	body := w.Body.String()
+	if !strings.Contains(body, "data:") {
+		t.Errorf("expected SSE data lines, got: %q", body)
+	}
+	// second event has event type and id
+	if !strings.Contains(body, "event: msg") {
+		t.Errorf("expected event: msg line, got: %q", body)
+	}
+	if !strings.Contains(body, "id: 1") {
+		t.Errorf("expected id: 1 line, got: %q", body)
+	}
+	// JSON payload
+	if !strings.Contains(body, `"hello"`) {
+		t.Errorf("expected hello in JSON payload, got: %q", body)
+	}
+	// string payload
+	if !strings.Contains(body, "world") {
+		t.Errorf("expected world in string payload, got: %q", body)
+	}
+}
+
+func TestSSE_noEvents_returns200(t *testing.T) {
+	// stream: true with no events emits empty stream
+	srv := newSrv(&config.Config{
+		Routes: []config.Route{
+			{Path: "/events", Method: "GET", Stream: true, Events: []config.StreamEvent{}},
+		},
+	})
+	w := do(srv, "GET", "/events", "")
+	if w.Code != 200 {
+		t.Fatalf("expected 200, got %d", w.Code)
+	}
+}
+
 func TestStore_ListFilter(t *testing.T) {
 	srv := newSrv(&config.Config{
 		Routes: []config.Route{

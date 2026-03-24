@@ -31,6 +31,14 @@ type RouteMatch struct {
 	SetVars     map[string]string `yaml:"set_vars,omitempty"`  // set vars after this match
 }
 
+// StreamEvent is a single SSE event emitted by a streaming route.
+type StreamEvent struct {
+	Data  any    `yaml:"data,omitempty"`  // event payload (string or JSON-serialisable)
+	Event string `yaml:"event,omitempty"` // SSE event type name (default: omitted → "message")
+	ID    string `yaml:"id,omitempty"`    // SSE event ID
+	Delay int    `yaml:"delay,omitempty"` // milliseconds to wait before sending this event
+}
+
 type Webhook struct {
 	URL     string            `yaml:"url"`
 	Method  string            `yaml:"method,omitempty"`  // default: POST
@@ -72,7 +80,10 @@ type Route struct {
 	StorePatch  string            `yaml:"store_patch,omitempty"` // merge into item by store_key param → 200/404
 	StoreDelete string            `yaml:"store_delete,omitempty"` // delete item by store_key param → 204/404
 	StoreClear  string            `yaml:"store_clear,omitempty"`  // clear all items in named store → 204
-	StoreKey    string            `yaml:"store_key,omitempty"`    // path param used as item ID (default: "id")
+	StoreKey     string        `yaml:"store_key,omitempty"`     // path param used as item ID (default: "id")
+	Stream       bool          `yaml:"stream,omitempty"`        // respond with a Server-Sent Events stream
+	Events       []StreamEvent `yaml:"events,omitempty"`        // SSE events to emit (requires stream: true)
+	StreamRepeat bool          `yaml:"stream_repeat,omitempty"` // loop events until client disconnects
 }
 
 type Config struct {

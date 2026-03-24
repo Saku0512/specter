@@ -711,6 +711,36 @@ POST /orders {"user":"alice"}
 POST http://localhost:8080/fulfillment {"order_id":42,"user":"alice"}
 ```
 
+## Server-Sent Events (SSE)
+
+Set `stream: true` on a route to respond with a persistent SSE stream instead of a single JSON response.
+
+```yaml
+- path: /events
+  method: GET
+  stream: true
+  events:
+    - data: { type: connected }          # JSON payload
+    - data: "keep-alive"                 # string payload
+      event: ping                        # SSE event type (default: omitted)
+      id: "1"                            # SSE event ID
+      delay: 500                         # ms to wait before sending this event
+    - data: { type: done }
+  stream_repeat: false                   # set true to loop events until client disconnects
+```
+
+| Field | Type | Description |
+|---|---|---|
+| `stream` | bool | Enable SSE mode for this route |
+| `events` | list | Ordered list of events to send |
+| `events[].data` | any | Payload (string or JSON-serialisable object) |
+| `events[].event` | string | SSE `event:` field (omitted = browser default "message") |
+| `events[].id` | string | SSE `id:` field |
+| `events[].delay` | int | Milliseconds to wait before sending this event |
+| `stream_repeat` | bool | If true, cycle through events indefinitely until client disconnects |
+
+The response sets `Content-Type: text/event-stream`, `Cache-Control: no-cache`, and `Connection: keep-alive`.
+
 ## Config Include
 
 Split a large config across multiple files using the `include` field. Patterns are resolved relative to the including file and support standard glob syntax.

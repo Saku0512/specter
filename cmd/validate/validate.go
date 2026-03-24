@@ -165,6 +165,17 @@ func check(cfg *config.Config) []string {
 		if r.StoreKey != "" && !needsKey {
 			errs = append(errs, prefix+": store_key is only used with store_get, store_put, store_patch, or store_delete")
 		}
+		if r.StreamRepeat && !r.Stream {
+			errs = append(errs, prefix+": stream_repeat requires stream: true")
+		}
+		if r.Stream && len(r.Events) == 0 {
+			errs = append(errs, prefix+": stream: true requires at least one event in events")
+		}
+		for j, ev := range r.Events {
+			if ev.Delay < 0 {
+				errs = append(errs, prefix+fmt.Sprintf(": events[%d] delay must be non-negative", j))
+			}
+		}
 		if wh := r.Webhook; wh != nil {
 			if wh.URL == "" {
 				errs = append(errs, prefix+": webhook missing url")

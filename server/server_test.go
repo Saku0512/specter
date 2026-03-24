@@ -14,6 +14,17 @@ import (
 	"github.com/Saku0512/specter/config"
 )
 
+func writeSpec(t *testing.T, content string) string {
+	t.Helper()
+	f, err := os.CreateTemp(t.TempDir(), "*.yaml")
+	if err != nil {
+		t.Fatal(err)
+	}
+	f.WriteString(content)
+	f.Close()
+	return f.Name()
+}
+
 func newSrv(cfg *config.Config) *Server {
 	return New(cfg, false)
 }
@@ -2444,6 +2455,113 @@ func TestRouteProxy_statefulSwitch(t *testing.T) {
 	b2 := jsonBody(t, w2)
 	if b2["real"] != true {
 		t.Fatalf("expected real=true, got %v", b2)
+	}
+}
+
+func TestOpenAPIResponseValidation_nonStrict_addsHeader(t *testing.T) {
+	// spec defines GET /pets → array of {id:int, name:string}
+	// we return a single object (wrong type) — non-strict should add header
+	specFile := writeSpec(t, `
+openapi: "3.0.0"
+info:
+  title: Test
+  version: "1"
+paths:
+  /pets:
+    get:
+      responses:
+        "200":
+          description: ok
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  type: object
+                  properties:
+                    id: { type: integer }
+                    name: { type: string }
+`)
+	srv := newSrv(&config.Config{
+		OpenAPI: specFile,
+		Routes: []config.Route{
+			{Path: "/pets", Method: "GET", Status: 200, Response: map[string]any{"id": 1, "name": "Fido"}},
+		},
+	})
+	w := do(srv, "GET", "/pets", "")
+	// non-strict: still 200, but with warning header
+	if w.Code != 200 {
+		t.Fatalf("expected 200, got %d", w.Code)
+	}
+	if w.Header().Get("X-Specter-Response-Validation-Error") == "" {
+		t.Errorf("expected X-Specter-Response-Validation-Error header")
+	}
+}
+
+func TestOpenAPIResponseValidation_strict_returns500(t *testing.T) {
+	specFile := writeSpec(t, `
+openapi: "3.0.0"
+info:
+  title: Test
+  version: "1"
+paths:
+  /pets:
+    get:
+      responses:
+        "200":
+          description: ok
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  type: object
+`)
+	srv := newSrv(&config.Config{
+		OpenAPI:               specFile,
+		OpenAPIStrictResponse: true,
+		Routes: []config.Route{
+			// Returns an object; spec requires an array
+			{Path: "/pets", Method: "GET", Status: 200, Response: map[string]any{"id": 1}},
+		},
+	})
+	w := do(srv, "GET", "/pets", "")
+	if w.Code != 500 {
+		t.Fatalf("strict mode: expected 500 for schema violation, got %d", w.Code)
+	}
+}
+
+func TestOpenAPIResponseValidation_valid_noHeader(t *testing.T) {
+	specFile := writeSpec(t, `
+openapi: "3.0.0"
+info:
+  title: Test
+  version: "1"
+paths:
+  /pets:
+    get:
+      responses:
+        "200":
+          description: ok
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  type: object
+`)
+	srv := newSrv(&config.Config{
+		OpenAPI: specFile,
+		Routes: []config.Route{
+			{Path: "/pets", Method: "GET", Status: 200, Response: []any{map[string]any{"id": 1}}},
+		},
+	})
+	w := do(srv, "GET", "/pets", "")
+	if w.Code != 200 {
+		t.Fatalf("expected 200, got %d", w.Code)
+	}
+	if h := w.Header().Get("X-Specter-Response-Validation-Error"); h != "" {
+		t.Errorf("expected no validation error header, got: %s", h)
 	}
 }
 

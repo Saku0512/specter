@@ -26,6 +26,7 @@ import (
 	"github.com/gin-gonic/gin"
 	"github.com/getkin/kin-openapi/openapi3"
 	"github.com/getkin/kin-openapi/openapi3filter"
+	"github.com/getkin/kin-openapi/routers"
 	"github.com/getkin/kin-openapi/routers/legacy"
 	"gopkg.in/yaml.v3"
 )
@@ -225,7 +226,10 @@ func newEngine(cfg *config.Config, verbose bool, history *RequestHistory, state 
 		r.Use(verboseLogger())
 	}
 	r.Use(historyMiddleware(history))
-	r.Use(openAPIMiddleware(cfg.OpenAPI, cfg.OpenAPIStrict))
+	oaRouter := buildOpenAPIRouter(cfg.OpenAPI)
+	if oaRouter != nil {
+		r.Use(openAPIRequestMiddleware(oaRouter, cfg.OpenAPIStrict))
+	}
 
 	r.GET("/__specter/requests", func(c *gin.Context) {
 		c.JSON(http.StatusOK, history.all())
@@ -578,7 +582,7 @@ func newEngine(cfg *config.Config, verbose bool, history *RequestHistory, state 
 						if ct == "" {
 							ct = rt.ContentType
 						}
-						respond(c, status, ct, body)
+						respondValidated(c, oaRouter, cfg.OpenAPIStrictResponse, status, ct, body)
 						// match-level set_state / set_vars take priority over route-level
 						if m.SetState != nil {
 							state.Set(*m.SetState)
@@ -642,7 +646,7 @@ func newEngine(cfg *config.Config, verbose bool, history *RequestHistory, state 
 					if ct == "" {
 						ct = rt.ContentType
 					}
-					respond(c, status, ct, body)
+					respondValidated(c, oaRouter, cfg.OpenAPIStrictResponse, status, ct, body)
 					if rt.SetState != nil {
 						state.Set(*rt.SetState)
 					}
@@ -666,7 +670,7 @@ func newEngine(cfg *config.Config, verbose bool, history *RequestHistory, state 
 				if ct == "" {
 					ct = fileCT
 				}
-				respond(c, status, ct, body)
+				respondValidated(c, oaRouter, cfg.OpenAPIStrictResponse, status, ct, body)
 				if rt.SetState != nil {
 					state.Set(*rt.SetState)
 				}
@@ -1546,32 +1550,34 @@ func handleStoreOp(c *gin.Context, rt config.Route, bodyBytes []byte, store *Dat
 	}
 }
 
-// openAPIMiddleware returns a gin middleware that validates incoming requests
-// against an OpenAPI spec. In non-strict mode (default) validation errors are
-// non-blocking: the mock response is always served with an X-Specter-Validation-Error
-// header. In strict mode a 400 is returned immediately and the mock is not served.
-func openAPIMiddleware(specPath string, strict bool) gin.HandlerFunc {
+// buildOpenAPIRouter loads an OpenAPI spec and returns a router for use in
+// both request and response validation. Returns nil if specPath is empty or invalid.
+func buildOpenAPIRouter(specPath string) routers.Router {
 	if specPath == "" {
-		return func(c *gin.Context) { c.Next() }
+		return nil
 	}
-
 	loader := openapi3.NewLoader()
 	doc, err := loader.LoadFromFile(specPath)
 	if err != nil {
 		log.Printf("openapi: failed to load spec %q: %v", specPath, err)
-		return func(c *gin.Context) { c.Next() }
+		return nil
 	}
 	if err := doc.Validate(loader.Context); err != nil {
 		log.Printf("openapi: spec %q is invalid: %v", specPath, err)
-		return func(c *gin.Context) { c.Next() }
+		return nil
 	}
-
-	router, err := legacy.NewRouter(doc)
+	r, err := legacy.NewRouter(doc)
 	if err != nil {
 		log.Printf("openapi: failed to build router from %q: %v", specPath, err)
-		return func(c *gin.Context) { c.Next() }
+		return nil
 	}
+	return r
+}
 
+// openAPIRequestMiddleware validates incoming requests against a pre-built OpenAPI router.
+// Non-strict: always serves the mock but adds X-Specter-Validation-Error header.
+// Strict: returns 400 and aborts.
+func openAPIRequestMiddleware(router routers.Router, strict bool) gin.HandlerFunc {
 	return func(c *gin.Context) {
 		if strings.HasPrefix(c.Request.URL.Path, "/__specter/") {
 			c.Next()
@@ -1603,7 +1609,7 @@ func openAPIMiddleware(specPath string, strict bool) gin.HandlerFunc {
 		// Restore body after FindRoute may have consumed it
 		c.Request.Body = io.NopCloser(bytes.NewBuffer(bodyBytes))
 
-		if err := openapi3filter.ValidateRequest(loader.Context, input); err != nil {
+		if err := openapi3filter.ValidateRequest(c.Request.Context(), input); err != nil {
 			msg := err.Error()
 			log.Printf("openapi validation: %s %s — %s", c.Request.Method, c.Request.URL.Path, msg)
 			if strict {
@@ -1617,6 +1623,61 @@ func openAPIMiddleware(specPath string, strict bool) gin.HandlerFunc {
 		c.Request.Body = io.NopCloser(bytes.NewBuffer(bodyBytes))
 		c.Next()
 	}
+}
+
+// validateOpenAPIResponse validates a response body against the OpenAPI spec.
+// Returns nil if the route is not in the spec or validation passes.
+func validateOpenAPIResponse(req *http.Request, router routers.Router, status int, ct string, body any) error {
+	route, pathParams, err := router.FindRoute(req)
+	if err != nil {
+		return nil // route not in spec — skip
+	}
+	reqInput := &openapi3filter.RequestValidationInput{
+		Request:    req,
+		PathParams: pathParams,
+		Route:      route,
+		Options: &openapi3filter.Options{
+			ExcludeRequestBody: true,
+			AuthenticationFunc: openapi3filter.NoopAuthenticationFunc,
+		},
+	}
+	if ct == "" {
+		ct = "application/json"
+	}
+	var bodyBytes []byte
+	if strings.Contains(ct, "application/json") {
+		bodyBytes, _ = json.Marshal(body)
+	} else if s, ok := body.(string); ok {
+		bodyBytes = []byte(s)
+	}
+	resInput := &openapi3filter.ResponseValidationInput{
+		RequestValidationInput: reqInput,
+		Status:                 status,
+		Header:                 http.Header{"Content-Type": []string{ct}},
+		Body:                   io.NopCloser(bytes.NewReader(bodyBytes)),
+		Options: &openapi3filter.Options{
+			ExcludeRequestBody: true,
+			AuthenticationFunc: openapi3filter.NoopAuthenticationFunc,
+		},
+	}
+	return openapi3filter.ValidateResponse(req.Context(), resInput)
+}
+
+// respondValidated validates the response against the OpenAPI spec (if configured)
+// then writes it. In strict mode a schema violation replaces the response with 500.
+func respondValidated(c *gin.Context, router routers.Router, strict bool, status int, ct string, body any) {
+	if router != nil {
+		if err := validateOpenAPIResponse(c.Request, router, status, ct, body); err != nil {
+			msg := err.Error()
+			log.Printf("[specter] openapi response validation: %s %s — %s", c.Request.Method, c.Request.URL.Path, msg)
+			if strict {
+				c.JSON(http.StatusInternalServerError, gin.H{"error": "response violates OpenAPI schema", "detail": msg})
+				return
+			}
+			c.Header("X-Specter-Response-Validation-Error", msg)
+		}
+	}
+	respond(c, status, ct, body)
 }
 
 func corsMiddleware() gin.HandlerFunc {

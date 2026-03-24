@@ -815,6 +815,28 @@ Included files contribute only their `routes` to the merged config. Top-level fi
 
 Includes can be nested: an included file can itself include others. Cycles are silently skipped.
 
+## OpenAPI Response Validation
+
+When `openapi` is set, specter can also validate **mock responses** against the spec schema.
+
+| Config field | Behaviour |
+|---|---|
+| *(none)* | No response validation |
+| `openapi_strict_response: false` *(default)* | Validation runs; violations add `X-Specter-Response-Validation-Error` header but the response is still served |
+| `openapi_strict_response: true` | Violations replace the response with `500 {"error": "response violates OpenAPI schema"}` |
+
+```yaml
+openapi: ./openapi.yaml
+openapi_strict_response: true   # return 500 instead of serving invalid responses
+
+routes:
+  - path: /pets
+    method: GET
+    response: { id: 1, name: Fido }   # validated against #/paths/~1pets/get/responses/200/content
+```
+
+The `X-Specter-Response-Validation-Error` header in non-strict mode makes it easy to spot drift between mocks and the spec in CI without blocking traffic.
+
 ## OpenAPI Request Validation
 
 Set `openapi` to a spec file path to enable request validation. By default validation is **non-blocking**: specter always serves the mock response but adds a warning header and logs the error. Set `openapi_strict: true` to **block** invalid requests with a `400` response.

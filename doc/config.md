@@ -1075,6 +1075,21 @@ routes:
 
 Store data resets when the server restarts. Use `POST /__specter/reset` with `"targets":["stores"]` or `DELETE /__specter/stores/:name` to clear it during tests. See [introspection.md](introspection.md) for the full stores API.
 
+## Redirect Shorthand
+
+Use `redirect` to issue an HTTP redirect without writing a custom handler. The default status is `302`; use `redirect_status` to choose `301`, `303`, `307`, or `308`.
+
+```yaml
+- path: /old-page
+  method: GET
+  redirect: /new-page            # 302 Found
+
+- path: /legacy
+  method: GET
+  redirect: https://example.com
+  redirect_status: 301           # 301 Moved Permanently
+```
+
 ## Response Delay
 
 ```yaml

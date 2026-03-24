@@ -182,6 +182,13 @@ func check(cfg *config.Config) []string {
 		if r.StoreKey != "" && !needsKey {
 			errs = append(errs, prefix+": store_key is only used with store_get, store_put, store_patch, or store_delete")
 		}
+		validRedirectStatuses := map[int]bool{0: true, 301: true, 302: true, 303: true, 307: true, 308: true}
+		if !validRedirectStatuses[r.RedirectStatus] {
+			errs = append(errs, prefix+fmt.Sprintf(": redirect_status %d is not a valid redirect code (use 301/302/303/307/308)", r.RedirectStatus))
+		}
+		if r.Redirect == "" && r.RedirectStatus != 0 {
+			errs = append(errs, prefix+": redirect_status requires redirect to be set")
+		}
 		if r.StreamRepeat && !r.Stream {
 			errs = append(errs, prefix+": stream_repeat requires stream: true")
 		}

@@ -524,6 +524,16 @@ func newEngine(cfg *config.Config, verbose bool, history *RequestHistory, state 
 					return
 				}
 
+				// Redirect shorthand
+				if rt.Redirect != "" {
+					status := rt.RedirectStatus
+					if status == 0 {
+						status = http.StatusFound
+					}
+					c.Redirect(status, rt.Redirect)
+					return
+				}
+
 				// Store CRUD operation
 				if hasStoreOp(rt) {
 					handleStoreOp(c, rt, bodyBytes, store)

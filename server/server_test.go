@@ -3328,3 +3328,33 @@ func TestStore_ResetTarget(t *testing.T) {
 		t.Errorf("after reset stores: expected empty, got %d", len(list))
 	}
 }
+
+func TestRedirect_default302(t *testing.T) {
+	srv := newSrv(&config.Config{
+		Routes: []config.Route{
+			{Path: "/old", Method: "GET", Redirect: "/new"},
+		},
+	})
+	w := do(srv, "GET", "/old", "")
+	if w.Code != 302 {
+		t.Fatalf("expected 302, got %d", w.Code)
+	}
+	if loc := w.Header().Get("Location"); loc != "/new" {
+		t.Errorf("expected Location /new, got %q", loc)
+	}
+}
+
+func TestRedirect_custom301(t *testing.T) {
+	srv := newSrv(&config.Config{
+		Routes: []config.Route{
+			{Path: "/moved", Method: "GET", Redirect: "https://example.com", RedirectStatus: 301},
+		},
+	})
+	w := do(srv, "GET", "/moved", "")
+	if w.Code != 301 {
+		t.Fatalf("expected 301, got %d", w.Code)
+	}
+	if loc := w.Header().Get("Location"); loc != "https://example.com" {
+		t.Errorf("expected Location https://example.com, got %q", loc)
+	}
+}

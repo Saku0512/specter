@@ -83,7 +83,9 @@ type Route struct {
 	DelayMax    int               `yaml:"delay_max,omitempty"`   // max random delay in ms
 	OnCall      int               `yaml:"on_call,omitempty"`     // match only on this call number (1-based)
 	Script      string            `yaml:"script,omitempty"`      // Go template producing the response body
-	Proxy       string            `yaml:"proxy,omitempty"`       // forward this route to a real backend
+	Proxy          string            `yaml:"proxy,omitempty"`           // forward this route to a real backend
+	Redirect       string            `yaml:"redirect,omitempty"`        // redirect to this URL/path (default status 302)
+	RedirectStatus int               `yaml:"redirect_status,omitempty"` // override redirect status code (301/302/303/307/308)
 	StorePush   string            `yaml:"store_push,omitempty"`  // push request body into named store → 201
 	StoreList   string            `yaml:"store_list,omitempty"`  // list all items in named store → 200
 	StoreGet    string            `yaml:"store_get,omitempty"`   // get item by store_key param → 200/404

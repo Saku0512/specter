@@ -800,6 +800,26 @@ Set `stream: true` on a route to respond with a persistent SSE stream instead of
 
 The response sets `Content-Type: text/event-stream`, `Cache-Control: no-cache`, and `Connection: keep-alive`.
 
+## Export Command
+
+`specter export` generates a starter `config.yml` from the request history of a running specter instance. Useful after running specter with no config (all 404s) to capture what routes were actually hit.
+
+```sh
+# Start specter (even with an empty config) and run your test suite / manual traffic
+specter -c /dev/null -p 8080
+
+# Then export:
+specter export --from http://localhost:8080 -o routes.yml
+```
+
+This reads `GET /__specter/requests`, deduplicates by `(method, path)`, sorts the routes, and writes a config file with `status: 200` stubs for each route. Fill in the response bodies afterward.
+
+| Flag | Default | Description |
+|---|---|---|
+| `--from` | `http://localhost:8080` | Base URL of the running specter instance |
+| `-o` | `exported.yml` | Output config file |
+| `-f` | false | Overwrite output file if it exists |
+
 ## Config Include
 
 Split a large config across multiple files using the `include` field. Patterns are resolved relative to the including file and support standard glob syntax.

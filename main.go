@@ -19,6 +19,7 @@ import (
 	"syscall"
 	"time"
 
+	export_cmd "github.com/Saku0512/specter/cmd/export"
 	gen_cmd "github.com/Saku0512/specter/cmd/gen"
 	init_cmd "github.com/Saku0512/specter/cmd/init"
 	record_cmd "github.com/Saku0512/specter/cmd/record"
@@ -95,6 +96,7 @@ Commands:
   gen          Generate config from an OpenAPI spec
   validate     Validate a config file
   record       Proxy a real API and record responses to config.yml
+  export       Generate a starter config from a running specter's request history
 
 Environment variables:
   SPECTER_CONFIG    Path to config file
@@ -128,6 +130,10 @@ func main() {
 	}
 	if len(os.Args) > 1 && os.Args[1] == "record" {
 		record_cmd.Run(os.Args[2:])
+		return
+	}
+	if len(os.Args) > 1 && os.Args[1] == "export" {
+		export_cmd.Run(os.Args[2:])
 		return
 	}
 

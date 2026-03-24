@@ -1,7 +1,7 @@
 class Specter < Formula
   desc "Lightweight mock API server"
   homepage "https://github.com/Saku0512/specter"
-  version "0.4.0"
+  version "0.5.0"
   license "MIT"
 
   on_macos do

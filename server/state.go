@@ -64,7 +64,6 @@ func (s *StateStore) Set(v string) {
 	s.value = v
 }
 
-
 type VarStore struct {
 	mu   sync.Mutex
 	vars map[string]string
@@ -105,7 +104,6 @@ func (v *VarStore) Clear() {
 	defer v.mu.Unlock()
 	v.vars = map[string]string{}
 }
-
 
 // DynamicRoute is a route added at runtime via the introspection API.
 type DynamicRoute struct {

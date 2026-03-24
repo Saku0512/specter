@@ -18,15 +18,15 @@ type RouteResponse struct {
 }
 
 type RouteMatch struct {
-	Query       map[string]string `yaml:"query,omitempty"`
-	Body        map[string]any    `yaml:"body,omitempty"`
-	Headers     map[string]string `yaml:"headers,omitempty"`
-	BodyPath    map[string]string `yaml:"body_path,omitempty"` // dot-notation path → regex pattern
-	Status      int               `yaml:"status,omitempty"`
-	ContentType string            `yaml:"content_type,omitempty"`
-	Response    any               `yaml:"response,omitempty"`
-	File        string            `yaml:"file,omitempty"`
-	Script      string            `yaml:"script,omitempty"`   // Go template producing the response body
+	Query           map[string]string `yaml:"query,omitempty"`
+	Body            map[string]any    `yaml:"body,omitempty"`
+	Headers         map[string]string `yaml:"headers,omitempty"`
+	BodyPath        map[string]string `yaml:"body_path,omitempty"` // dot-notation path → regex pattern
+	Status          int               `yaml:"status,omitempty"`
+	ContentType     string            `yaml:"content_type,omitempty"`
+	Response        any               `yaml:"response,omitempty"`
+	File            string            `yaml:"file,omitempty"`
+	Script          string            `yaml:"script,omitempty"`           // Go template producing the response body
 	Form            map[string]string `yaml:"form,omitempty"`             // match application/x-www-form-urlencoded fields (regex)
 	GraphQL         *GraphQLMatch     `yaml:"graphql,omitempty"`          // match GraphQL operationName / variables
 	Cookies         map[string]string `yaml:"cookies,omitempty"`          // match cookie name → regex/exact
@@ -56,7 +56,7 @@ type SetCookie struct {
 	Value    string `yaml:"value"`
 	Path     string `yaml:"path,omitempty"`
 	Domain   string `yaml:"domain,omitempty"`
-	MaxAge   int    `yaml:"max_age,omitempty"`   // seconds; 0 = session cookie
+	MaxAge   int    `yaml:"max_age,omitempty"` // seconds; 0 = session cookie
 	HTTPOnly bool   `yaml:"http_only,omitempty"`
 	Secure   bool   `yaml:"secure,omitempty"`
 	SameSite string `yaml:"same_site,omitempty"` // Strict, Lax, None
@@ -64,62 +64,62 @@ type SetCookie struct {
 
 type Webhook struct {
 	URL     string            `yaml:"url"`
-	Method  string            `yaml:"method,omitempty"`  // default: POST
+	Method  string            `yaml:"method,omitempty"` // default: POST
 	Body    any               `yaml:"body,omitempty"`
 	Headers map[string]string `yaml:"headers,omitempty"`
 	Delay   int               `yaml:"delay,omitempty"` // milliseconds before sending
 }
 
 type Route struct {
-	Path        string            `yaml:"path"`
-	Method      string            `yaml:"method"`
-	Status      int               `yaml:"status,omitempty"`
-	Delay       int               `yaml:"delay,omitempty"` // milliseconds
-	Headers     map[string]string `yaml:"headers,omitempty"`
-	ContentType string            `yaml:"content_type,omitempty"`
-	Response    any               `yaml:"response,omitempty"`
-	Mode        string            `yaml:"mode,omitempty"` // "sequential" (default) or "random"
-	Responses   []RouteResponse   `yaml:"responses,omitempty"`
-	Match       []RouteMatch      `yaml:"match,omitempty"`
-	RateLimit   int               `yaml:"rate_limit,omitempty"`  // max requests allowed
-	RateReset   int               `yaml:"rate_reset,omitempty"`  // seconds until count resets
-	State       string            `yaml:"state,omitempty"`       // required server state to match
-	SetState    *string           `yaml:"set_state,omitempty"`   // state to set after responding
-	Vars        map[string]string `yaml:"vars,omitempty"`        // require these vars to match
-	SetVars     map[string]string `yaml:"set_vars,omitempty"`    // set these vars after responding
-	Webhook     *Webhook          `yaml:"webhook,omitempty"`     // outgoing callback after responding
-	File        string            `yaml:"file,omitempty"`        // path to response file (.json/.yaml/.yml)
-	ErrorRate   float64           `yaml:"error_rate,omitempty"`  // 0.0-1.0 probability of injecting an error
-	ErrorStatus int               `yaml:"error_status,omitempty"` // status code for injected error (default 503)
-	DelayMin    int               `yaml:"delay_min,omitempty"`   // min random delay in ms (used with delay_max)
-	DelayMax    int               `yaml:"delay_max,omitempty"`   // max random delay in ms
-	OnCall      int               `yaml:"on_call,omitempty"`     // match only on this call number (1-based)
-	Script      string            `yaml:"script,omitempty"`      // Go template producing the response body
+	Path           string            `yaml:"path"`
+	Method         string            `yaml:"method"`
+	Status         int               `yaml:"status,omitempty"`
+	Delay          int               `yaml:"delay,omitempty"` // milliseconds
+	Headers        map[string]string `yaml:"headers,omitempty"`
+	ContentType    string            `yaml:"content_type,omitempty"`
+	Response       any               `yaml:"response,omitempty"`
+	Mode           string            `yaml:"mode,omitempty"` // "sequential" (default) or "random"
+	Responses      []RouteResponse   `yaml:"responses,omitempty"`
+	Match          []RouteMatch      `yaml:"match,omitempty"`
+	RateLimit      int               `yaml:"rate_limit,omitempty"`      // max requests allowed
+	RateReset      int               `yaml:"rate_reset,omitempty"`      // seconds until count resets
+	State          string            `yaml:"state,omitempty"`           // required server state to match
+	SetState       *string           `yaml:"set_state,omitempty"`       // state to set after responding
+	Vars           map[string]string `yaml:"vars,omitempty"`            // require these vars to match
+	SetVars        map[string]string `yaml:"set_vars,omitempty"`        // set these vars after responding
+	Webhook        *Webhook          `yaml:"webhook,omitempty"`         // outgoing callback after responding
+	File           string            `yaml:"file,omitempty"`            // path to response file (.json/.yaml/.yml)
+	ErrorRate      float64           `yaml:"error_rate,omitempty"`      // 0.0-1.0 probability of injecting an error
+	ErrorStatus    int               `yaml:"error_status,omitempty"`    // status code for injected error (default 503)
+	DelayMin       int               `yaml:"delay_min,omitempty"`       // min random delay in ms (used with delay_max)
+	DelayMax       int               `yaml:"delay_max,omitempty"`       // max random delay in ms
+	OnCall         int               `yaml:"on_call,omitempty"`         // match only on this call number (1-based)
+	Script         string            `yaml:"script,omitempty"`          // Go template producing the response body
 	Proxy          string            `yaml:"proxy,omitempty"`           // forward this route to a real backend
 	Redirect       string            `yaml:"redirect,omitempty"`        // redirect to this URL/path (default status 302)
 	RedirectStatus int               `yaml:"redirect_status,omitempty"` // override redirect status code (301/302/303/307/308)
-	StorePush   string            `yaml:"store_push,omitempty"`  // push request body into named store → 201
-	StoreList   string            `yaml:"store_list,omitempty"`  // list all items in named store → 200
-	StoreGet    string            `yaml:"store_get,omitempty"`   // get item by store_key param → 200/404
-	StorePut    string            `yaml:"store_put,omitempty"`   // replace/upsert item by store_key param → 200
-	StorePatch  string            `yaml:"store_patch,omitempty"` // merge into item by store_key param → 200/404
-	StoreDelete string            `yaml:"store_delete,omitempty"` // delete item by store_key param → 204/404
-	StoreClear  string            `yaml:"store_clear,omitempty"`  // clear all items in named store → 204
-	StoreKey     string        `yaml:"store_key,omitempty"`     // path param used as item ID (default: "id")
-	Stream       bool          `yaml:"stream,omitempty"`        // respond with a Server-Sent Events stream
-	Events       []StreamEvent `yaml:"events,omitempty"`        // SSE events to emit (requires stream: true)
-	StreamRepeat bool          `yaml:"stream_repeat,omitempty"` // loop events until client disconnects
-	SetCookies   []SetCookie   `yaml:"set_cookies,omitempty"`   // cookies to set in the response
+	StorePush      string            `yaml:"store_push,omitempty"`      // push request body into named store → 201
+	StoreList      string            `yaml:"store_list,omitempty"`      // list all items in named store → 200
+	StoreGet       string            `yaml:"store_get,omitempty"`       // get item by store_key param → 200/404
+	StorePut       string            `yaml:"store_put,omitempty"`       // replace/upsert item by store_key param → 200
+	StorePatch     string            `yaml:"store_patch,omitempty"`     // merge into item by store_key param → 200/404
+	StoreDelete    string            `yaml:"store_delete,omitempty"`    // delete item by store_key param → 204/404
+	StoreClear     string            `yaml:"store_clear,omitempty"`     // clear all items in named store → 204
+	StoreKey       string            `yaml:"store_key,omitempty"`       // path param used as item ID (default: "id")
+	Stream         bool              `yaml:"stream,omitempty"`          // respond with a Server-Sent Events stream
+	Events         []StreamEvent     `yaml:"events,omitempty"`          // SSE events to emit (requires stream: true)
+	StreamRepeat   bool              `yaml:"stream_repeat,omitempty"`   // loop events until client disconnects
+	SetCookies     []SetCookie       `yaml:"set_cookies,omitempty"`     // cookies to set in the response
 }
 
 type Config struct {
-	CORS          bool     `yaml:"cors,omitempty"`
-	Proxy         string   `yaml:"proxy,omitempty"`
-	OpenAPI       string   `yaml:"openapi,omitempty"`        // path to OpenAPI spec for request validation
+	CORS                  bool     `yaml:"cors,omitempty"`
+	Proxy                 string   `yaml:"proxy,omitempty"`
+	OpenAPI               string   `yaml:"openapi,omitempty"`                 // path to OpenAPI spec for request validation
 	OpenAPIStrict         bool     `yaml:"openapi_strict,omitempty"`          // return 400 on validation failures instead of warning
 	OpenAPIStrictResponse bool     `yaml:"openapi_strict_response,omitempty"` // return 500 when mock response violates schema
-	Include       []string `yaml:"include,omitempty"`        // glob patterns of additional config files to merge
-	Routes        []Route  `yaml:"routes"`
+	Include               []string `yaml:"include,omitempty"`                 // glob patterns of additional config files to merge
+	Routes                []Route  `yaml:"routes"`
 }
 
 func Load(path string) (*Config, error) {

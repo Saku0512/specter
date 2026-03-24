@@ -122,4 +122,3 @@ func fireWebhook(wh *config.Webhook, tmplData map[string]any, params gin.Params,
 		log.Printf("webhook: %s %s → %d", method, targetURL, resp.StatusCode)
 	}()
 }
-

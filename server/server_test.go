@@ -4,9 +4,9 @@ import (
 	"bytes"
 	"encoding/json"
 	"io"
-	"os"
 	"net/http"
 	"net/http/httptest"
+	"os"
 	"strings"
 	"testing"
 	"time"
@@ -1553,10 +1553,10 @@ func TestVars_routeMatchCondition(t *testing.T) {
 	srv := newSrv(&config.Config{
 		Routes: []config.Route{
 			{
-				Path:   "/data",
-				Method: "GET",
-				Vars:   map[string]string{"role": "admin"},
-				Status: 200,
+				Path:     "/data",
+				Method:   "GET",
+				Vars:     map[string]string{"role": "admin"},
+				Status:   200,
 				Response: map[string]any{"access": "granted"},
 			},
 			{
@@ -1593,10 +1593,10 @@ func TestVars_setVarsOnResponse(t *testing.T) {
 				SetVars:  map[string]string{"logged_in": "true", "user": "alice"},
 			},
 			{
-				Path:   "/profile",
-				Method: "GET",
-				Vars:   map[string]string{"logged_in": "true"},
-				Status: 200,
+				Path:     "/profile",
+				Method:   "GET",
+				Vars:     map[string]string{"logged_in": "true"},
+				Status:   200,
 				Response: map[string]any{"name": "alice"},
 			},
 			{
@@ -2115,16 +2115,16 @@ func TestMatch_setStateInMatch(t *testing.T) {
 				Response: map[string]any{"error": "bad credentials"},
 			},
 			{
-				Path:   "/profile",
-				Method: "GET",
-				State:  "logged_in",
-				Status: 200,
+				Path:     "/profile",
+				Method:   "GET",
+				State:    "logged_in",
+				Status:   200,
 				Response: map[string]any{"name": "alice"},
 			},
 			{
-				Path:   "/profile",
-				Method: "GET",
-				Status: 401,
+				Path:     "/profile",
+				Method:   "GET",
+				Status:   401,
 				Response: map[string]any{"error": "unauthorized"},
 			},
 		},
@@ -2159,9 +2159,9 @@ func TestMatch_setVarsInMatch(t *testing.T) {
 				Method: "POST",
 				Match: []config.RouteMatch{
 					{
-						Body:    map[string]any{"role": "admin"},
-						SetVars: map[string]string{"role": "admin", "level": "5"},
-						Status:  200,
+						Body:     map[string]any{"role": "admin"},
+						SetVars:  map[string]string{"role": "admin", "level": "5"},
+						Status:   200,
 						Response: map[string]any{"ok": true},
 					},
 				},
@@ -2871,8 +2871,8 @@ func TestMatch_ResponseHeaders(t *testing.T) {
 	srv := newSrv(&config.Config{
 		Routes: []config.Route{
 			{
-				Path:   "/api",
-				Method: "GET",
+				Path:    "/api",
+				Method:  "GET",
 				Headers: map[string]string{"X-Route": "base"},
 				Match: []config.RouteMatch{
 					{
@@ -2915,9 +2915,9 @@ func TestMatch_Delay(t *testing.T) {
 				Method: "POST",
 				Match: []config.RouteMatch{
 					{
-						Body:  map[string]any{"slow": true},
-						Delay: 50,
-						Status: 200,
+						Body:     map[string]any{"slow": true},
+						Delay:    50,
+						Status:   200,
 						Response: "slowed",
 					},
 				},

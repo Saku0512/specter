@@ -1,0 +1,11 @@
+#!/bin/sh
+# Auto-format staged Go files with gofmt before committing.
+set -e
+
+files=$(git diff --cached --name-only --diff-filter=ACM | grep '\.go$' || true)
+if [ -z "$files" ]; then
+  exit 0
+fi
+
+gofmt -w $files
+git add $files

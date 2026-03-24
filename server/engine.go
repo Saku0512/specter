@@ -530,4 +530,3 @@ func newEngine(cfg *config.Config, verbose bool, history *RequestHistory, state 
 
 	return r
 }
-

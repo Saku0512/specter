@@ -106,73 +106,73 @@ func buildFuncMap(store *DataStore) template.FuncMap {
 			return len(store.List(name))
 		},
 		"fake": func(kind string) string {
-		switch kind {
-		case "name":
-			return gofakeit.Name()
-		case "first_name":
-			return gofakeit.FirstName()
-		case "last_name":
-			return gofakeit.LastName()
-		case "email":
-			return gofakeit.Email()
-		case "uuid":
-			return gofakeit.UUID()
-		case "phone":
-			return gofakeit.Phone()
-		case "url":
-			return gofakeit.URL()
-		case "ip":
-			return gofakeit.IPv4Address()
-		case "username":
-			return gofakeit.Username()
-		case "password":
-			return gofakeit.Password(true, true, true, false, false, 12)
-		case "word":
-			return gofakeit.Word()
-		case "sentence":
-			return gofakeit.Sentence(6)
-		case "paragraph":
-			return gofakeit.Paragraph(1, 3, 10, " ")
-		case "color":
-			return gofakeit.Color()
-		case "country":
-			return gofakeit.Country()
-		case "city":
-			return gofakeit.City()
-		case "zip":
-			return gofakeit.Zip()
-		case "street":
-			return gofakeit.Street()
-		case "company":
-			return gofakeit.Company()
-		case "job":
-			return gofakeit.JobTitle()
-		case "int":
-			return strconv.Itoa(gofakeit.IntRange(1, 10000))
-		case "float":
-			return strconv.FormatFloat(float64(gofakeit.Float32Range(0, 1000)), 'f', 2, 64)
-		case "bool":
-			return strconv.FormatBool(gofakeit.Bool())
-		case "date":
-			return gofakeit.Date().Format("2006-01-02")
-		case "datetime":
-			return gofakeit.Date().Format(time.RFC3339)
-		default:
-			return ""
-		}
-	},
-	"default": func(def, val string) string {
-		if val == "" {
-			return def
-		}
-		return val
-	},
-	"upper":  strings.ToUpper,
-	"lower":  strings.ToLower,
-	"trim":   strings.TrimSpace,
-	"now":    func() string { return time.Now().UTC().Format(time.RFC3339) },
-	"add":    func(a, b int) int { return a + b },
-		"sub": func(a, b int) int { return a - b },
+			switch kind {
+			case "name":
+				return gofakeit.Name()
+			case "first_name":
+				return gofakeit.FirstName()
+			case "last_name":
+				return gofakeit.LastName()
+			case "email":
+				return gofakeit.Email()
+			case "uuid":
+				return gofakeit.UUID()
+			case "phone":
+				return gofakeit.Phone()
+			case "url":
+				return gofakeit.URL()
+			case "ip":
+				return gofakeit.IPv4Address()
+			case "username":
+				return gofakeit.Username()
+			case "password":
+				return gofakeit.Password(true, true, true, false, false, 12)
+			case "word":
+				return gofakeit.Word()
+			case "sentence":
+				return gofakeit.Sentence(6)
+			case "paragraph":
+				return gofakeit.Paragraph(1, 3, 10, " ")
+			case "color":
+				return gofakeit.Color()
+			case "country":
+				return gofakeit.Country()
+			case "city":
+				return gofakeit.City()
+			case "zip":
+				return gofakeit.Zip()
+			case "street":
+				return gofakeit.Street()
+			case "company":
+				return gofakeit.Company()
+			case "job":
+				return gofakeit.JobTitle()
+			case "int":
+				return strconv.Itoa(gofakeit.IntRange(1, 10000))
+			case "float":
+				return strconv.FormatFloat(float64(gofakeit.Float32Range(0, 1000)), 'f', 2, 64)
+			case "bool":
+				return strconv.FormatBool(gofakeit.Bool())
+			case "date":
+				return gofakeit.Date().Format("2006-01-02")
+			case "datetime":
+				return gofakeit.Date().Format(time.RFC3339)
+			default:
+				return ""
+			}
+		},
+		"default": func(def, val string) string {
+			if val == "" {
+				return def
+			}
+			return val
+		},
+		"upper": strings.ToUpper,
+		"lower": strings.ToLower,
+		"trim":  strings.TrimSpace,
+		"now":   func() string { return time.Now().UTC().Format(time.RFC3339) },
+		"add":   func(a, b int) int { return a + b },
+		"sub":   func(a, b int) int { return a - b },
 		"json": func(v any) string {
 			b, _ := json.Marshal(v)
 			return string(b)
@@ -298,4 +298,3 @@ func respond(c *gin.Context, status int, contentType string, body any) {
 	s, _ := body.(string)
 	c.Data(status, contentType, []byte(s))
 }
-

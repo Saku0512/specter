@@ -25,7 +25,7 @@ type routeEntry struct {
 	limiter   *rateLimiter
 }
 
-func newEngine(cfg *config.Config, verbose bool, history *RequestHistory, state *StateStore, vars *VarStore, dynamic *DynamicRouteStore, store *DataStore, rebuild func()) *gin.Engine {
+func newEngine(cfg *config.Config, verbose bool, random bool, history *RequestHistory, state *StateStore, vars *VarStore, dynamic *DynamicRouteStore, store *DataStore, rebuild func()) *gin.Engine {
 	r := gin.Default()
 
 	if cfg.CORS {
@@ -35,7 +35,7 @@ func newEngine(cfg *config.Config, verbose bool, history *RequestHistory, state 
 		r.Use(verboseLogger())
 	}
 	r.Use(historyMiddleware(history))
-	oaRouter := buildOpenAPIRouter(cfg.OpenAPI)
+	_, oaRouter := buildOpenAPIRouter(cfg.OpenAPI)
 	if oaRouter != nil {
 		r.Use(openAPIRequestMiddleware(oaRouter, cfg.OpenAPIStrict))
 	}
@@ -499,7 +499,21 @@ func newEngine(cfg *config.Config, verbose bool, history *RequestHistory, state 
 				if status == 0 {
 					status = http.StatusOK
 				}
-				body, fileCT, scriptStatus3 := resolveBody(rt.Response, rt.File, rt.Script, tmplData, c.Params, store)
+				var body any
+				var fileCT string
+				var scriptStatus3 int
+				if random && !routeHasBody(rt) {
+					if randBody, randCT, ok := randomResponseBody(c.Request, oaRouter); ok {
+						body = randBody
+						if randCT != "" {
+							fileCT = randCT
+						}
+					} else {
+						body, fileCT, scriptStatus3 = resolveBody(rt.Response, rt.File, rt.Script, tmplData, c.Params, store)
+					}
+				} else {
+					body, fileCT, scriptStatus3 = resolveBody(rt.Response, rt.File, rt.Script, tmplData, c.Params, store)
+				}
 				if scriptStatus3 != 0 {
 					status = scriptStatus3
 				}

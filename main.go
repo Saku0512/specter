@@ -147,6 +147,7 @@ func main() {
 	key := flag.String("key", "", "TLS key file")
 	uiPort := flag.String("ui-port", "4444", "port for the web UI (0 to disable)")
 	verbose := flag.Bool("verbose", false, "log request headers and body")
+	random := flag.Bool("random", false, "generate random responses from OpenAPI spec (requires --openapi or openapi: in config)")
 	v := flag.Bool("v", false, "show version")
 	flag.BoolVar(v, "version", false, "show version")
 	flag.Parse()
@@ -206,7 +207,7 @@ func main() {
 		log.Fatalf("failed to load config: %v", err)
 	}
 
-	srv := server.New(cfg, *verbose)
+	srv := server.New(cfg, *verbose, *random)
 
 	if *uiPort != "0" && *uiPort != "" {
 		scheme := "http"

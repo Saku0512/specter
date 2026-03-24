@@ -26,7 +26,7 @@ func writeSpec(t *testing.T, content string) string {
 }
 
 func newSrv(cfg *config.Config) *Server {
-	return New(cfg, false)
+	return New(cfg, false, false)
 }
 
 func do(srv *Server, method, path, body string) *httptest.ResponseRecorder {
@@ -3540,5 +3540,46 @@ func TestMatch_BodySchema_miss(t *testing.T) {
 	w := do(srv, "POST", "/items", `{"age":30}`)
 	if w.Code != 400 {
 		t.Fatalf("expected 400 for schema mismatch, got %d", w.Code)
+	}
+}
+
+func TestRandom_generatesFromSchema(t *testing.T) {
+	spec := writeSpec(t, `
+openapi: "3.0.0"
+info:
+  title: Test
+  version: "1.0"
+paths:
+  /users:
+    get:
+      responses:
+        "200":
+          description: ok
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  name:
+                    type: string
+                  age:
+                    type: integer
+`)
+	srv := New(&config.Config{
+		OpenAPI: spec,
+		Routes:  []config.Route{{Path: "/users", Method: "GET"}},
+	}, false, true)
+
+	w := httptest.NewRecorder()
+	w.Body = &bytes.Buffer{}
+	req := httptest.NewRequest("GET", "/users", nil)
+	srv.ServeHTTP(w, req)
+
+	if w.Code != 200 {
+		t.Fatalf("expected 200, got %d", w.Code)
+	}
+	var result map[string]any
+	if err := json.NewDecoder(w.Body).Decode(&result); err != nil {
+		t.Fatalf("expected JSON object, got: %s", w.Body.String())
 	}
 }

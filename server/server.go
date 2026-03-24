@@ -11,6 +11,7 @@ import (
 type Server struct {
 	engine  atomic.Pointer[gin.Engine]
 	verbose bool
+	random  bool
 	history *RequestHistory
 	state   *StateStore
 	vars    *VarStore
@@ -19,16 +20,16 @@ type Server struct {
 	store   *DataStore
 }
 
-func New(cfg *config.Config, verbose bool) *Server {
-	s := &Server{verbose: verbose, history: &RequestHistory{}, state: &StateStore{}, vars: newVarStore(), dynamic: &DynamicRouteStore{}, store: newDataStore()}
+func New(cfg *config.Config, verbose bool, random bool) *Server {
+	s := &Server{verbose: verbose, random: random, history: &RequestHistory{}, state: &StateStore{}, vars: newVarStore(), dynamic: &DynamicRouteStore{}, store: newDataStore()}
 	s.cfg.Store(cfg)
-	s.engine.Store(newEngine(cfg, verbose, s.history, s.state, s.vars, s.dynamic, s.store, s.rebuild))
+	s.engine.Store(newEngine(cfg, verbose, random, s.history, s.state, s.vars, s.dynamic, s.store, s.rebuild))
 	return s
 }
 
 func (s *Server) rebuild() {
 	cfg := s.cfg.Load()
-	s.engine.Store(newEngine(cfg, s.verbose, s.history, s.state, s.vars, s.dynamic, s.store, s.rebuild))
+	s.engine.Store(newEngine(cfg, s.verbose, s.random, s.history, s.state, s.vars, s.dynamic, s.store, s.rebuild))
 }
 
 func (s *Server) Reload(cfg *config.Config) {

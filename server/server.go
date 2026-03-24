@@ -556,7 +556,7 @@ func newEngine(cfg *config.Config, verbose bool, history *RequestHistory, state 
 						if status == 0 {
 							status = http.StatusOK
 						}
-						body, fileCT, scriptStatus := resolveBody(m.Response, m.File, m.Script, tmplData, c.Params)
+						body, fileCT, scriptStatus := resolveBody(m.Response, m.File, m.Script, tmplData, c.Params, store)
 						if scriptStatus != 0 {
 							status = scriptStatus
 						}
@@ -580,7 +580,7 @@ func newEngine(cfg *config.Config, verbose bool, history *RequestHistory, state 
 						for k, v := range m.SetVars {
 							vars.Set(k, v)
 						}
-						fireWebhook(rt.Webhook, tmplData, c.Params)
+						fireWebhook(rt.Webhook, tmplData, c.Params, store)
 						return
 					}
 				}
@@ -620,7 +620,7 @@ func newEngine(cfg *config.Config, verbose bool, history *RequestHistory, state 
 					if status == 0 {
 						status = http.StatusOK
 					}
-					body, fileCT, scriptStatus2 := resolveBody(picked.Response, picked.File, picked.Script, tmplData, c.Params)
+					body, fileCT, scriptStatus2 := resolveBody(picked.Response, picked.File, picked.Script, tmplData, c.Params, store)
 					if scriptStatus2 != 0 {
 						status = scriptStatus2
 					}
@@ -638,7 +638,7 @@ func newEngine(cfg *config.Config, verbose bool, history *RequestHistory, state 
 					for k, v := range rt.SetVars {
 						vars.Set(k, v)
 					}
-					fireWebhook(rt.Webhook, tmplData, c.Params)
+					fireWebhook(rt.Webhook, tmplData, c.Params, store)
 					return
 				}
 
@@ -647,7 +647,7 @@ func newEngine(cfg *config.Config, verbose bool, history *RequestHistory, state 
 				if status == 0 {
 					status = http.StatusOK
 				}
-				body, fileCT, scriptStatus3 := resolveBody(rt.Response, rt.File, rt.Script, tmplData, c.Params)
+				body, fileCT, scriptStatus3 := resolveBody(rt.Response, rt.File, rt.Script, tmplData, c.Params, store)
 				if scriptStatus3 != 0 {
 					status = scriptStatus3
 				}
@@ -662,7 +662,7 @@ func newEngine(cfg *config.Config, verbose bool, history *RequestHistory, state 
 				for k, v := range rt.SetVars {
 					vars.Set(k, v)
 				}
-				fireWebhook(rt.Webhook, tmplData, c.Params)
+				fireWebhook(rt.Webhook, tmplData, c.Params, store)
 				return
 			}
 
@@ -847,8 +847,30 @@ func buildTemplateData(c *gin.Context, bodyBytes []byte) map[string]any {
 	}
 }
 
-var templateFuncs = template.FuncMap{
-	"fake": func(kind string) string {
+// buildFuncMap returns the template FuncMap, including store-aware functions.
+// store may be nil (template calls will return empty results in that case).
+func buildFuncMap(store *DataStore) template.FuncMap {
+	fm := template.FuncMap{
+		"store": func(name string) []map[string]any {
+			if store == nil {
+				return nil
+			}
+			return store.List(name)
+		},
+		"storeGet": func(name, id string) map[string]any {
+			if store == nil {
+				return nil
+			}
+			item, _ := store.Get(name, id)
+			return item
+		},
+		"storeCount": func(name string) int {
+			if store == nil {
+				return 0
+			}
+			return len(store.List(name))
+		},
+		"fake": func(kind string) string {
 		switch kind {
 		case "name":
 			return gofakeit.Name()
@@ -915,18 +937,24 @@ var templateFuncs = template.FuncMap{
 	"trim":   strings.TrimSpace,
 	"now":    func() string { return time.Now().UTC().Format(time.RFC3339) },
 	"add":    func(a, b int) int { return a + b },
-	"sub":    func(a, b int) int { return a - b },
+		"sub": func(a, b int) int { return a - b },
+		"json": func(v any) string {
+			b, _ := json.Marshal(v)
+			return string(b)
+		},
+	}
+	return fm
 }
 
 // execScript renders a Go template script and returns the result plus an optional
 // HTTP status override. If the JSON output contains a "_status" key (integer 100-599)
 // it is extracted and returned as the status override; the key is removed from the body.
 // If the output is valid JSON it is decoded; otherwise the raw string is returned.
-func execScript(script string, data map[string]any) (body any, statusOverride int) {
+func execScript(script string, data map[string]any, store *DataStore) (body any, statusOverride int) {
 	if script == "" {
 		return nil, 0
 	}
-	tmpl, err := template.New("").Funcs(templateFuncs).Parse(script)
+	tmpl, err := template.New("").Funcs(buildFuncMap(store)).Parse(script)
 	if err != nil {
 		log.Printf("script: parse error: %v", err)
 		return nil, 0
@@ -950,13 +978,13 @@ func execScript(script string, data map[string]any) (body any, statusOverride in
 	return out, 0
 }
 
-func applyTemplate(v any, data map[string]any) any {
+func applyTemplate(v any, data map[string]any, store *DataStore) any {
 	switch val := v.(type) {
 	case string:
 		if !strings.Contains(val, "{{") {
 			return val
 		}
-		tmpl, err := template.New("").Funcs(templateFuncs).Parse(val)
+		tmpl, err := template.New("").Funcs(buildFuncMap(store)).Parse(val)
 		if err != nil {
 			return val
 		}
@@ -968,13 +996,13 @@ func applyTemplate(v any, data map[string]any) any {
 	case map[string]any:
 		out := make(map[string]any, len(val))
 		for k, v2 := range val {
-			out[k] = applyTemplate(v2, data)
+			out[k] = applyTemplate(v2, data, store)
 		}
 		return out
 	case []any:
 		out := make([]any, len(val))
 		for i, v2 := range val {
-			out[i] = applyTemplate(v2, data)
+			out[i] = applyTemplate(v2, data, store)
 		}
 		return out
 	default:
@@ -1084,7 +1112,7 @@ func forwardRequest(c *gin.Context, targetBase string) {
 	io.Copy(c.Writer, resp.Body)
 }
 
-func fireWebhook(wh *config.Webhook, tmplData map[string]any, params gin.Params) {
+func fireWebhook(wh *config.Webhook, tmplData map[string]any, params gin.Params, store *DataStore) {
 	if wh == nil || wh.URL == "" {
 		return
 	}
@@ -1101,7 +1129,7 @@ func fireWebhook(wh *config.Webhook, tmplData map[string]any, params gin.Params)
 		// Apply template to URL
 		targetURL := wh.URL
 		if strings.Contains(targetURL, "{{") {
-			if tmpl, err := template.New("").Funcs(templateFuncs).Parse(targetURL); err == nil {
+			if tmpl, err := template.New("").Funcs(buildFuncMap(store)).Parse(targetURL); err == nil {
 				var buf bytes.Buffer
 				if err := tmpl.Execute(&buf, tmplData); err == nil {
 					targetURL = buf.String()
@@ -1111,7 +1139,7 @@ func fireWebhook(wh *config.Webhook, tmplData map[string]any, params gin.Params)
 
 		var bodyReader io.Reader
 		if wh.Body != nil {
-			processed := applyParams(applyTemplate(wh.Body, tmplData), params)
+			processed := applyParams(applyTemplate(wh.Body, tmplData, store), params)
 			var bodyBytes []byte
 			if s, ok := processed.(string); ok {
 				bodyBytes = []byte(s)
@@ -1172,9 +1200,9 @@ func loadFile(path string) (any, string, error) {
 // resolveBody returns the response body, an inferred content type, and an optional
 // HTTP status override (non-zero only when script uses the _status envelope).
 // Priority: script > file > body.
-func resolveBody(body any, file, script string, tmplData map[string]any, params gin.Params) (any, string, int) {
+func resolveBody(body any, file, script string, tmplData map[string]any, params gin.Params, store *DataStore) (any, string, int) {
 	if script != "" {
-		b, statusOverride := execScript(script, tmplData)
+		b, statusOverride := execScript(script, tmplData, store)
 		return b, "", statusOverride
 	}
 	if file != "" {
@@ -1183,9 +1211,9 @@ func resolveBody(body any, file, script string, tmplData map[string]any, params 
 			log.Printf("file response: %v", err)
 			return map[string]any{"error": "failed to load response file"}, "", 0
 		}
-		return applyParams(applyTemplate(data, tmplData), params), ct, 0
+		return applyParams(applyTemplate(data, tmplData, store), params), ct, 0
 	}
-	return applyParams(applyTemplate(body, tmplData), params), "", 0
+	return applyParams(applyTemplate(body, tmplData, store), params), "", 0
 }
 
 func respond(c *gin.Context, status int, contentType string, body any) {

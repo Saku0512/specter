@@ -314,8 +314,30 @@ Use `script` to generate a response body using a Go template. The template has a
 | `add` | `{{ add 1 2 }}` | `3` |
 | `sub` | `{{ sub 5 2 }}` | `3` |
 | `fake` | `{{ fake "uuid" }}` | random UUID |
+| `json` | `{{ .value \| json }}` | JSON-encode any value |
+| `store` | `{{ store "users" }}` | all items in named CRUD store |
+| `storeGet` | `{{ storeGet "users" "abc-123" }}` | single item by ID |
+| `storeCount` | `{{ storeCount "users" }}` | item count in named store |
 
 All [Faker](#faker) types are also available via `{{ fake "type" }}`.
+
+### Store functions in scripts
+
+`store`, `storeGet`, and `storeCount` give scripts live read access to the in-memory CRUD store. Combine with `json` to embed results in a response template:
+
+```yaml
+- path: /summary
+  method: GET
+  script: |
+    {
+      "total": {{ storeCount "orders" }},
+      "orders": {{ store "orders" | json }}
+    }
+
+- path: /users/:id
+  method: GET
+  script: '{{ storeGet "users" .params.id | json }}'
+```
 
 ### Dynamic status code from script
 

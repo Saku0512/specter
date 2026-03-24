@@ -2842,6 +2842,63 @@ func TestStore_ListPagination(t *testing.T) {
 	}
 }
 
+func TestStore_ScriptAccess(t *testing.T) {
+	srv := newSrv(&config.Config{
+		Routes: []config.Route{
+			{Path: "/items", Method: "POST", StorePush: "items"},
+			{
+				Path:   "/summary",
+				Method: "GET",
+				Script: `{"count": {{ storeCount "items" }}, "items": {{ store "items" | json }}}`,
+			},
+		},
+	})
+	do(srv, "POST", "/items", `{"name":"Alice"}`)
+	do(srv, "POST", "/items", `{"name":"Bob"}`)
+
+	w := do(srv, "GET", "/summary", "")
+	if w.Code != 200 {
+		t.Fatalf("expected 200, got %d", w.Code)
+	}
+	var result map[string]any
+	json.NewDecoder(w.Body).Decode(&result)
+	if result["count"].(float64) != 2 {
+		t.Errorf("expected count=2, got %v", result["count"])
+	}
+	items, ok := result["items"].([]any)
+	if !ok || len(items) != 2 {
+		t.Errorf("expected 2 items in script result, got %v", result["items"])
+	}
+}
+
+func TestStore_ScriptGetByID(t *testing.T) {
+	srv := newSrv(&config.Config{
+		Routes: []config.Route{
+			{Path: "/items", Method: "POST", StorePush: "items"},
+			{
+				Path:     "/items/:id",
+				Method:   "GET",
+				Script:   `{{ storeGet "items" .params.id | json }}`,
+				StoreKey: "id",
+			},
+		},
+	})
+	w := do(srv, "POST", "/items", `{"name":"Alice"}`)
+	var created map[string]any
+	json.NewDecoder(w.Body).Decode(&created)
+	id := created["id"].(string)
+
+	w2 := do(srv, "GET", "/items/"+id, "")
+	if w2.Code != 200 {
+		t.Fatalf("expected 200, got %d", w2.Code)
+	}
+	var got map[string]any
+	json.NewDecoder(w2.Body).Decode(&got)
+	if got["name"] != "Alice" {
+		t.Errorf("expected name=Alice, got %v", got["name"])
+	}
+}
+
 func TestStore_IntrospectionEndpoints(t *testing.T) {
 	srv := newSrv(&config.Config{
 		Routes: []config.Route{

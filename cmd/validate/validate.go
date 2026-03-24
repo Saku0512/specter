@@ -128,7 +128,7 @@ func check(cfg *config.Config) []string {
 		}
 		for j, m := range r.Match {
 			hasCondition := len(m.Query) > 0 || len(m.Body) > 0 || len(m.Headers) > 0 ||
-				len(m.BodyPath) > 0 || len(m.Form) > 0 || m.GraphQL != nil
+				len(m.BodyPath) > 0 || len(m.Form) > 0 || m.GraphQL != nil || len(m.Cookies) > 0
 			if !hasCondition {
 				errs = append(errs, prefix+fmt.Sprintf(": match[%d] must have at least one condition", j))
 			}
@@ -166,6 +166,20 @@ func check(cfg *config.Config) []string {
 						errs = append(errs, prefix+fmt.Sprintf(": match[%d] graphql.variables[%q] invalid regex: %v", j, key, err))
 					}
 				}
+			}
+			for name, pattern := range m.Cookies {
+				if _, err := regexp.Compile(pattern); err != nil {
+					errs = append(errs, prefix+fmt.Sprintf(": match[%d] cookies[%q] invalid regex: %v", j, name, err))
+				}
+			}
+		}
+		validSameSite := map[string]bool{"": true, "Strict": true, "Lax": true, "None": true}
+		for k, sc := range r.SetCookies {
+			if sc.Name == "" {
+				errs = append(errs, prefix+fmt.Sprintf(": set_cookies[%d] missing name", k))
+			}
+			if !validSameSite[sc.SameSite] {
+				errs = append(errs, prefix+fmt.Sprintf(": set_cookies[%d] invalid same_site %q (use Strict, Lax, or None)", k, sc.SameSite))
 			}
 		}
 		storeOps := []string{r.StorePush, r.StoreList, r.StoreGet, r.StorePut, r.StorePatch, r.StoreDelete, r.StoreClear}

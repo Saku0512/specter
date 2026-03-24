@@ -50,6 +50,18 @@ type StreamEvent struct {
 	Delay int    `yaml:"delay,omitempty"` // milliseconds to wait before sending this event
 }
 
+// SetCookie describes a cookie to set in the response.
+type SetCookie struct {
+	Name     string `yaml:"name"`
+	Value    string `yaml:"value"`
+	Path     string `yaml:"path,omitempty"`
+	Domain   string `yaml:"domain,omitempty"`
+	MaxAge   int    `yaml:"max_age,omitempty"`   // seconds; 0 = session cookie
+	HTTPOnly bool   `yaml:"http_only,omitempty"`
+	Secure   bool   `yaml:"secure,omitempty"`
+	SameSite string `yaml:"same_site,omitempty"` // Strict, Lax, None
+}
+
 type Webhook struct {
 	URL     string            `yaml:"url"`
 	Method  string            `yaml:"method,omitempty"`  // default: POST
@@ -97,6 +109,7 @@ type Route struct {
 	Stream       bool          `yaml:"stream,omitempty"`        // respond with a Server-Sent Events stream
 	Events       []StreamEvent `yaml:"events,omitempty"`        // SSE events to emit (requires stream: true)
 	StreamRepeat bool          `yaml:"stream_repeat,omitempty"` // loop events until client disconnects
+	SetCookies   []SetCookie   `yaml:"set_cookies,omitempty"`   // cookies to set in the response
 }
 
 type Config struct {

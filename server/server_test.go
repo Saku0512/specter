@@ -3329,6 +3329,98 @@ func TestStore_ResetTarget(t *testing.T) {
 	}
 }
 
+func TestCookieMatch_hit(t *testing.T) {
+	srv := newSrv(&config.Config{
+		Routes: []config.Route{
+			{
+				Path:   "/greet",
+				Method: "GET",
+				Match: []config.RouteMatch{
+					{
+						Cookies:  map[string]string{"session": "abc123"},
+						Status:   200,
+						Response: "welcome back",
+					},
+				},
+				Status:   401,
+				Response: "no session",
+			},
+		},
+	})
+
+	req := httptest.NewRequest("GET", "/greet", nil)
+	req.AddCookie(&http.Cookie{Name: "session", Value: "abc123"})
+	w := httptest.NewRecorder()
+	srv.ServeHTTP(w, req)
+	if w.Code != 200 {
+		t.Fatalf("expected 200 for matching cookie, got %d", w.Code)
+	}
+}
+
+func TestCookieMatch_miss(t *testing.T) {
+	srv := newSrv(&config.Config{
+		Routes: []config.Route{
+			{
+				Path:   "/greet",
+				Method: "GET",
+				Match: []config.RouteMatch{
+					{
+						Cookies:  map[string]string{"session": "abc123"},
+						Status:   200,
+						Response: "welcome back",
+					},
+				},
+				Status:   401,
+				Response: "no session",
+			},
+		},
+	})
+
+	req := httptest.NewRequest("GET", "/greet", nil)
+	w := httptest.NewRecorder()
+	srv.ServeHTTP(w, req)
+	if w.Code != 401 {
+		t.Fatalf("expected 401 for missing cookie, got %d", w.Code)
+	}
+}
+
+func TestSetCookies_injection(t *testing.T) {
+	srv := newSrv(&config.Config{
+		Routes: []config.Route{
+			{
+				Path:   "/login",
+				Method: "POST",
+				Status: 200,
+				SetCookies: []config.SetCookie{
+					{Name: "session", Value: "tok123", Path: "/", HTTPOnly: true},
+				},
+			},
+		},
+	})
+
+	w := do(srv, "POST", "/login", "")
+	if w.Code != 200 {
+		t.Fatalf("expected 200, got %d", w.Code)
+	}
+	cookies := w.Result().Cookies()
+	var found *http.Cookie
+	for _, c := range cookies {
+		if c.Name == "session" {
+			found = c
+			break
+		}
+	}
+	if found == nil {
+		t.Fatal("expected Set-Cookie: session, not found")
+	}
+	if found.Value != "tok123" {
+		t.Errorf("expected value tok123, got %q", found.Value)
+	}
+	if !found.HttpOnly {
+		t.Error("expected HttpOnly=true")
+	}
+}
+
 func TestRedirect_default302(t *testing.T) {
 	srv := newSrv(&config.Config{
 		Routes: []config.Route{

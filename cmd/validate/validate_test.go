@@ -239,3 +239,41 @@ func TestCheck_routeProxyValid(t *testing.T) {
 		t.Errorf("expected no errors, got %v", errs)
 	}
 }
+
+func TestCheck_cookieInvalidRegex(t *testing.T) {
+	cfg := &config.Config{Routes: []config.Route{{
+		Path:   "/a",
+		Method: "GET",
+		Match:  []config.RouteMatch{{Cookies: map[string]string{"session": "["}}},
+	}}}
+	assertContains(t, check(cfg), "cookies[\"session\"] invalid regex")
+}
+
+func TestCheck_setCookiesMissingName(t *testing.T) {
+	cfg := &config.Config{Routes: []config.Route{{
+		Path:       "/a",
+		Method:     "GET",
+		SetCookies: []config.SetCookie{{Value: "tok"}},
+	}}}
+	assertContains(t, check(cfg), "set_cookies[0] missing name")
+}
+
+func TestCheck_setCookiesInvalidSameSite(t *testing.T) {
+	cfg := &config.Config{Routes: []config.Route{{
+		Path:       "/a",
+		Method:     "GET",
+		SetCookies: []config.SetCookie{{Name: "s", Value: "v", SameSite: "bogus"}},
+	}}}
+	assertContains(t, check(cfg), "set_cookies[0] invalid same_site")
+}
+
+func TestCheck_setCookiesValid(t *testing.T) {
+	cfg := &config.Config{Routes: []config.Route{{
+		Path:       "/a",
+		Method:     "GET",
+		SetCookies: []config.SetCookie{{Name: "session", Value: "tok", SameSite: "Strict", HTTPOnly: true}},
+	}}}
+	if errs := check(cfg); len(errs) != 0 {
+		t.Errorf("expected no errors, got %v", errs)
+	}
+}

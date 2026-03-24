@@ -1075,6 +1075,41 @@ routes:
 
 Store data resets when the server restarts. Use `POST /__specter/reset` with `"targets":["stores"]` or `DELETE /__specter/stores/:name` to clear it during tests. See [introspection.md](introspection.md) for the full stores API.
 
+## Cookie Matching
+
+Use `cookies` in a `match` entry to select a response only when the request carries specific cookies. Values are regex patterns (or exact strings).
+
+```yaml
+- path: /profile
+  method: GET
+  match:
+    - cookies:
+        session: "^sess_[a-z0-9]+$"
+      status: 200
+      response:
+        name: Alice
+  status: 401
+  response:
+    error: not authenticated
+```
+
+## Cookie Injection
+
+Use `set_cookies` on a route to set cookies in the response.
+
+```yaml
+- path: /login
+  method: POST
+  status: 200
+  set_cookies:
+    - name: session
+      value: sess_abc123
+      path: /
+      http_only: true
+      max_age: 3600          # seconds; omit for a session cookie
+      same_site: Strict      # Strict | Lax | None (default: browser default)
+```
+
 ## Redirect Shorthand
 
 Use `redirect` to issue an HTTP redirect without writing a custom handler. The default status is `302`; use `redirect_status` to choose `301`, `303`, `307`, or `308`.

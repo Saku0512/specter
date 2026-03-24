@@ -568,6 +568,7 @@ func newEngine(cfg *config.Config, verbose bool, history *RequestHistory, state 
 				for hk, hv := range rt.Headers {
 					c.Header(hk, hv)
 				}
+				applySetCookies(c, rt.SetCookies)
 
 				// match conditions
 				for _, m := range rt.Match {
@@ -576,7 +577,8 @@ func newEngine(cfg *config.Config, verbose bool, history *RequestHistory, state 
 						matchesHeaders(c, m.Headers) &&
 						matchesBodyPath(bodyBytes, m.BodyPath) &&
 						matchesForm(c, bodyBytes, m.Form) &&
-						matchesGraphQL(bodyBytes, m.GraphQL) {
+						matchesGraphQL(bodyBytes, m.GraphQL) &&
+						matchesCookies(c, m.Cookies) {
 						status := m.Status
 						if status == 0 {
 							status = http.StatusOK
@@ -1462,6 +1464,49 @@ func matchesBodyPath(body []byte, paths map[string]string) bool {
 		}
 	}
 	return true
+}
+
+// matchesCookies checks request cookies against expected name→regex/exact patterns.
+func matchesCookies(c *gin.Context, cookies map[string]string) bool {
+	if len(cookies) == 0 {
+		return true
+	}
+	for name, pattern := range cookies {
+		cookie, err := c.Cookie(name)
+		if err != nil {
+			return false
+		}
+		re, err := regexp.Compile(pattern)
+		if err != nil || !re.MatchString(cookie) {
+			return false
+		}
+	}
+	return true
+}
+
+// applySetCookies writes Set-Cookie headers for each cookie in the list.
+func applySetCookies(c *gin.Context, cookies []config.SetCookie) {
+	for _, sc := range cookies {
+		sameSite := http.SameSiteDefaultMode
+		switch sc.SameSite {
+		case "Strict", "strict":
+			sameSite = http.SameSiteStrictMode
+		case "Lax", "lax":
+			sameSite = http.SameSiteLaxMode
+		case "None", "none":
+			sameSite = http.SameSiteNoneMode
+		}
+		http.SetCookie(c.Writer, &http.Cookie{
+			Name:     sc.Name,
+			Value:    sc.Value,
+			Path:     sc.Path,
+			Domain:   sc.Domain,
+			MaxAge:   sc.MaxAge,
+			HttpOnly: sc.HTTPOnly,
+			Secure:   sc.Secure,
+			SameSite: sameSite,
+		})
+	}
 }
 
 func hasStoreOp(rt config.Route) bool {

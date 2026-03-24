@@ -73,6 +73,12 @@ func check(cfg *config.Config) []string {
 		if !validModes[r.Mode] {
 			errs = append(errs, prefix+fmt.Sprintf(": invalid mode %q (must be sequential or random)", r.Mode))
 		}
+		if r.Priority < 0 {
+			errs = append(errs, prefix+": priority must be non-negative")
+		}
+		if r.Times < 0 {
+			errs = append(errs, prefix+": times must be non-negative")
+		}
 		if r.Delay < 0 {
 			errs = append(errs, prefix+": delay must be non-negative")
 		}

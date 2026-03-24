@@ -9,6 +9,7 @@ import (
 	"net/http"
 	"net/http/httputil"
 	"net/url"
+	"sort"
 	"strconv"
 	"sync/atomic"
 	"time"
@@ -280,6 +281,9 @@ func newEngine(cfg *config.Config, verbose bool, history *RequestHistory, state 
 	for _, key := range order {
 		k := key
 		entries := groups[k]
+		sort.SliceStable(entries, func(i, j int) bool {
+			return entries[i].route.Priority > entries[j].route.Priority
+		})
 
 		r.Handle(k.method, k.path, func(c *gin.Context) {
 			var bodyBytes []byte
@@ -301,9 +305,13 @@ func newEngine(cfg *config.Config, verbose bool, history *RequestHistory, state 
 					continue
 				}
 
-				// Increment call counter (used for on_call matching)
+				// Increment call counter (used for on_call and times matching)
 				callN := e.callCount.Add(1)
 
+				// Skip if times is set and this entry is exhausted
+				if rt.Times > 0 && int(callN) > rt.Times {
+					continue
+				}
 				// Skip if on_call is set and this call number doesn't match
 				if rt.OnCall > 0 && int(callN) != rt.OnCall {
 					continue

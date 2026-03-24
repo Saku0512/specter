@@ -110,6 +110,8 @@ type Route struct {
 	Events         []StreamEvent     `yaml:"events,omitempty"`          // SSE events to emit (requires stream: true)
 	StreamRepeat   bool              `yaml:"stream_repeat,omitempty"`   // loop events until client disconnects
 	SetCookies     []SetCookie       `yaml:"set_cookies,omitempty"`     // cookies to set in the response
+	Priority       int               `yaml:"priority,omitempty"`        // higher = matched first among same (method, path) entries
+	Times          int               `yaml:"times,omitempty"`           // max times this route matches (0 = unlimited)
 }
 
 type Config struct {

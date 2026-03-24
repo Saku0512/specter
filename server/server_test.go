@@ -3450,3 +3450,34 @@ func TestRedirect_custom301(t *testing.T) {
 		t.Errorf("expected Location https://example.com, got %q", loc)
 	}
 }
+
+func TestPriority_higherWins(t *testing.T) {
+	srv := newSrv(&config.Config{
+		Routes: []config.Route{
+			{Path: "/ping", Method: "GET", Priority: 1, Status: 200, Response: "low"},
+			{Path: "/ping", Method: "GET", Priority: 10, Status: 200, Response: "high"},
+		},
+	})
+	w := do(srv, "GET", "/ping", "")
+	if w.Body.String() != `"high"` {
+		t.Errorf("expected high-priority response, got %s", w.Body.String())
+	}
+}
+
+func TestTimes_exhaustion(t *testing.T) {
+	srv := newSrv(&config.Config{
+		Routes: []config.Route{
+			{Path: "/limited", Method: "GET", Times: 2, Status: 200, Response: "limited"},
+			{Path: "/limited", Method: "GET", Status: 404, Response: "gone"},
+		},
+	})
+	if w := do(srv, "GET", "/limited", ""); w.Code != 200 {
+		t.Fatalf("call 1: expected 200, got %d", w.Code)
+	}
+	if w := do(srv, "GET", "/limited", ""); w.Code != 200 {
+		t.Fatalf("call 2: expected 200, got %d", w.Code)
+	}
+	if w := do(srv, "GET", "/limited", ""); w.Code != 404 {
+		t.Fatalf("call 3: expected 404 after exhaustion, got %d", w.Code)
+	}
+}

@@ -196,6 +196,42 @@ POST /users {"role":"guest"}  → 403 { error: forbidden }
 POST /users {"role":"user"}   → 200 { id: 2 }
 ```
 
+## GraphQL Matching
+
+Use `graphql` in `match` to branch on GraphQL requests by `operationName` and/or variable values. Both fields support regex patterns.
+
+```yaml
+- path: /graphql
+  method: POST
+  match:
+    - graphql:
+        operation: GetUser
+      status: 200
+      response:
+        data:
+          user: { id: 1, name: Alice }
+
+    - graphql:
+        operation: CreateUser
+        variables:
+          role: "^admin$"
+      status: 201
+      response:
+        data:
+          id: 42
+
+  status: 200
+  response:
+    data: null
+```
+
+| Field | Type | Description |
+|---|---|---|
+| `graphql.operation` | string | Match `operationName` in the request body (regex/exact) |
+| `graphql.variables` | map | Match individual variable values (regex/exact) |
+
+`graphql` only matches JSON bodies. Non-JSON requests fall through to the default response.
+
 ## Form Body Matching
 
 Use `form` in `match` to branch on `application/x-www-form-urlencoded` request bodies. Values support regex (same as `query` and `headers`).

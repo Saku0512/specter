@@ -561,7 +561,8 @@ func newEngine(cfg *config.Config, verbose bool, history *RequestHistory, state 
 						matchesBody(bodyBytes, m.Body) &&
 						matchesHeaders(c, m.Headers) &&
 						matchesBodyPath(bodyBytes, m.BodyPath) &&
-						matchesForm(c, bodyBytes, m.Form) {
+						matchesForm(c, bodyBytes, m.Form) &&
+						matchesGraphQL(bodyBytes, m.GraphQL) {
 						status := m.Status
 						if status == 0 {
 							status = http.StatusOK
@@ -1387,6 +1388,33 @@ func matchesForm(c *gin.Context, body []byte, form map[string]string) bool {
 	for k, pattern := range form {
 		if !matchRegexOrExact(values.Get(k), pattern) {
 			return false
+		}
+	}
+	return true
+}
+
+// matchesGraphQL matches a GraphQL request by operationName and/or variable values.
+// Both fields support regex patterns (same as query/headers).
+func matchesGraphQL(body []byte, gql *config.GraphQLMatch) bool {
+	if gql == nil {
+		return true
+	}
+	var payload map[string]any
+	if err := json.Unmarshal(body, &payload); err != nil {
+		return false
+	}
+	if gql.Operation != "" {
+		op, _ := payload["operationName"].(string)
+		if !matchRegexOrExact(op, gql.Operation) {
+			return false
+		}
+	}
+	if len(gql.Variables) > 0 {
+		vars, _ := payload["variables"].(map[string]any)
+		for k, pattern := range gql.Variables {
+			if !matchRegexOrExact(fmt.Sprint(vars[k]), pattern) {
+				return false
+			}
 		}
 	}
 	return true

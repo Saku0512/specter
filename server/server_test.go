@@ -2749,6 +2749,66 @@ func TestStore_Clear(t *testing.T) {
 	}
 }
 
+func TestMatch_GraphQL(t *testing.T) {
+	srv := newSrv(&config.Config{
+		Routes: []config.Route{
+			{
+				Path:   "/graphql",
+				Method: "POST",
+				Match: []config.RouteMatch{
+					{
+						GraphQL:  &config.GraphQLMatch{Operation: "GetUser"},
+						Status:   200,
+						Response: map[string]any{"data": map[string]any{"user": map[string]any{"id": "1"}}},
+					},
+					{
+						GraphQL:  &config.GraphQLMatch{Operation: "CreateUser", Variables: map[string]string{"name": "^Alice"}},
+						Status:   201,
+						Response: map[string]any{"data": map[string]any{"id": "new"}},
+					},
+				},
+				Status:   200,
+				Response: map[string]any{"data": nil},
+			},
+		},
+	})
+
+	// Match by operationName
+	w := do(srv, "POST", "/graphql", `{"operationName":"GetUser","query":"query GetUser { user { id } }"}`)
+	if w.Code != 200 {
+		t.Fatalf("expected 200 for GetUser, got %d", w.Code)
+	}
+	var res map[string]any
+	json.NewDecoder(w.Body).Decode(&res)
+	data := res["data"].(map[string]any)
+	if data["user"] == nil {
+		t.Errorf("expected user data in response")
+	}
+
+	// Match by operationName + variable
+	w2 := do(srv, "POST", "/graphql", `{"operationName":"CreateUser","variables":{"name":"Alice Smith"}}`)
+	if w2.Code != 201 {
+		t.Fatalf("expected 201 for CreateUser+Alice, got %d: %s", w2.Code, w2.Body.String())
+	}
+
+	// Variable mismatch → fallback
+	w3 := do(srv, "POST", "/graphql", `{"operationName":"CreateUser","variables":{"name":"Bob"}}`)
+	if w3.Code != 200 {
+		t.Fatalf("expected 200 fallback for CreateUser+Bob, got %d", w3.Code)
+	}
+	var res3 map[string]any
+	json.NewDecoder(w3.Body).Decode(&res3)
+	if res3["data"] != nil {
+		t.Errorf("expected nil data in fallback, got %v", res3["data"])
+	}
+
+	// Unknown operation → fallback
+	w4 := do(srv, "POST", "/graphql", `{"operationName":"DeleteUser"}`)
+	if w4.Code != 200 {
+		t.Fatalf("expected 200 fallback for DeleteUser, got %d", w4.Code)
+	}
+}
+
 func TestMatch_Form(t *testing.T) {
 	srv := newSrv(&config.Config{
 		Routes: []config.Route{

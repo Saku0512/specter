@@ -2867,6 +2867,89 @@ func TestStore_Clear(t *testing.T) {
 	}
 }
 
+func TestMatch_ResponseHeaders(t *testing.T) {
+	srv := newSrv(&config.Config{
+		Routes: []config.Route{
+			{
+				Path:   "/api",
+				Method: "GET",
+				Headers: map[string]string{"X-Route": "base"},
+				Match: []config.RouteMatch{
+					{
+						Query:           map[string]string{"v": "2"},
+						ResponseHeaders: map[string]string{"X-Route": "v2", "X-Extra": "yes"},
+						Status:          200,
+						Response:        "v2",
+					},
+				},
+				Status:   200,
+				Response: "default",
+			},
+		},
+	})
+
+	// match fires → response_headers override route headers
+	w := do(srv, "GET", "/api?v=2", "")
+	if w.Header().Get("X-Route") != "v2" {
+		t.Errorf("expected X-Route: v2, got %q", w.Header().Get("X-Route"))
+	}
+	if w.Header().Get("X-Extra") != "yes" {
+		t.Errorf("expected X-Extra: yes, got %q", w.Header().Get("X-Extra"))
+	}
+
+	// no match → only route-level headers
+	w2 := do(srv, "GET", "/api", "")
+	if w2.Header().Get("X-Route") != "base" {
+		t.Errorf("expected X-Route: base for default, got %q", w2.Header().Get("X-Route"))
+	}
+	if w2.Header().Get("X-Extra") != "" {
+		t.Errorf("expected no X-Extra for default, got %q", w2.Header().Get("X-Extra"))
+	}
+}
+
+func TestMatch_Delay(t *testing.T) {
+	srv := newSrv(&config.Config{
+		Routes: []config.Route{
+			{
+				Path:   "/slow",
+				Method: "POST",
+				Match: []config.RouteMatch{
+					{
+						Body:  map[string]any{"slow": true},
+						Delay: 50,
+						Status: 200,
+						Response: "slowed",
+					},
+				},
+				Status:   200,
+				Response: "fast",
+			},
+		},
+	})
+
+	// matching request should take at least 50ms
+	start := time.Now()
+	w := do(srv, "POST", "/slow", `{"slow":true}`)
+	elapsed := time.Since(start)
+	if w.Code != 200 {
+		t.Fatalf("expected 200, got %d", w.Code)
+	}
+	if elapsed < 40*time.Millisecond {
+		t.Errorf("expected >= 40ms delay, got %v", elapsed)
+	}
+
+	// non-matching request should be fast
+	start2 := time.Now()
+	w2 := do(srv, "POST", "/slow", `{"slow":false}`)
+	elapsed2 := time.Since(start2)
+	if w2.Code != 200 {
+		t.Fatalf("expected 200, got %d", w2.Code)
+	}
+	if elapsed2 > 30*time.Millisecond {
+		t.Errorf("expected fast response, got %v", elapsed2)
+	}
+}
+
 func TestMatch_GraphQL(t *testing.T) {
 	srv := newSrv(&config.Config{
 		Routes: []config.Route{

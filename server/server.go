@@ -582,6 +582,14 @@ func newEngine(cfg *config.Config, verbose bool, history *RequestHistory, state 
 						if ct == "" {
 							ct = rt.ContentType
 						}
+						// match-level delay (additive on top of route-level delay)
+						if m.Delay > 0 {
+							time.Sleep(time.Duration(m.Delay) * time.Millisecond)
+						}
+						// match-level response headers override route-level headers
+						for hk, hv := range m.ResponseHeaders {
+							c.Header(hk, hv)
+						}
 						respondValidated(c, oaRouter, cfg.OpenAPIStrictResponse, status, ct, body)
 						// match-level set_state / set_vars take priority over route-level
 						if m.SetState != nil {

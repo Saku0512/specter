@@ -27,10 +27,13 @@ type RouteMatch struct {
 	Response    any               `yaml:"response,omitempty"`
 	File        string            `yaml:"file,omitempty"`
 	Script      string            `yaml:"script,omitempty"`   // Go template producing the response body
-	Form        map[string]string `yaml:"form,omitempty"`      // match application/x-www-form-urlencoded fields (regex)
-	GraphQL     *GraphQLMatch     `yaml:"graphql,omitempty"`   // match GraphQL operationName / variables
-	SetState    *string           `yaml:"set_state,omitempty"` // transition server state after this match
-	SetVars     map[string]string `yaml:"set_vars,omitempty"`  // set vars after this match
+	Form            map[string]string `yaml:"form,omitempty"`             // match application/x-www-form-urlencoded fields (regex)
+	GraphQL         *GraphQLMatch     `yaml:"graphql,omitempty"`          // match GraphQL operationName / variables
+	Cookies         map[string]string `yaml:"cookies,omitempty"`          // match cookie name → regex/exact
+	SetState        *string           `yaml:"set_state,omitempty"`        // transition server state after this match
+	SetVars         map[string]string `yaml:"set_vars,omitempty"`         // set vars after this match
+	ResponseHeaders map[string]string `yaml:"response_headers,omitempty"` // response headers to set/override when this match fires
+	Delay           int               `yaml:"delay,omitempty"`            // additional delay (ms) applied after this match fires
 }
 
 // GraphQLMatch selects a match entry by GraphQL operation name and/or variables.

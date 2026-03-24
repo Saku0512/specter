@@ -232,6 +232,44 @@ Use `graphql` in `match` to branch on GraphQL requests by `operationName` and/or
 
 `graphql` only matches JSON bodies. Non-JSON requests fall through to the default response.
 
+## Match-level Response Headers
+
+Use `response_headers` inside a `match` entry to set or override response headers only when that condition fires. Values from `response_headers` are applied after the route-level `headers`, so they override any conflicting keys.
+
+```yaml
+- path: /api
+  method: GET
+  headers:
+    X-Version: "1"        # default header for all requests
+  match:
+    - query:
+        v: "2"
+      response_headers:
+        X-Version: "2"    # overrides the route-level header
+        Deprecation: "false"
+      status: 200
+      response: { ... }
+  status: 200
+  response: { ... }
+```
+
+## Match-level Delay
+
+Use `delay` inside a `match` entry to inject an additional delay (ms) only when that condition fires. The delay is applied *after* any route-level `delay` (additive). Set the route `delay: 0` if you only want the match delay.
+
+```yaml
+- path: /data
+  method: POST
+  match:
+    - body:
+        simulate_timeout: true
+      delay: 5000        # 5-second delay for this specific case
+      status: 200
+      response: { ... }
+  status: 200
+  response: { ... }
+```
+
 ## Form Body Matching
 
 Use `form` in `match` to branch on `application/x-www-form-urlencoded` request bodies. Values support regex (same as `query` and `headers`).

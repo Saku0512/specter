@@ -1,4 +1,5 @@
 <script lang="ts">
+	import { base } from '$app/paths';
 	import mark from '$lib/assets/logo-icon.png';
 
 	const toc = [
@@ -259,7 +260,7 @@ specter record -t http://api.example.com -o config.yml`;
 <div class="docs-page">
 	<header class="docs-hero" id="introduction">
 		<nav class="topbar" aria-label="Main navigation">
-			<a class="brand" href="/">
+			<a class="brand" href={base ? `${base}/` : '/'}>
 				<img src={mark} alt="" />
 				<span>specter</span>
 			</a>

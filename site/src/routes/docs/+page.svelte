@@ -25,6 +25,9 @@
 				'specter はフロントエンド開発、デモ、自動テスト、API 契約の確認に使える軽量なモック API サーバーです。config.yml にルートを書き、単一バイナリを起動するだけで、アプリを作り直さずに挙動を調整できます。',
 			startQuickly: 'すぐ始める',
 			configReference: '設定リファレンス',
+			copySnippet: 'コピー',
+			copiedSnippet: 'コピー済み',
+			copySnippetLabel: 'コードをコピー',
 			quickStartTitle: '空のフォルダからモック API へ',
 			quickStart: [
 				{
@@ -166,6 +169,9 @@
 				'specter is a lightweight mock API server for frontend development, demos, automated tests, and API contract work. Define routes in config.yml, run a single binary, and adjust behavior without rebuilding your application.',
 			startQuickly: 'Start Quickly',
 			configReference: 'Config Reference',
+			copySnippet: 'Copy',
+			copiedSnippet: 'Copied',
+			copySnippetLabel: 'Copy code',
 			quickStartTitle: 'From blank folder to mock API',
 			quickStart: [
 				{ title: 'Generate a starter file', body: 'Creates config.yml in the current directory.' },
@@ -531,6 +537,35 @@ specter gen -i openapi.yml -o config.yml
 specter record -t http://api.example.com -o config.yml`;
 
 	const storeQuery = `GET /users?role=admin&_sort=name&_order=asc&_limit=10&_offset=0`;
+
+	let copiedSnippet = $state('');
+	let copyTimer: ReturnType<typeof setTimeout> | undefined;
+
+	async function copyCode(code: string, key: string) {
+		try {
+			await navigator.clipboard.writeText(code);
+		} catch {
+			const textarea = document.createElement('textarea');
+			textarea.value = code;
+			textarea.setAttribute('readonly', '');
+			textarea.style.position = 'fixed';
+			textarea.style.opacity = '0';
+			document.body.appendChild(textarea);
+			textarea.select();
+			document.execCommand('copy');
+			textarea.remove();
+		}
+
+		copiedSnippet = key;
+
+		if (copyTimer) {
+			clearTimeout(copyTimer);
+		}
+
+		copyTimer = setTimeout(() => {
+			copiedSnippet = '';
+		}, 1600);
+	}
 </script>
 
 <svelte:head>
@@ -582,19 +617,19 @@ specter record -t http://api.example.com -o config.yml`;
 				<article>
 					<span>01</span>
 					<h3>{copy[$language].quickStart[0].title}</h3>
-					<pre>specter init</pre>
+					{@render commandBlock('specter init', 'quickstart-init')}
 					<p>{copy[$language].quickStart[0].body}</p>
 				</article>
 				<article>
 					<span>02</span>
 					<h3>{copy[$language].quickStart[1].title}</h3>
-					<pre>specter -c config.yml</pre>
+					{@render commandBlock('specter -c config.yml', 'quickstart-run')}
 					<p>{copy[$language].quickStart[1].body}</p>
 				</article>
 				<article>
 					<span>03</span>
 					<h3>{copy[$language].quickStart[2].title}</h3>
-					<pre>curl http://localhost:8080/users</pre>
+					{@render commandBlock('curl http://localhost:8080/users', 'quickstart-curl')}
 					<p>{copy[$language].quickStart[2].body}</p>
 				</article>
 			</div>
@@ -750,7 +785,18 @@ specter record -t http://api.example.com -o config.yml`;
 				<p>{copy[$language].cliBody}</p>
 			</div>
 			<div class="hero-panel">
-				<div class="panel-title">commands</div>
+				<div class="panel-title copyable-title">
+					<span>commands</span>
+					<button
+						type="button"
+						class="copy-button"
+						class:copied={copiedSnippet === 'cli-commands'}
+						aria-label={`${copy[$language].copySnippetLabel}: commands`}
+						onclick={() => copyCode(cliCommands, 'cli-commands')}
+					>
+						{copiedSnippet === 'cli-commands' ? copy[$language].copiedSnippet : copy[$language].copySnippet}
+					</button>
+				</div>
 				<pre>{cliCommands}</pre>
 			</div>
 		</section>
@@ -823,12 +869,38 @@ specter record -t http://api.example.com -o config.yml`;
 {#snippet codeBlock(code: string, label = 'config.yml')}
 	<div class="code-block">
 		<div class="code-head">
-			<span></span>
-			<span></span>
-			<span></span>
-			<strong>{label}</strong>
+			<div class="code-title">
+				<span></span>
+				<span></span>
+				<span></span>
+				<strong>{label}</strong>
+			</div>
+			<button
+				type="button"
+				class="copy-button"
+				class:copied={copiedSnippet === `${label}:${code}`}
+				aria-label={`${copy[$language].copySnippetLabel}: ${label}`}
+				onclick={() => copyCode(code, `${label}:${code}`)}
+			>
+				{copiedSnippet === `${label}:${code}` ? copy[$language].copiedSnippet : copy[$language].copySnippet}
+			</button>
 		</div>
 		<pre><code>{code}</code></pre>
+	</div>
+{/snippet}
+
+{#snippet commandBlock(command: string, key: string)}
+	<div class="command-block">
+		<pre>{command}</pre>
+		<button
+			type="button"
+			class="copy-button"
+			class:copied={copiedSnippet === key}
+			aria-label={`${copy[$language].copySnippetLabel}: ${command}`}
+			onclick={() => copyCode(command, key)}
+		>
+			{copiedSnippet === key ? copy[$language].copiedSnippet : copy[$language].copySnippet}
+		</button>
 	</div>
 {/snippet}
 
@@ -1042,6 +1114,7 @@ specter record -t http://api.example.com -o config.yml`;
 	.code-head {
 		display: flex;
 		align-items: center;
+		justify-content: space-between;
 		gap: 0.48rem;
 		padding: 0.78rem 0.95rem;
 		border-bottom: 1px solid rgba(145, 184, 220, 0.12);
@@ -1049,18 +1122,63 @@ specter record -t http://api.example.com -o config.yml`;
 		color: #9fb5d4;
 	}
 
-	.code-head span {
+	.code-title,
+	.copyable-title {
+		display: flex;
+		align-items: center;
+		gap: 0.48rem;
+		min-width: 0;
+	}
+
+	.copyable-title {
+		justify-content: space-between;
+	}
+
+	.code-title span {
 		width: 0.58rem;
 		height: 0.58rem;
+		flex: 0 0 auto;
 		border-radius: 999px;
 		background: rgba(255, 255, 255, 0.18);
 	}
 
-	.code-head strong {
+	.code-title strong {
 		margin-left: 0.25rem;
 		text-transform: uppercase;
 		letter-spacing: 0.12em;
 		font-size: 0.74rem;
+		overflow: hidden;
+		text-overflow: ellipsis;
+		white-space: nowrap;
+	}
+
+	.copy-button {
+		flex: 0 0 auto;
+		min-height: 1.85rem;
+		padding: 0.35rem 0.62rem;
+		border: 1px solid rgba(138, 241, 255, 0.24);
+		border-radius: 8px;
+		background: rgba(138, 241, 255, 0.08);
+		color: #dff9ff;
+		font: inherit;
+		font-size: 0.74rem;
+		font-weight: 800;
+		letter-spacing: 0;
+		text-transform: none;
+		cursor: pointer;
+	}
+
+	.copy-button:hover,
+	.copy-button:focus-visible {
+		border-color: rgba(138, 241, 255, 0.48);
+		background: rgba(138, 241, 255, 0.14);
+		outline: none;
+	}
+
+	.copy-button.copied {
+		background: rgba(185, 255, 210, 0.14);
+		border-color: rgba(185, 255, 210, 0.44);
+		color: #dfffe9;
 	}
 
 	pre {
@@ -1122,6 +1240,26 @@ specter record -t http://api.example.com -o config.yml`;
 	.comparison-grid article,
 	.recipe-grid article {
 		padding: 1.1rem;
+	}
+
+	.command-block {
+		display: grid;
+		grid-template-columns: minmax(0, 1fr) auto;
+		align-items: stretch;
+		overflow: hidden;
+		margin-top: 0.9rem;
+		border: 1px solid rgba(145, 184, 220, 0.12);
+		border-radius: 8px;
+		background: #07111f;
+	}
+
+	.command-block pre {
+		min-width: 0;
+		padding: 0.75rem 0.85rem;
+	}
+
+	.command-block .copy-button {
+		margin: 0.45rem 0.45rem 0.45rem 0;
 	}
 
 	.example-grid strong,

@@ -16,6 +16,7 @@ specter -c config.yml -p 8080
 | `--cert` | — | TLS certificate file (enables HTTPS) |
 | `--key` | — | TLS key file (enables HTTPS) |
 | `--ui-port` | `4444` | Port for the web UI (set to `0` to disable) |
+| `--store-file` | — | JSON file used to load and persist CRUD store state |
 | `--verbose` | — | Log request headers and body |
 | `-v`, `--version` | — | Show version |
 | `-h`, `--help` | — | Show help |
@@ -33,6 +34,7 @@ Flags take precedence over environment variables.
 | `SPECTER_KEY` | `--key` |
 | `SPECTER_VERBOSE` | `--verbose` |
 | `SPECTER_UI_PORT` | `--ui-port` |
+| `SPECTER_STORE_FILE` | `--store-file` |
 | `SPECTER_URL` | `specter scenario --url` |
 
 ## Web UI

@@ -198,7 +198,7 @@ PUT    /__specter/stores/:name     # replace collection ← [{ "id": "...", ... 
 DELETE /__specter/stores/:name     # clear a collection
 ```
 
-Stores persist across hot reloads but reset when the server restarts.
+Stores persist across hot reloads. By default they reset when the server restarts; with `--store-file stores.json`, they are loaded from that JSON file on startup and every mutation through these endpoints is written back atomically.
 
 ## Timelines
 

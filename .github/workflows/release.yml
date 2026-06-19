@@ -75,6 +75,7 @@ jobs:
     runs-on: ubuntu-latest
     permissions:
       contents: write
+      pull-requests: write
     steps:
       - uses: actions/checkout@v4
         with:
@@ -98,15 +99,38 @@ jobs:
           VERSION=${{ github.ref_name }}
           VERSION_NUM=${VERSION#v}
           sed -i "s/version \".*\"/version \"${VERSION_NUM}\"/" Formula/specter.rb
-          sed -i "s/PLACEHOLDER_DARWIN_AMD64/${{ env.SHA256_darwin_amd64 }}/" Formula/specter.rb
-          sed -i "s/PLACEHOLDER_DARWIN_ARM64/${{ env.SHA256_darwin_arm64 }}/" Formula/specter.rb
-          sed -i "s/PLACEHOLDER_LINUX_AMD64/${{ env.SHA256_linux_amd64 }}/" Formula/specter.rb
-          sed -i "s/PLACEHOLDER_LINUX_ARM64/${{ env.SHA256_linux_arm64 }}/" Formula/specter.rb
+          ruby -0pi -e '$_.gsub!(/(specter_darwin_amd64"\n\s+sha256 ")[^"]+(")/, "\\1#{ENV.fetch("SHA256_darwin_amd64")}\\2")' Formula/specter.rb
+          ruby -0pi -e '$_.gsub!(/(specter_darwin_arm64"\n\s+sha256 ")[^"]+(")/, "\\1#{ENV.fetch("SHA256_darwin_arm64")}\\2")' Formula/specter.rb
+          ruby -0pi -e '$_.gsub!(/(specter_linux_amd64"\n\s+sha256 ")[^"]+(")/, "\\1#{ENV.fetch("SHA256_linux_amd64")}\\2")' Formula/specter.rb
+          ruby -0pi -e '$_.gsub!(/(specter_linux_arm64"\n\s+sha256 ")[^"]+(")/, "\\1#{ENV.fetch("SHA256_linux_arm64")}\\2")' Formula/specter.rb
 
-      - name: Commit updated formula
+      - name: Open formula update pull request
+        env:
+          GH_TOKEN: ${{ github.token }}
         run: |
+          VERSION=${{ github.ref_name }}
+          BRANCH="chore/update-formula-${VERSION}"
+
+          if git diff --quiet -- Formula/specter.rb; then
+            echo "Formula/specter.rb is already up to date for ${VERSION}."
+            exit 0
+          fi
+
           git config user.name "github-actions[bot]"
           git config user.email "github-actions[bot]@users.noreply.github.com"
+          git switch -c "$BRANCH"
           git add Formula/specter.rb
-          git diff --staged --quiet || git commit -m "chore: update formula to ${{ github.ref_name }}"
-          git push origin main
+          git commit -m "chore: update formula to ${VERSION}"
+          git push --force-with-lease origin "$BRANCH"
+
+          EXISTING_PR_URL=$(gh pr view "$BRANCH" --json url --jq .url 2>/dev/null || true)
+          if [ -n "$EXISTING_PR_URL" ]; then
+            echo "Formula update pull request already exists: $EXISTING_PR_URL"
+            exit 0
+          fi
+
+          gh pr create \
+            --base main \
+            --head "$BRANCH" \
+            --title "chore: update formula to ${VERSION}" \
+            --body "Updates the Homebrew formula version and SHA256 checksums for ${VERSION}."

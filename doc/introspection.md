@@ -89,6 +89,7 @@ Add, list, and remove routes at runtime without editing the config file or resta
 ```sh
 GET    /__specter/routes        # list all routes (config + dynamic)
 POST   /__specter/routes        # add a route → returns { "id": "<uuid>" }
+PUT    /__specter/routes/:id    # replace one dynamic route by ID
 DELETE /__specter/routes        # remove all dynamic routes
 DELETE /__specter/routes/:id    # remove one dynamic route by ID
 ```
@@ -109,7 +110,7 @@ curl -X POST http://localhost:8080/__specter/routes \
 
 Dynamic routes are merged with config routes and processed in order. Config routes are listed with `"source": "config"`; dynamic routes with `"source": "dynamic"` and an `"id"` field.
 
-Dynamic routes persist across hot reloads but are cleared when the server restarts.
+Dynamic routes are memory-only. They persist across hot reloads but are cleared when the server restarts. The Web UI uses the same endpoints to add, edit, and delete dynamic routes.
 
 ## State
 

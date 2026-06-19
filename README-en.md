@@ -68,6 +68,7 @@ routes:
 - [Examples gallery](doc/examples.md) — auth, CRUD, pagination, GraphQL, webhooks, SSE, OpenAPI, and more
 - [Comparison guide](doc/comparison.md) — differences from json-server, Prism, and WireMock
 - [JSON Schema](doc/schema.md) — schema for editor completion and validation
+- [VS Code Extension](https://marketplace.visualstudio.com/items?itemName=Saku0512-sec.specter-mock-server) — completion and inline validation for Specter config files
 - [CLI reference](doc/cli.md) — flags, env vars, `init` / `examples` / `gen` / `validate` / `doctor` / `record`
 - [Introspection API](doc/introspection.md) — `/__specter/requests`, `/__specter/state`
 

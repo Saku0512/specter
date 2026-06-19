@@ -70,6 +70,7 @@ routes:
 - [Examples gallery](doc/examples.md) — auth、CRUD、pagination、GraphQL、webhook、SSE、OpenAPI など
 - [Comparison guide](doc/comparison.md) — json-server、Prism、WireMock との違い
 - [JSON Schema](doc/schema.md) — エディタ補完・validation 用 schema
+- [VS Code Extension](https://marketplace.visualstudio.com/items?itemName=Saku0512-sec.specter-mock-server) — Specter config の補完と inline validation
 - [CLI reference](doc/cli.md) — flags、env vars、`init` / `examples` / `gen` / `validate` / `doctor` / `record`
 - [Introspection API](doc/introspection.md) — `/__specter/requests`、`/__specter/state`
 

@@ -1,5 +1,5 @@
 <script lang="ts">
-	import mark from '$lib/assets/favicon.svg';
+	import mark from '$lib/assets/logo-icon.png';
 
 	const installMethods = [
 		{

@@ -123,6 +123,7 @@ routes: []
 	diagnostics := Diagnose(Options{ConfigPath: configPath, Port: freePort(t), UIPort: "0"})
 
 	assertDiagnostic(t, diagnostics, LevelOK, "openapi", "openapi.yml is valid")
+	assertNoDiagnostic(t, diagnostics, "openapi", "not configured")
 }
 
 func TestDiagnoseReportsMissingOpenAPI(t *testing.T) {
@@ -210,4 +211,13 @@ func assertDiagnostic(t *testing.T, diagnostics []Diagnostic, level Level, check
 		}
 	}
 	t.Fatalf("missing %s %s containing %q in %#v", level, check, substring, diagnostics)
+}
+
+func assertNoDiagnostic(t *testing.T, diagnostics []Diagnostic, check, substring string) {
+	t.Helper()
+	for _, diagnostic := range diagnostics {
+		if diagnostic.Check == check && strings.Contains(diagnostic.Message, substring) {
+			t.Fatalf("unexpected %s containing %q in %#v", check, substring, diagnostics)
+		}
+	}
 }

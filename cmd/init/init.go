@@ -193,6 +193,27 @@ func templateFor(name string) (string, bool) {
 	return tmpl, ok
 }
 
+func normalizedTemplateName(name string) string {
+	return strings.ToLower(strings.TrimSpace(name))
+}
+
+func writeConfig(output, templateName string, force bool) (string, error) {
+	normalized := normalizedTemplateName(templateName)
+	template, ok := templateFor(normalized)
+	if !ok {
+		return "", fmt.Errorf("unknown template %q. Available templates: %s", templateName, strings.Join(templateNames(), ", "))
+	}
+
+	if _, err := os.Stat(output); err == nil && !force {
+		return "", fmt.Errorf("%s already exists. Use -f to overwrite", output)
+	}
+
+	if err := os.WriteFile(output, []byte(template), 0644); err != nil {
+		return "", fmt.Errorf("failed to write %s: %w", output, err)
+	}
+	return normalized, nil
+}
+
 func Run(args []string) {
 	fs := flag.NewFlagSet("init", flag.ExitOnError)
 	output := fs.String("o", "config.yml", "output file")
@@ -209,22 +230,12 @@ func Run(args []string) {
 		return
 	}
 
-	template, ok := templateFor(*templateName)
-	if !ok {
-		fmt.Fprintf(os.Stderr, "unknown template %q. Available templates: %s\n", *templateName, strings.Join(templateNames(), ", "))
+	normalized, err := writeConfig(*output, *templateName, *force)
+	if err != nil {
+		fmt.Fprintln(os.Stderr, err)
 		os.Exit(1)
 	}
 
-	if _, err := os.Stat(*output); err == nil && !*force {
-		fmt.Fprintf(os.Stderr, "%s already exists. Use -f to overwrite.\n", *output)
-		os.Exit(1)
-	}
-
-	if err := os.WriteFile(*output, []byte(template), 0644); err != nil {
-		fmt.Fprintf(os.Stderr, "failed to write %s: %v\n", *output, err)
-		os.Exit(1)
-	}
-
-	fmt.Printf("created %s from %s template\n", *output, strings.ToLower(strings.TrimSpace(*templateName)))
+	fmt.Printf("created %s from %s template\n", *output, normalized)
 	fmt.Println("run: specter -c", *output)
 }

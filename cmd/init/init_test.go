@@ -3,6 +3,7 @@ package init_cmd
 import (
 	"os"
 	"path/filepath"
+	"strings"
 	"testing"
 
 	"github.com/Saku0512/specter/config"
@@ -67,5 +68,55 @@ func TestRun_writesSelectedTemplate(t *testing.T) {
 	}
 	if len(cfg.Routes) != 6 {
 		t.Fatalf("expected 6 CRUD routes, got %d", len(cfg.Routes))
+	}
+}
+
+func TestWriteConfig_rejectsUnknownTemplate(t *testing.T) {
+	out := filepath.Join(t.TempDir(), "config.yml")
+	_, err := writeConfig(out, "missing", false)
+	if err == nil {
+		t.Fatal("expected error for unknown template")
+	}
+	if !strings.Contains(err.Error(), "Available templates") {
+		t.Fatalf("expected available templates in error, got %v", err)
+	}
+}
+
+func TestWriteConfig_doesNotOverwriteWithoutForce(t *testing.T) {
+	out := filepath.Join(t.TempDir(), "config.yml")
+	if err := os.WriteFile(out, []byte("original"), 0644); err != nil {
+		t.Fatal(err)
+	}
+	_, err := writeConfig(out, "basic", false)
+	if err == nil {
+		t.Fatal("expected overwrite error")
+	}
+	data, err := os.ReadFile(out)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if string(data) != "original" {
+		t.Fatalf("expected original file to be preserved, got %q", string(data))
+	}
+}
+
+func TestWriteConfig_forceOverwrites(t *testing.T) {
+	out := filepath.Join(t.TempDir(), "config.yml")
+	if err := os.WriteFile(out, []byte("original"), 0644); err != nil {
+		t.Fatal(err)
+	}
+	name, err := writeConfig(out, "AUTH", true)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if name != "auth" {
+		t.Fatalf("expected normalized template name auth, got %q", name)
+	}
+	cfg, err := config.Load(out)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if _, ok := cfg.Scenarios["logged-in-admin"]; !ok {
+		t.Fatalf("expected auth template scenario, got %v", cfg.Scenarios)
 	}
 }

@@ -23,10 +23,22 @@ type Server struct {
 }
 
 func New(cfg *config.Config, verbose bool, random bool) *Server {
-	s := &Server{verbose: verbose, random: random, history: &RequestHistory{}, state: &StateStore{}, vars: newVarStore(), scenario: &ScenarioStore{}, dynamic: &DynamicRouteStore{}, store: newDataStore(), timeline: newTimelineStore()}
+	s, err := NewWithStoreFile(cfg, verbose, random, "")
+	if err != nil {
+		panic(err)
+	}
+	return s
+}
+
+func NewWithStoreFile(cfg *config.Config, verbose bool, random bool, storeFile string) (*Server, error) {
+	store, err := newDataStoreWithFile(storeFile)
+	if err != nil {
+		return nil, err
+	}
+	s := &Server{verbose: verbose, random: random, history: &RequestHistory{}, state: &StateStore{}, vars: newVarStore(), scenario: &ScenarioStore{}, dynamic: &DynamicRouteStore{}, store: store, timeline: newTimelineStore()}
 	s.cfg.Store(cfg)
 	s.engine.Store(newEngine(cfg, verbose, random, s.history, s.state, s.vars, s.scenario, s.dynamic, s.store, s.timeline, s.rebuild))
-	return s
+	return s, nil
 }
 
 func (s *Server) rebuild() {

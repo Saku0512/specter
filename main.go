@@ -99,6 +99,7 @@ Flags:
   --cert       TLS certificate file (enables HTTPS)
   --key        TLS key file (enables HTTPS)
   --ui-port    Port for the web UI (default: 4444, set to 0 to disable)
+  --store-file Path to JSON file for persistent stores
   --verbose    Log request headers and body
   -v, --version  Show version
   -h, --help   Show this help
@@ -119,6 +120,7 @@ Environment variables:
   SPECTER_KEY       TLS key file
   SPECTER_VERBOSE   Set to 1 or true to enable verbose logging
   SPECTER_UI_PORT   Port for the web UI (0 to disable)
+  SPECTER_STORE_FILE Path to JSON file for persistent stores
 
 Examples:
   specter -c config.yml -p 3000
@@ -163,6 +165,7 @@ func main() {
 	cert := flag.String("cert", "", "TLS certificate file")
 	key := flag.String("key", "", "TLS key file")
 	uiPort := flag.String("ui-port", "4444", "port for the web UI (0 to disable)")
+	storeFile := flag.String("store-file", "", "path to JSON file for persistent stores")
 	verbose := flag.Bool("verbose", false, "log request headers and body")
 	random := flag.Bool("random", false, "generate random responses from OpenAPI spec (requires --openapi or openapi: in config)")
 	v := flag.Bool("v", false, "show version")
@@ -208,6 +211,11 @@ func main() {
 			*uiPort = val
 		}
 	}
+	if !set["store-file"] {
+		if val := os.Getenv("SPECTER_STORE_FILE"); val != "" {
+			*storeFile = val
+		}
+	}
 
 	if *v {
 		fmt.Print(versionOutput())
@@ -224,7 +232,10 @@ func main() {
 		log.Fatalf("failed to load config: %v", err)
 	}
 
-	srv := server.New(cfg, *verbose, *random)
+	srv, err := server.NewWithStoreFile(cfg, *verbose, *random, *storeFile)
+	if err != nil {
+		log.Fatalf("failed to load store file: %v", err)
+	}
 
 	if *uiPort != "0" && *uiPort != "" {
 		scheme := "http"

@@ -47,6 +47,7 @@ irm https://raw.githubusercontent.com/Saku0512/specter/main/install.ps1 | iex
 
 ```sh
 specter init          # config.yml を生成
+specter init --template crud  # CRUD スターターを生成
 specter -c config.yml # サーバーを起動
 ```
 

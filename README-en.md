@@ -47,6 +47,7 @@ irm https://raw.githubusercontent.com/Saku0512/specter/main/install.ps1 | iex
 
 ```sh
 specter init          # generate config.yml
+specter init --template crud  # generate a CRUD starter
 specter -c config.yml # start the server
 ```
 

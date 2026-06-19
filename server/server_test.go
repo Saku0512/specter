@@ -2144,6 +2144,21 @@ func TestLatencyProfile_routeOverrideAndExplicitDelayPrecedence(t *testing.T) {
 	}
 }
 
+func TestLatencyProfile_jitterDelayStaysInRange(t *testing.T) {
+	cfg := &config.Config{
+		LatencyProfile: "jitter",
+		LatencyProfiles: map[string]config.LatencyProfile{
+			"jitter": {DelayMin: 10, DelayMax: 12},
+		},
+	}
+	for i := 0; i < 25; i++ {
+		got := routeLatencyDelay(cfg, config.Route{Path: "/profiled", Method: "GET"})
+		if got < 10 || got > 12 {
+			t.Fatalf("expected jitter delay in range 10..12, got %d", got)
+		}
+	}
+}
+
 func TestLatencyIntrospectionAndRoutesExposeActiveProfiles(t *testing.T) {
 	srv := newSrv(&config.Config{
 		LatencyProfile: "mobile-4g",

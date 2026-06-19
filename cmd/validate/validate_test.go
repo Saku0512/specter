@@ -236,6 +236,18 @@ func TestCheck_latencyProfileInvalidRange(t *testing.T) {
 	assertContains(t, check(cfg), `latency profile "bad": delay_min must be <= delay_max`)
 }
 
+func TestCheck_latencyProfileRejectsNegativeValues(t *testing.T) {
+	cfg := &config.Config{
+		LatencyProfiles: map[string]config.LatencyProfile{
+			"bad": {Delay: -1, DelayMin: -2, DelayMax: -3},
+		},
+	}
+	errs := check(cfg)
+	assertContains(t, errs, `latency profile "bad": delay must be non-negative`)
+	assertContains(t, errs, `latency profile "bad": delay_min must be non-negative`)
+	assertContains(t, errs, `latency profile "bad": delay_max must be non-negative`)
+}
+
 func assertContains(t *testing.T, errs []string, substr string) {
 	t.Helper()
 	for _, e := range errs {

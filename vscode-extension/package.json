@@ -1,0 +1,93 @@
+{
+  "name": "specter-mock-server",
+  "displayName": "Specter Mock Server",
+  "description": "VS Code support for Specter config files.",
+  "version": "0.0.1",
+  "publisher": "saku0512-sec",
+  "icon": "logo-icon.png",
+  "license": "MIT",
+  "preview": true,
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/Saku0512/specter.git",
+    "directory": "vscode-extension"
+  },
+  "bugs": {
+    "url": "https://github.com/Saku0512/specter/issues"
+  },
+  "homepage": "https://github.com/Saku0512/specter#readme",
+  "qna": "github",
+  "engines": {
+    "vscode": "^1.125.0"
+  },
+  "categories": [
+    "Linters",
+    "Programming Languages"
+  ],
+  "keywords": [
+    "specter",
+    "mock server",
+    "api mocking",
+    "yaml",
+    "json schema",
+    "openapi"
+  ],
+  "galleryBanner": {
+    "color": "#1f2937",
+    "theme": "dark"
+  },
+  "activationEvents": [],
+  "main": "./dist/extension.js",
+  "extensionDependencies": [
+    "redhat.vscode-yaml"
+  ],
+  "contributes": {
+    "yamlValidation": [
+      {
+        "fileMatch": "specter.yaml",
+        "url": "./schemas/specter.schema.json"
+      },
+      {
+        "fileMatch": "specter.yml",
+        "url": "./schemas/specter.schema.json"
+      },
+      {
+        "fileMatch": "config.yaml",
+        "url": "./schemas/specter.schema.json"
+      },
+      {
+        "fileMatch": "config.yml",
+        "url": "./schemas/specter.schema.json"
+      }
+    ]
+  },
+  "scripts": {
+    "vscode:prepublish": "npm run package",
+    "compile": "npm run check-types && npm run lint && node esbuild.js",
+    "watch": "npm-run-all -p watch:*",
+    "watch:esbuild": "node esbuild.js --watch",
+    "watch:tsc": "tsc --noEmit --watch --project tsconfig.json",
+    "package": "npm run check-types && npm run lint && node esbuild.js --production",
+    "compile-tests": "tsc -p . --outDir out",
+    "watch-tests": "tsc -p . -w --outDir out",
+    "pretest": "npm run test:schema && npm run compile-tests && npm run compile && npm run lint",
+    "check-types": "tsc --noEmit",
+    "lint": "eslint src",
+    "test:schema": "node scripts/validate-schema.cjs",
+    "test": "vscode-test",
+    "vsix": "vsce package --no-dependencies"
+  },
+  "devDependencies": {
+    "@types/mocha": "^10.0.10",
+    "@types/node": "22.x",
+    "@types/vscode": "^1.125.0",
+    "@vscode/test-cli": "^0.0.11",
+    "@vscode/test-electron": "^2.5.2",
+    "@vscode/vsce": "^3.9.2",
+    "esbuild": "^0.28.1",
+    "eslint": "^9.39.3",
+    "npm-run-all": "^4.1.5",
+    "typescript": "^5.9.3",
+    "typescript-eslint": "^8.56.1"
+  }
+}

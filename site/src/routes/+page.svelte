@@ -318,9 +318,29 @@ UI running on http://localhost:4444`;
 		color: #8adcee;
 	}
 
+	.eyebrow {
+		gap: 1rem;
+		font-size: 0.9rem;
+		font-weight: 700;
+	}
+
 	.eyebrow img {
-		width: 1.85rem;
-		height: 1.85rem;
+		width: clamp(3.2rem, 6vw, 4.8rem);
+		height: clamp(3.2rem, 6vw, 4.8rem);
+		animation: logo-float 3.8s ease-in-out infinite;
+		filter: drop-shadow(0 18px 22px rgba(77, 208, 225, 0.2));
+		will-change: transform;
+	}
+
+	@keyframes logo-float {
+		0%,
+		100% {
+			transform: translateY(0);
+		}
+
+		50% {
+			transform: translateY(-0.55rem);
+		}
 	}
 
 	h1,
@@ -693,6 +713,12 @@ UI running on http://localhost:4444`;
 			min-height: auto;
 		}
 
+		.eyebrow {
+			align-items: flex-start;
+			flex-direction: column;
+			gap: 0.75rem;
+		}
+
 		.signal-list {
 			grid-template-columns: 1fr;
 		}
@@ -718,6 +744,12 @@ UI running on http://localhost:4444`;
 		.band-head {
 			align-items: start;
 			flex-direction: column;
+		}
+	}
+
+	@media (prefers-reduced-motion: reduce) {
+		.eyebrow img {
+			animation: none;
 		}
 	}
 </style>

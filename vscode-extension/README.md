@@ -10,7 +10,7 @@ VS Code support for Specter configuration files.
 
 ## Requirements
 
-This extension depends on the Red Hat YAML extension because Specter config files are YAML.
+This extension depends on the Red Hat YAML extension because Specter config files are YAML. VS Code installs extension dependencies automatically when the extension is installed from the Marketplace.
 
 ## Development
 
@@ -21,9 +21,20 @@ npm run check-types
 npm run lint
 npm run test:schema
 npm run package
+npm run vsix
 ```
 
 Press F5 in VS Code to launch an Extension Development Host.
+
+## Publishing
+
+This extension is ready to package with `vsce`:
+
+```sh
+npm run vsix
+```
+
+Publishing to Visual Studio Marketplace requires a Marketplace publisher named `saku0512` or updating the `publisher` field in `package.json` to match the publisher ID you create.
 
 ## Release Notes
 

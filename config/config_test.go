@@ -142,6 +142,25 @@ func TestLoad_include_cycle_detection(t *testing.T) {
 	}
 }
 
+func TestLoadBytesDoesNotExpandIncludes(t *testing.T) {
+	dir := t.TempDir()
+	includePath := filepath.Join(dir, "extra.yml")
+	if err := os.WriteFile(includePath, []byte("routes:\n  - path: /extra\n    method: GET\n"), 0644); err != nil {
+		t.Fatal(err)
+	}
+
+	cfg, err := LoadBytes([]byte("include:\n  - " + includePath + "\nroutes:\n  - path: /inline\n    method: GET\n"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(cfg.Include) != 1 || cfg.Include[0] != includePath {
+		t.Fatalf("expected include path to be parsed but not expanded, got %v", cfg.Include)
+	}
+	if len(cfg.Routes) != 1 || cfg.Routes[0].Path != "/inline" {
+		t.Fatalf("expected only inline routes from LoadBytes, got %+v", cfg.Routes)
+	}
+}
+
 func TestLoad_all_route_fields(t *testing.T) {
 	path := writeTemp(t, "config.yaml", `
 routes:

@@ -129,6 +129,50 @@ func TestCheck_responsesInvalidStatus(t *testing.T) {
 	assertContains(t, errs, "responses[0] invalid status")
 }
 
+func TestCheck_timelineValid(t *testing.T) {
+	cfg := &config.Config{
+		Routes: []config.Route{
+			{
+				Path:   "/job",
+				Method: "GET",
+				Timeline: []config.RouteResponse{
+					{Status: 202, Response: map[string]any{"status": "pending"}},
+					{Status: 200, Response: map[string]any{"status": "done"}},
+				},
+			},
+		},
+	}
+	if errs := check(cfg); len(errs) != 0 {
+		t.Errorf("expected no errors, got %v", errs)
+	}
+}
+
+func TestCheck_timelineInvalidStatus(t *testing.T) {
+	cfg := &config.Config{
+		Routes: []config.Route{
+			{
+				Path:     "/job",
+				Method:   "GET",
+				Timeline: []config.RouteResponse{{Status: 999, Response: "bad"}},
+			},
+		},
+	}
+	assertContains(t, check(cfg), "timeline[0] invalid status")
+}
+
+func TestCheck_timelineRejectsOnCall(t *testing.T) {
+	cfg := &config.Config{
+		Routes: []config.Route{
+			{
+				Path:     "/job",
+				Method:   "GET",
+				Timeline: []config.RouteResponse{{OnCall: 2, Response: "bad"}},
+			},
+		},
+	}
+	assertContains(t, check(cfg), "timeline[0] on_call is not supported")
+}
+
 func TestCheck_errorRateOutOfRange(t *testing.T) {
 	for _, rate := range []float64{-0.1, 1.1} {
 		cfg := &config.Config{Routes: []config.Route{{Path: "/a", Method: "GET", ErrorRate: rate}}}

@@ -163,7 +163,11 @@ func Load(path string) (*Config, error) {
 }
 
 func LoadBytes(data []byte) (*Config, error) {
-	return loadData(data, ".", map[string]bool{})
+	var cfg Config
+	if err := yaml.Unmarshal(data, &cfg); err != nil {
+		return nil, err
+	}
+	return &cfg, nil
 }
 
 // loadData unmarshals cfg from data and recursively merges any included files.

@@ -907,6 +907,45 @@ func TestConfigValidation_rejectsMalformedRequestJSON(t *testing.T) {
 	}
 }
 
+func TestConfigValidation_rejectsIncludeWithoutReadingFiles(t *testing.T) {
+	srv := newSrv(&config.Config{})
+	w := do(srv, "POST", "/__specter/config/validate", `{"yaml":"include:\n  - /etc/*.yaml\nroutes:\n  - path: /hello\n    method: GET\n"}`)
+	if w.Code != http.StatusOK {
+		t.Fatalf("expected 200, got %d: %s", w.Code, w.Body.String())
+	}
+	var payload struct {
+		Valid  bool     `json:"valid"`
+		Errors []string `json:"errors"`
+	}
+	if err := json.NewDecoder(w.Body).Decode(&payload); err != nil {
+		t.Fatal(err)
+	}
+	if payload.Valid {
+		t.Fatalf("expected include to be rejected")
+	}
+	if len(payload.Errors) == 0 || !strings.Contains(payload.Errors[0], "include is not supported") {
+		t.Fatalf("expected include error, got %v", payload.Errors)
+	}
+}
+
+func TestConfigValidationDoesNotStatReferencedResponseFiles(t *testing.T) {
+	srv := newSrv(&config.Config{})
+	w := do(srv, "POST", "/__specter/config/validate", `{"yaml":"routes:\n  - path: /hello\n    method: GET\n    file: /definitely/not/a/real/file.json\n"}`)
+	if w.Code != http.StatusOK {
+		t.Fatalf("expected 200, got %d: %s", w.Code, w.Body.String())
+	}
+	var payload struct {
+		Valid  bool     `json:"valid"`
+		Errors []string `json:"errors"`
+	}
+	if err := json.NewDecoder(w.Body).Decode(&payload); err != nil {
+		t.Fatal(err)
+	}
+	if !payload.Valid || len(payload.Errors) != 0 {
+		t.Fatalf("expected no filesystem validation errors, got valid=%v errors=%v", payload.Valid, payload.Errors)
+	}
+}
+
 func TestConfigValidation_reportsPreviewForInvalidSemanticConfig(t *testing.T) {
 	srv := newSrv(&config.Config{})
 	w := do(srv, "POST", "/__specter/config/validate", `{"yaml":"scenarios:\n  zed:\n    stores:\n      beta: []\n  alpha:\n    stores:\n      alpha: []\nroutes:\n  - path: /queued\n    state: pending\n    status: 202\n  - path: /done\n    method: POST\n    status: 201\n"}`)

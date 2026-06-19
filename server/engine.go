@@ -112,7 +112,10 @@ func newEngine(cfg *config.Config, verbose bool, random bool, history *RequestHi
 			})
 			return
 		}
-		errs := validate_cmd.Check(preview)
+		errs := validate_cmd.CheckNoFilesystem(preview)
+		if len(preview.Include) > 0 {
+			errs = append(errs, "include is not supported in the config playground")
+		}
 		type routeSummary struct {
 			Method string `json:"method"`
 			Path   string `json:"path"`

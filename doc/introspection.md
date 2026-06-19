@@ -84,7 +84,7 @@ curl -X POST http://localhost:8080/__specter/requests/assert \
 
 ## Config Validation
 
-`POST /__specter/config/validate` validates pasted YAML without replacing the running server config. The Web UI Config tab uses this endpoint for its playground.
+`POST /__specter/config/validate` validates pasted YAML without replacing the running server config. The Web UI Config tab uses this endpoint for its playground. For safety, playground validation does not read files from disk: `include` entries are rejected and `file` references are parsed without checking file existence.
 
 ```sh
 curl -X POST http://localhost:8080/__specter/config/validate \

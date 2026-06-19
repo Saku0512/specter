@@ -67,6 +67,7 @@ routes:
 ## ドキュメント
 
 - [Config reference](doc/config.md) — routes、matching、templates、faker、state、rate limiting など
+- [Examples gallery](doc/examples.md) — auth、CRUD、pagination、GraphQL、webhook、SSE、OpenAPI など
 - [JSON Schema](doc/schema.md) — エディタ補完・validation 用 schema
 - [CLI reference](doc/cli.md) — flags、env vars、`init` / `examples` / `gen` / `validate` / `doctor` / `record`
 - [Introspection API](doc/introspection.md) — `/__specter/requests`、`/__specter/state`

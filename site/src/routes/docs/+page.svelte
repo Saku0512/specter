@@ -13,6 +13,7 @@
 				{ href: '#introduction', label: 'はじめに' },
 				{ href: '#quick-start', label: 'Quick Start' },
 				{ href: '#config', label: 'config.yml' },
+				{ href: '#examples', label: 'Examples' },
 				{ href: '#recipes', label: 'レシピ' },
 				{ href: '#cli', label: 'CLI' },
 				{ href: '#contributing', label: 'Contributing' }
@@ -41,6 +42,21 @@
 			configTitle: '完全リファレンス',
 			configBody:
 				'config は 1 つのルートだけの小さなファイルにも、状態管理、条件分岐、fixtures、OpenAPI 検証、proxy、stores、callbacks、delays、streams を含む本格的なシナリオにもできます。',
+			examplesTitle: 'Examples gallery',
+			examplesBody:
+				'よくある mock pattern ごとに、すぐ生成できるサンプル config と使いどころをまとめました。CLI では specter examples <name> で作成できます。',
+			examplesCta: '詳しい gallery を読む',
+			exampleCards: [
+				['auth', 'login、protected endpoint、state、vars、401 response の流れを試せます。'],
+				['crud', 'in-memory store に REST endpoint を接続し、一覧・詳細・作成・更新・削除を再現します。'],
+				['pagination', 'filtering、sorting、limit、offset を使う list endpoint の starting point です。'],
+				['graphql', 'operationName と variables に応じて /graphql の response を分岐します。'],
+				['webhooks', 'response 後の asynchronous callback を local listener に送信します。'],
+				['sse', 'Server-Sent Events の stream と繰り返し event を再現します。'],
+				['openapi', 'OpenAPI spec による request / response validation を試せます。'],
+				['polling', 'long-running job の queued / running / complete を sequential responses で表現します。'],
+				['errors', 'rate limit、flaky 503、latency、400/404 response で error UI を鍛えます。']
+			],
 			sections: {
 				topLevel: {
 					title: 'トップレベルのフィールド',
@@ -128,6 +144,7 @@
 				{ href: '#introduction', label: 'Introduction' },
 				{ href: '#quick-start', label: 'Quick Start' },
 				{ href: '#config', label: 'config.yml' },
+				{ href: '#examples', label: 'Examples' },
 				{ href: '#recipes', label: 'Recipes' },
 				{ href: '#cli', label: 'CLI' },
 				{ href: '#contributing', label: 'Contributing' }
@@ -150,6 +167,21 @@
 			configTitle: 'Complete reference',
 			configBody:
 				'A config can stay tiny with one route, or grow into a full scenario with state, conditional matching, fixtures, OpenAPI validation, proxying, stores, callbacks, delays, and streams.',
+			examplesTitle: 'Examples gallery',
+			examplesBody:
+				'Browse common mock patterns with generated sample configs and guidance on when to use each one. From the CLI, create a starter with specter examples <name>.',
+			examplesCta: 'Read the full gallery',
+			exampleCards: [
+				['auth', 'Try login, protected endpoints, state, vars, and 401 responses.'],
+				['crud', 'Connect REST endpoints to an in-memory store for list, detail, create, update, and delete flows.'],
+				['pagination', 'Start list endpoints with filtering, sorting, limit, and offset query params.'],
+				['graphql', 'Branch /graphql responses by operationName and variables.'],
+				['webhooks', 'Send an asynchronous callback to a local listener after responding.'],
+				['sse', 'Model Server-Sent Events streams and repeated event sequences.'],
+				['openapi', 'Validate mock requests and responses against an OpenAPI spec.'],
+				['polling', 'Represent long-running queued, running, and complete jobs with sequential responses.'],
+				['errors', 'Exercise error UI with rate limits, flaky 503s, latency, and 400/404 responses.']
+			],
 			sections: {
 				topLevel: { title: 'Top-level fields', body: 'Use these fields once at the root of the YAML file.' },
 				route: {
@@ -588,6 +620,25 @@ specter record -t http://api.example.com -o config.yml`;
 			</div>
 		</section>
 
+		<section class="section" id="examples">
+			<div class="section-head wide">
+				<p class="kicker">Examples</p>
+				<h2>{copy[$language].examplesTitle}</h2>
+				<p>{copy[$language].examplesBody}</p>
+				<a class="text-link" href="https://github.com/Saku0512/specter/blob/main/doc/examples.md">{copy[$language].examplesCta}</a>
+			</div>
+
+			<div class="example-grid">
+				{#each copy[$language].exampleCards as example}
+					<article>
+						<strong>{example[0]}</strong>
+						<p>{example[1]}</p>
+						<code>{example[0] === 'polling' ? 'doc/examples.md' : `specter examples ${example[0]}`}</code>
+					</article>
+				{/each}
+			</div>
+		</section>
+
 		<section class="section" id="recipes">
 			<div class="section-head">
 				<p class="kicker">Recipes</p>
@@ -919,6 +970,7 @@ specter record -t http://api.example.com -o config.yml`;
 	.hero-panel,
 	.code-block,
 	.steps article,
+	.example-grid article,
 	.recipe-grid article,
 	.contribute-list div {
 		border: 1px solid rgba(145, 184, 220, 0.16);
@@ -1018,6 +1070,7 @@ specter record -t http://api.example.com -o config.yml`;
 	}
 
 	.steps,
+	.example-grid,
 	.recipe-grid {
 		display: grid;
 		grid-template-columns: repeat(3, minmax(0, 1fr));
@@ -1025,8 +1078,34 @@ specter record -t http://api.example.com -o config.yml`;
 	}
 
 	.steps article,
+	.example-grid article,
 	.recipe-grid article {
 		padding: 1.1rem;
+	}
+
+	.example-grid strong {
+		display: block;
+		color: #e4f1ff;
+		font-size: 1.08rem;
+	}
+
+	.example-grid code {
+		display: inline-block;
+		margin-top: 0.2rem;
+		padding: 0.35rem 0.5rem;
+		border-radius: 8px;
+		background: rgba(138, 241, 255, 0.08);
+		color: #dff9ff;
+		font-size: 0.78rem;
+	}
+
+	.text-link {
+		display: inline-flex;
+		width: fit-content;
+		color: #dff9ff;
+		font-weight: 800;
+		text-decoration: underline;
+		text-underline-offset: 0.3rem;
 	}
 
 	.steps span {
@@ -1183,6 +1262,7 @@ specter record -t http://api.example.com -o config.yml`;
 		.project-footer,
 		.reference-grid,
 		.steps,
+		.example-grid,
 		.recipe-grid {
 			grid-template-columns: 1fr;
 		}

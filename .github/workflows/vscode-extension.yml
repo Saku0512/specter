@@ -1,0 +1,65 @@
+name: VS Code Extension
+
+on:
+  pull_request:
+    paths:
+      - 'vscode-extension/**'
+      - '.github/workflows/vscode-extension.yml'
+  push:
+    branches: [main]
+    paths:
+      - 'vscode-extension/**'
+      - '.github/workflows/vscode-extension.yml'
+  workflow_dispatch:
+
+env:
+  FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
+
+permissions:
+  contents: read
+
+concurrency:
+  group: vscode-extension-${{ github.ref }}
+  cancel-in-progress: false
+
+jobs:
+  package:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: vscode-extension/package-lock.json
+
+      - name: Install dependencies
+        working-directory: vscode-extension
+        run: npm ci
+
+      - name: Validate schema
+        working-directory: vscode-extension
+        run: npm run test:schema
+
+      - name: Bump artifact patch version
+        id: version
+        working-directory: vscode-extension
+        run: |
+          npm version patch --no-git-tag-version
+          version=$(node -p 'require("./package.json").version')
+          echo "version=$version" >> "$GITHUB_OUTPUT"
+
+      - name: Build extension
+        working-directory: vscode-extension
+        run: npm run package
+
+      - name: Package VSIX
+        working-directory: vscode-extension
+        run: npm run vsix
+
+      - name: Upload VSIX artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: specter-mock-server-v${{ steps.version.outputs.version }}
+          path: vscode-extension/*.vsix

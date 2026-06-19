@@ -34,7 +34,9 @@ This extension is ready to package with `vsce`:
 npm run vsix
 ```
 
-Publishing to Visual Studio Marketplace requires a Marketplace publisher named `saku0512` or updating the `publisher` field in `package.json` to match the publisher ID you create.
+Publishing to Visual Studio Marketplace requires a Marketplace publisher named `saku0512-sec` or updating the `publisher` field in `package.json` to match the publisher ID you create.
+
+The `VS Code Extension` workflow runs when `vscode-extension/**` changes. It bumps the patch version inside the workflow only, builds a fresh `.vsix`, and uploads it as a GitHub Actions artifact.
 
 ## Release Notes
 

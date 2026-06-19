@@ -673,6 +673,42 @@ Use `error_rate` (0.0–1.0) to return an error response for a random fraction o
   response: { ok: true } # returned for the other 70%
 ```
 
+### Fault profiles
+
+Use `fault` to inject a built-in failure mode. Without `error_rate`, the fault is applied on every matching request. With `error_rate`, the fault is applied only for that fraction of requests.
+
+```yaml
+- path: /api
+  method: GET
+  fault: timeout        # timeout | connection-reset | malformed-json | empty-body | http-error
+  delay: 5000          # timeout duration in ms for the timeout profile
+  response: { ok: true }
+```
+
+Built-in profiles:
+
+| Profile | Behaviour |
+|---|---|
+| `http-error` | Return `error_status` or `503` with `{ "error": "injected fault" }` |
+| `timeout` | Hold the request open until the client times out; if the client stays connected past `delay`, return `504` |
+| `connection-reset` | Close the underlying TCP connection without a response |
+| `malformed-json` | Return invalid JSON with `Content-Type: application/json` |
+| `empty-body` | Return the configured status with no body |
+
+`fault` also works on `match[]` and `responses[]` entries, which makes it useful for retry and polling flows:
+
+```yaml
+- path: /jobs/:id
+  method: GET
+  responses:
+    - fault: empty-body
+      status: 202
+    - fault: malformed-json
+      status: 200
+    - status: 200
+      response: { status: completed }
+```
+
 ### Random delay
 
 Use `delay_min` / `delay_max` to jitter response latency. Both fields must be set together.
@@ -699,8 +735,9 @@ Use `delay_min` / `delay_max` to jitter response latency. Both fields must be se
 
 | Field | Type | Description |
 |---|---|---|
+| `fault` | string | Built-in fault profile: `http-error`, `timeout`, `connection-reset`, `malformed-json`, or `empty-body` |
 | `error_rate` | float | Probability of error, 0.0–1.0 |
-| `error_status` | int | HTTP status for injected error (default: 503) |
+| `error_status` | int | HTTP status for injected `http-error` faults (default: 503) |
 | `delay_min` | int | Minimum random delay in ms |
 | `delay_max` | int | Maximum random delay in ms |
 

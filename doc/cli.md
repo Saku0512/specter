@@ -64,7 +64,18 @@ Generate a starter `config.yml` in the current directory.
 specter init          # create config.yml
 specter init -f       # overwrite if it already exists
 specter init -o my.yml
+specter init --template crud
+specter init --template auth
+specter init --template openapi
+specter init --list-templates
 ```
+
+| Flag | Default | Description |
+|---|---|---|
+| `-o` | `config.yml` | Output config file |
+| `-f` | — | Overwrite the output file if it already exists |
+| `--template` | `basic` | Starter template: `basic`, `crud`, `auth`, or `openapi` |
+| `--list-templates` | — | List available starter templates |
 
 ### `specter gen`
 

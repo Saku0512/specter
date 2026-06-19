@@ -31,7 +31,7 @@ func Run(args []string) {
 		os.Exit(1)
 	}
 
-	errs := check(cfg)
+	errs := Check(cfg)
 	if len(errs) == 0 {
 		fmt.Printf("✓ %s is valid (%d routes)\n", *configPath, len(cfg.Routes))
 		return
@@ -44,7 +44,13 @@ func Run(args []string) {
 	os.Exit(1)
 }
 
-func check(cfg *config.Config) []string {
+func Check(cfg *config.Config) []string {
+	errs := CheckNoFilesystem(cfg)
+	errs = append(errs, checkFiles(cfg)...)
+	return errs
+}
+
+func CheckNoFilesystem(cfg *config.Config) []string {
 	var errs []string
 
 	if cfg.Proxy != "" {
@@ -106,11 +112,6 @@ func check(cfg *config.Config) []string {
 		if r.DelayMax > 0 && r.DelayMin > r.DelayMax {
 			errs = append(errs, prefix+": delay_min must be <= delay_max")
 		}
-		if r.File != "" {
-			if _, err := os.Stat(r.File); err != nil {
-				errs = append(errs, prefix+fmt.Sprintf(": file %q not found", r.File))
-			}
-		}
 		if r.Proxy != "" {
 			if _, err := url.ParseRequestURI(r.Proxy); err != nil {
 				errs = append(errs, prefix+fmt.Sprintf(": proxy invalid url %q: %v", r.Proxy, err))
@@ -119,11 +120,6 @@ func check(cfg *config.Config) []string {
 		for j, resp := range r.Responses {
 			if resp.Status != 0 && (resp.Status < 100 || resp.Status > 599) {
 				errs = append(errs, prefix+fmt.Sprintf(": responses[%d] invalid status %d", j, resp.Status))
-			}
-			if resp.File != "" {
-				if _, err := os.Stat(resp.File); err != nil {
-					errs = append(errs, prefix+fmt.Sprintf(": responses[%d] file %q not found", j, resp.File))
-				}
 			}
 			if resp.OnCall < 0 {
 				errs = append(errs, prefix+fmt.Sprintf(": responses[%d] on_call must be non-negative", j))
@@ -138,11 +134,6 @@ func check(cfg *config.Config) []string {
 				len(m.BodySchema) > 0
 			if !hasCondition {
 				errs = append(errs, prefix+fmt.Sprintf(": match[%d] must have at least one condition", j))
-			}
-			if m.File != "" {
-				if _, err := os.Stat(m.File); err != nil {
-					errs = append(errs, prefix+fmt.Sprintf(": match[%d] file %q not found", j, m.File))
-				}
 			}
 			for path, pattern := range m.BodyPath {
 				if _, err := regexp.Compile(pattern); err != nil {
@@ -237,4 +228,40 @@ func check(cfg *config.Config) []string {
 	}
 
 	return errs
+}
+
+func checkFiles(cfg *config.Config) []string {
+	var errs []string
+
+	for i, r := range cfg.Routes {
+		prefix := fmt.Sprintf("route %d", i+1)
+		if r.Path != "" && r.Method != "" {
+			prefix = fmt.Sprintf("route %d (%s %s)", i+1, r.Method, r.Path)
+		}
+		if r.File != "" {
+			if _, err := os.Stat(r.File); err != nil {
+				errs = append(errs, prefix+fmt.Sprintf(": file %q not found", r.File))
+			}
+		}
+		for j, resp := range r.Responses {
+			if resp.File != "" {
+				if _, err := os.Stat(resp.File); err != nil {
+					errs = append(errs, prefix+fmt.Sprintf(": responses[%d] file %q not found", j, resp.File))
+				}
+			}
+		}
+		for j, m := range r.Match {
+			if m.File != "" {
+				if _, err := os.Stat(m.File); err != nil {
+					errs = append(errs, prefix+fmt.Sprintf(": match[%d] file %q not found", j, m.File))
+				}
+			}
+		}
+	}
+
+	return errs
+}
+
+func check(cfg *config.Config) []string {
+	return Check(cfg)
 }

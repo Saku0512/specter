@@ -162,6 +162,14 @@ func Load(path string) (*Config, error) {
 	return loadData(data, filepath.Dir(resolved), seen)
 }
 
+func LoadBytes(data []byte) (*Config, error) {
+	var cfg Config
+	if err := yaml.Unmarshal(data, &cfg); err != nil {
+		return nil, err
+	}
+	return &cfg, nil
+}
+
 // loadData unmarshals cfg from data and recursively merges any included files.
 // dir is the base directory for resolving relative include patterns.
 // seen prevents re-loading the same file and breaks cycles.

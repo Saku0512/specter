@@ -839,6 +839,158 @@ func TestRequestByIndex_invalid(t *testing.T) {
 	}
 }
 
+func TestConfigValidation_validConfig(t *testing.T) {
+	srv := newSrv(&config.Config{})
+	w := do(srv, "POST", "/__specter/config/validate", `{"yaml":"scenarios:\n  seeded:\n    stores:\n      users:\n        - id: \"1\"\n          name: Alice\nroutes:\n  - path: /hello\n    method: GET\n    status: 200\n"}`)
+	if w.Code != http.StatusOK {
+		t.Fatalf("expected 200, got %d: %s", w.Code, w.Body.String())
+	}
+	var payload struct {
+		Valid     bool             `json:"valid"`
+		Errors    []string         `json:"errors"`
+		Routes    []map[string]any `json:"routes"`
+		Scenarios []string         `json:"scenarios"`
+		Stores    []string         `json:"stores"`
+	}
+	if err := json.NewDecoder(w.Body).Decode(&payload); err != nil {
+		t.Fatal(err)
+	}
+	if !payload.Valid || len(payload.Errors) != 0 {
+		t.Fatalf("expected valid config, got valid=%v errors=%v", payload.Valid, payload.Errors)
+	}
+	if len(payload.Routes) != 1 || payload.Routes[0]["method"] != "GET" || payload.Routes[0]["path"] != "/hello" {
+		t.Fatalf("unexpected routes: %v", payload.Routes)
+	}
+	if len(payload.Scenarios) != 1 || payload.Scenarios[0] != "seeded" {
+		t.Fatalf("unexpected scenarios: %v", payload.Scenarios)
+	}
+	if len(payload.Stores) != 1 || payload.Stores[0] != "users" {
+		t.Fatalf("unexpected stores: %v", payload.Stores)
+	}
+}
+
+func TestConfigValidation_reportsParseAndSemanticErrors(t *testing.T) {
+	srv := newSrv(&config.Config{})
+	w := do(srv, "POST", "/__specter/config/validate", `{"yaml":"routes:\n  - path: /broken\n    method: GET\n    status: nope\n"}`)
+	if w.Code != http.StatusOK {
+		t.Fatalf("expected 200, got %d: %s", w.Code, w.Body.String())
+	}
+	var parsed map[string]any
+	json.NewDecoder(w.Body).Decode(&parsed)
+	if parsed["valid"] != false {
+		t.Fatalf("expected invalid parse result, got %v", parsed)
+	}
+
+	w = do(srv, "POST", "/__specter/config/validate", `{"yaml":"routes:\n  - path: /broken\n"}`)
+	var semantic struct {
+		Valid  bool     `json:"valid"`
+		Errors []string `json:"errors"`
+	}
+	json.NewDecoder(w.Body).Decode(&semantic)
+	if semantic.Valid {
+		t.Fatalf("expected semantic validation failure")
+	}
+	if len(semantic.Errors) == 0 || !strings.Contains(semantic.Errors[0], "missing method") {
+		t.Fatalf("expected missing method error, got %v", semantic.Errors)
+	}
+}
+
+func TestConfigValidation_rejectsMalformedRequestJSON(t *testing.T) {
+	srv := newSrv(&config.Config{})
+	w := do(srv, "POST", "/__specter/config/validate", `{"yaml":`)
+	if w.Code != http.StatusBadRequest {
+		t.Fatalf("expected 400, got %d: %s", w.Code, w.Body.String())
+	}
+	body := jsonBody(t, w)
+	if body["error"] == "" {
+		t.Fatalf("expected error message, got %v", body)
+	}
+}
+
+func TestConfigValidation_rejectsIncludeWithoutReadingFiles(t *testing.T) {
+	srv := newSrv(&config.Config{})
+	w := do(srv, "POST", "/__specter/config/validate", `{"yaml":"include:\n  - /etc/*.yaml\nroutes:\n  - path: /hello\n    method: GET\n"}`)
+	if w.Code != http.StatusOK {
+		t.Fatalf("expected 200, got %d: %s", w.Code, w.Body.String())
+	}
+	var payload struct {
+		Valid  bool     `json:"valid"`
+		Errors []string `json:"errors"`
+	}
+	if err := json.NewDecoder(w.Body).Decode(&payload); err != nil {
+		t.Fatal(err)
+	}
+	if payload.Valid {
+		t.Fatalf("expected include to be rejected")
+	}
+	if len(payload.Errors) == 0 || !strings.Contains(payload.Errors[0], "include is not supported") {
+		t.Fatalf("expected include error, got %v", payload.Errors)
+	}
+}
+
+func TestConfigValidationDoesNotStatReferencedResponseFiles(t *testing.T) {
+	srv := newSrv(&config.Config{})
+	w := do(srv, "POST", "/__specter/config/validate", `{"yaml":"routes:\n  - path: /hello\n    method: GET\n    file: /definitely/not/a/real/file.json\n"}`)
+	if w.Code != http.StatusOK {
+		t.Fatalf("expected 200, got %d: %s", w.Code, w.Body.String())
+	}
+	var payload struct {
+		Valid  bool     `json:"valid"`
+		Errors []string `json:"errors"`
+	}
+	if err := json.NewDecoder(w.Body).Decode(&payload); err != nil {
+		t.Fatal(err)
+	}
+	if !payload.Valid || len(payload.Errors) != 0 {
+		t.Fatalf("expected no filesystem validation errors, got valid=%v errors=%v", payload.Valid, payload.Errors)
+	}
+}
+
+func TestConfigValidation_reportsPreviewForInvalidSemanticConfig(t *testing.T) {
+	srv := newSrv(&config.Config{})
+	w := do(srv, "POST", "/__specter/config/validate", `{"yaml":"scenarios:\n  zed:\n    stores:\n      beta: []\n  alpha:\n    stores:\n      alpha: []\nroutes:\n  - path: /queued\n    state: pending\n    status: 202\n  - path: /done\n    method: POST\n    status: 201\n"}`)
+	if w.Code != http.StatusOK {
+		t.Fatalf("expected 200, got %d: %s", w.Code, w.Body.String())
+	}
+	var payload struct {
+		Valid  bool `json:"valid"`
+		Errors []string
+		Routes []struct {
+			Method string `json:"method"`
+			Path   string `json:"path"`
+			Status int    `json:"status"`
+			State  string `json:"state"`
+			Source string `json:"source"`
+		} `json:"routes"`
+		Scenarios []string `json:"scenarios"`
+		Stores    []string `json:"stores"`
+	}
+	if err := json.NewDecoder(w.Body).Decode(&payload); err != nil {
+		t.Fatal(err)
+	}
+	if payload.Valid {
+		t.Fatalf("expected invalid config")
+	}
+	if len(payload.Errors) == 0 || !strings.Contains(payload.Errors[0], "missing method") {
+		t.Fatalf("expected missing method error, got %v", payload.Errors)
+	}
+	if len(payload.Routes) != 2 {
+		t.Fatalf("expected both routes in preview, got %v", payload.Routes)
+	}
+	if payload.Routes[0].Path != "/queued" || payload.Routes[0].Status != 202 || payload.Routes[0].State != "pending" || payload.Routes[0].Source != "config" {
+		t.Fatalf("unexpected first route preview: %+v", payload.Routes[0])
+	}
+	if payload.Routes[1].Method != "POST" || payload.Routes[1].Path != "/done" || payload.Routes[1].Status != 201 || payload.Routes[1].Source != "config" {
+		t.Fatalf("unexpected second route preview: %+v", payload.Routes[1])
+	}
+	if got, want := strings.Join(payload.Scenarios, ","), "alpha,zed"; got != want {
+		t.Fatalf("expected sorted scenarios %q, got %q", want, got)
+	}
+	if got, want := strings.Join(payload.Stores, ","), "alpha,beta"; got != want {
+		t.Fatalf("expected sorted stores %q, got %q", want, got)
+	}
+}
+
 // --- Stateful mocking ---
 
 func setServerState(srv *Server, state string) {

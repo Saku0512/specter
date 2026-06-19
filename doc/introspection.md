@@ -82,6 +82,28 @@ curl -X POST http://localhost:8080/__specter/requests/assert \
 | `200` | Assertion passed — `{ "ok": true, "matched": N }` |
 | `422` | Assertion failed — `{ "ok": false, "matched": N, "error": "..." }` |
 
+## Config Validation
+
+`POST /__specter/config/validate` validates pasted YAML without replacing the running server config. The Web UI Config tab uses this endpoint for its playground. For safety, playground validation does not read files from disk: `include` entries are rejected and `file` references are parsed without checking file existence.
+
+```sh
+curl -X POST http://localhost:8080/__specter/config/validate \
+  -H 'Content-Type: application/json' \
+  -d '{"yaml":"routes:\n  - path: /hello\n    method: GET\n"}'
+```
+
+The response includes parse or semantic validation errors, the registered routes that would be produced, scenario names, and seeded store names:
+
+```json
+{
+  "valid": true,
+  "errors": [],
+  "routes": [{ "method": "GET", "path": "/hello", "source": "config" }],
+  "scenarios": [],
+  "stores": []
+}
+```
+
 ## Dynamic Routes
 
 Add, list, and remove routes at runtime without editing the config file or restarting. Useful for per-test scenario setup in CI/E2E.

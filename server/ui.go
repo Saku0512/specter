@@ -360,6 +360,7 @@ tbody tr.active{background:rgba(103,232,249,.09)}
   <button id="nav-routes" onclick="showTab('routes')">Routes</button>
   <button id="nav-state" onclick="showTab('state')">State &amp; Vars</button>
   <button id="nav-stores" onclick="showTab('stores')">Stores</button>
+  <button id="nav-config" onclick="showTab('config')">Config</button>
 </nav>
 
 <main>
@@ -571,6 +572,44 @@ tbody tr.active{background:rgba(103,232,249,.09)}
               <span class="hint">The payload must be a JSON array of objects.</span>
             </div>
           </div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <section class="tab" id="tab-config">
+    <div class="split">
+      <div class="panel">
+        <div class="panel-head">
+          <div>
+            <h2>Config Playground</h2>
+            <p>Paste YAML to validate and preview registered routes.</p>
+          </div>
+          <button class="small good" onclick="validateConfigPlayground()">Validate</button>
+        </div>
+        <div class="panel-body">
+          <textarea id="config-yaml" spellcheck="false">routes:
+  - path: /hello
+    method: GET
+    response:
+      message: Hello</textarea>
+          <div class="inline" style="margin-top:10px">
+            <span class="hint" id="config-validator-hint">Validation has not run yet.</span>
+            <button class="small ghost right" onclick="loadCurrentConfigSample()">Sample</button>
+          </div>
+        </div>
+      </div>
+
+      <div class="panel">
+        <div class="panel-head">
+          <div>
+            <h2>Validation Result</h2>
+            <p>Errors, routes, scenarios, and seeded stores.</p>
+          </div>
+          <span class="tag" id="config-validity">not checked</span>
+        </div>
+        <div class="panel-body">
+          <div id="config-result" class="detail"></div>
         </div>
       </div>
     </div>
@@ -974,6 +1013,47 @@ function renderStateSummary(stateValue, vars){
     '<div class="detail-card"><h3>State</h3><pre>' + esc(stateValue || '(none)') + '</pre></div>' +
     '<div class="detail-card"><h3>Vars JSON</h3><pre>' + esc(pretty(vars || {})) + '</pre></div>' +
     '<div class="detail-card"><h3>Counts</h3><div class="kv"><span class="key">Vars</span><span>' + varEntries.length + '</span><span class="key">Requests</span><span>' + ui.requests.length + '</span><span class="key">Stores</span><span>' + ui.stores.length + '</span></div></div>';
+}
+
+function renderConfigValidation(result){
+  const el = document.getElementById('config-result');
+  const tag = document.getElementById('config-validity');
+  const errors = result && result.errors ? result.errors : [];
+  const routes = result && result.routes ? result.routes : [];
+  const scenarios = result && result.scenarios ? result.scenarios : [];
+  const stores = result && result.stores ? result.stores : [];
+  tag.textContent = result && result.valid ? 'valid' : 'invalid';
+  tag.className = 'tag';
+  const errorHTML = errors.length
+    ? '<ul>' + errors.map(function(err){ return '<li class="mono">' + esc(err) + '</li>'; }).join('') + '</ul>'
+    : '<p class="hint">No validation errors.</p>';
+  const routeHTML = routes.length
+    ? '<div class="kv">' + routes.map(function(route){
+        return '<span class="key">' + esc(route.method || '?') + '</span><span>' + esc(route.path || '(missing)') + (route.status ? ' · ' + esc(route.status) : '') + (route.state ? ' · state=' + esc(route.state) : '') + '</span>';
+      }).join('') + '</div>'
+    : '<p class="hint">No routes registered.</p>';
+  el.innerHTML =
+    '<div class="detail-card"><h3>Errors</h3>' + errorHTML + '</div>' +
+    '<div class="detail-card"><h3>Registered Routes</h3>' + routeHTML + '</div>' +
+    '<div class="detail-card"><h3>Scenarios</h3><pre>' + esc(pretty(scenarios)) + '</pre></div>' +
+    '<div class="detail-card"><h3>Seeded Stores</h3><pre>' + esc(pretty(stores)) + '</pre></div>';
+}
+
+async function validateConfigPlayground(){
+  const yaml = document.getElementById('config-yaml').value;
+  try {
+    const result = await sendJSON('/__specter/config/validate', 'POST', {yaml: yaml});
+    renderConfigValidation(result || {});
+    document.getElementById('config-validator-hint').textContent = result && result.valid ? 'Config is valid.' : 'Config has validation errors.';
+  } catch (e) {
+    document.getElementById('config-validator-hint').textContent = e.message || 'Validation failed.';
+    showFlash(e.message || 'Validation failed.', 'error');
+  }
+}
+
+function loadCurrentConfigSample(){
+  document.getElementById('config-yaml').value = 'scenarios:\n  logged-in:\n    state: logged_in\n    vars:\n      role: admin\n    stores:\n      users:\n        - id: "1"\n          name: Alice\n\nroutes:\n  - path: /profile\n    method: GET\n    state: logged_in\n    response:\n      name: Alice\n';
+  document.getElementById('config-validator-hint').textContent = 'Sample loaded.';
 }
 
 async function loadState(){

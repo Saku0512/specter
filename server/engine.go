@@ -14,6 +14,7 @@ import (
 	"sync/atomic"
 	"time"
 
+	validate_cmd "github.com/Saku0512/specter/cmd/validate"
 	"github.com/Saku0512/specter/config"
 	"github.com/gin-gonic/gin"
 )
@@ -91,6 +92,68 @@ func newEngine(cfg *config.Config, verbose bool, random bool, history *RequestHi
 				"error":   fmt.Sprintf("expected %d matching request(s), got %d", *req.Count, len(matched)),
 			})
 		}
+	})
+	r.POST("/__specter/config/validate", func(c *gin.Context) {
+		var body struct {
+			YAML string `json:"yaml"`
+		}
+		if err := c.ShouldBindJSON(&body); err != nil {
+			c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+			return
+		}
+		preview, err := config.LoadBytes([]byte(body.YAML))
+		if err != nil {
+			c.JSON(http.StatusOK, gin.H{
+				"valid":     false,
+				"errors":    []string{err.Error()},
+				"routes":    []any{},
+				"scenarios": []string{},
+				"stores":    []string{},
+			})
+			return
+		}
+		errs := validate_cmd.CheckNoFilesystem(preview)
+		if len(preview.Include) > 0 {
+			errs = append(errs, "include is not supported in the config playground")
+		}
+		type routeSummary struct {
+			Method string `json:"method"`
+			Path   string `json:"path"`
+			Status int    `json:"status,omitempty"`
+			State  string `json:"state,omitempty"`
+			Source string `json:"source"`
+		}
+		routes := make([]routeSummary, 0, len(preview.Routes))
+		for _, route := range preview.Routes {
+			routes = append(routes, routeSummary{
+				Method: route.Method,
+				Path:   route.Path,
+				Status: route.Status,
+				State:  route.State,
+				Source: "config",
+			})
+		}
+		scenarioNames := make([]string, 0, len(preview.Scenarios))
+		storeNames := map[string]bool{}
+		for name, preset := range preview.Scenarios {
+			scenarioNames = append(scenarioNames, name)
+			for storeName := range preset.Stores {
+				storeNames[storeName] = true
+			}
+		}
+		sort.Strings(scenarioNames)
+		stores := make([]string, 0, len(storeNames))
+		for name := range storeNames {
+			stores = append(stores, name)
+		}
+		sort.Strings(stores)
+		c.JSON(http.StatusOK, gin.H{
+			"valid":     len(errs) == 0,
+			"errors":    errs,
+			"routes":    routes,
+			"scenarios": scenarioNames,
+			"stores":    stores,
+		})
 	})
 	r.GET("/__specter/state", func(c *gin.Context) {
 		c.JSON(http.StatusOK, gin.H{"state": state.Get()})

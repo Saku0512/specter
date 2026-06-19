@@ -31,6 +31,17 @@ import (
 
 var version = "dev"
 
+func versionOutput() string {
+	return fmt.Sprintf(`👻 specter %s
+
+ ____  ____  _____ ____ _____ _____ ____
+/ ___||  _ \| ____/ ___|_   _| ____|  _ \
+\___ \| |_) |  _|| |     | | |  _| | |_) |
+ ___) |  __/| |__| |___  | | | |___|  _ <
+|____/|_|   |_____\____| |_| |_____|_| \_\
+`, version)
+}
+
 // generateSelfSignedCert creates an in-memory ECDSA P-256 self-signed certificate
 // valid for 365 days, covering localhost and 127.0.0.1.
 func generateSelfSignedCert() (tls.Certificate, error) {
@@ -193,7 +204,7 @@ func main() {
 	}
 
 	if *v {
-		fmt.Println("specter", version)
+		fmt.Print(versionOutput())
 		os.Exit(0)
 	}
 

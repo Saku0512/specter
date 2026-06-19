@@ -4287,6 +4287,37 @@ func TestStore_ResetTargetRestoresConfigSeed(t *testing.T) {
 	}
 }
 
+func TestStore_ResetDoesNotMutateConfigSeed(t *testing.T) {
+	srv := newSrv(&config.Config{
+		Stores: map[string]config.StoreConfig{
+			"users": {
+				Seed: []map[string]any{{"id": "seed", "name": "Seeded"}},
+			},
+		},
+		Routes: []config.Route{
+			{Path: "/users/:id", Method: "PATCH", StorePatch: "users", StoreKey: "id"},
+			{Path: "/users", Method: "GET", StoreList: "users"},
+		},
+	})
+
+	w := do(srv, "PATCH", "/users/seed", `{"name":"Changed"}`)
+	if w.Code != http.StatusOK {
+		t.Fatalf("patch seeded item: expected 200, got %d: %s", w.Code, w.Body.String())
+	}
+	w = do(srv, "POST", "/__specter/reset", `{"targets":["stores"]}`)
+	if w.Code != http.StatusOK {
+		t.Fatalf("reset: expected 200, got %d: %s", w.Code, w.Body.String())
+	}
+	w = do(srv, "GET", "/users", "")
+	var users []map[string]any
+	if err := json.NewDecoder(w.Body).Decode(&users); err != nil {
+		t.Fatal(err)
+	}
+	if len(users) != 1 || users[0]["name"] != "Seeded" {
+		t.Fatalf("expected reset to restore original seed value, got %v", users)
+	}
+}
+
 func TestStore_ResetUsesReloadedConfigSeed(t *testing.T) {
 	srv := newSrv(&config.Config{
 		Stores: map[string]config.StoreConfig{
@@ -4450,6 +4481,39 @@ func TestStoreFileAllowsEmptyFile(t *testing.T) {
 	}
 }
 
+func TestStoreFileEmptyFileStartsFromConfigSeed(t *testing.T) {
+	path := t.TempDir() + "/stores.json"
+	if err := os.WriteFile(path, nil, 0644); err != nil {
+		t.Fatal(err)
+	}
+	srv, err := NewWithStoreFile(&config.Config{
+		Stores: map[string]config.StoreConfig{
+			"users": {
+				Seed: []map[string]any{{"id": "seed", "name": "Seeded"}},
+			},
+		},
+		Routes: []config.Route{
+			{Path: "/users", Method: "GET", StoreList: "users"},
+		},
+	}, false, false, path)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	w := do(srv, "GET", "/users", "")
+	var users []map[string]any
+	if err := json.NewDecoder(w.Body).Decode(&users); err != nil {
+		t.Fatal(err)
+	}
+	if len(users) != 1 || users[0]["id"] != "seed" {
+		t.Fatalf("expected seed to initialize empty store file, got %v", users)
+	}
+	stores := readStoreFile(t, path)
+	if len(stores["users"]) != 1 || stores["users"][0]["id"] != "seed" {
+		t.Fatalf("expected seed to be written to empty store file, got %v", stores)
+	}
+}
+
 func TestStoreFileExistingDataWinsOverConfigSeed(t *testing.T) {
 	path := t.TempDir() + "/stores.json"
 	if err := os.WriteFile(path, []byte(`{"users":[{"id":"file","name":"From File"}]}`), 0644); err != nil {
@@ -4476,6 +4540,35 @@ func TestStoreFileExistingDataWinsOverConfigSeed(t *testing.T) {
 	}
 	if len(users) != 1 || users[0]["id"] != "file" || users[0]["name"] != "From File" {
 		t.Fatalf("expected existing store file to win over config seed, got %v", users)
+	}
+}
+
+func TestStoreFileResetRestoresConfigSeedAfterExistingFileWins(t *testing.T) {
+	path := t.TempDir() + "/stores.json"
+	if err := os.WriteFile(path, []byte(`{"users":[{"id":"file","name":"From File"}]}`), 0644); err != nil {
+		t.Fatal(err)
+	}
+	srv, err := NewWithStoreFile(&config.Config{
+		Stores: map[string]config.StoreConfig{
+			"users": {
+				Seed: []map[string]any{{"id": "seed", "name": "Seeded"}},
+			},
+		},
+		Routes: []config.Route{
+			{Path: "/users", Method: "GET", StoreList: "users"},
+		},
+	}, false, false, path)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	w := do(srv, "POST", "/__specter/reset", `{"targets":["stores"]}`)
+	if w.Code != http.StatusOK {
+		t.Fatalf("reset: expected 200, got %d: %s", w.Code, w.Body.String())
+	}
+	stores := readStoreFile(t, path)
+	if len(stores["users"]) != 1 || stores["users"][0]["id"] != "seed" || stores["users"][0]["name"] != "Seeded" {
+		t.Fatalf("expected reset to restore config seed after existing file wins, got %v", stores)
 	}
 }
 

@@ -286,3 +286,27 @@ routes: []
 		t.Errorf("unexpected users store: %v", users)
 	}
 }
+
+func TestLoad_storeSeeds(t *testing.T) {
+	path := writeTemp(t, "config.yaml", `
+stores:
+  users:
+    seed:
+      - id: "1"
+        name: Alice
+      - id: "2"
+        name: Bob
+routes: []
+`)
+	cfg, err := Load(path)
+	if err != nil {
+		t.Fatal(err)
+	}
+	users := cfg.Stores["users"].Seed
+	if len(users) != 2 {
+		t.Fatalf("expected 2 seeded users, got %d", len(users))
+	}
+	if users[0]["id"] != "1" || users[0]["name"] != "Alice" {
+		t.Fatalf("unexpected first seeded user: %v", users[0])
+	}
+}

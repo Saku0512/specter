@@ -166,6 +166,9 @@ func newEngine(cfg *config.Config, verbose bool, random bool, history *RequestHi
 		}
 		scenarioNames := make([]string, 0, len(preview.Scenarios))
 		storeNames := map[string]bool{}
+		for name := range preview.Stores {
+			storeNames[name] = true
+		}
 		for name, preset := range preview.Scenarios {
 			scenarioNames = append(scenarioNames, name)
 			for storeName := range preset.Stores {
@@ -314,7 +317,7 @@ func newEngine(cfg *config.Config, verbose bool, random bool, history *RequestHi
 			history.clear()
 		}
 		if reset("stores") {
-			store.ClearAll()
+			store.ResetAll()
 			if storePersistFailed(c, store) {
 				return
 			}

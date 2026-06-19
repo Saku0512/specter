@@ -125,15 +125,20 @@ type Scenario struct {
 	Stores map[string][]map[string]any `yaml:"stores,omitempty"` // store collections to replace when scenario is applied
 }
 
+type StoreConfig struct {
+	Seed []map[string]any `yaml:"seed,omitempty"` // initial items for the named CRUD store
+}
+
 type Config struct {
-	CORS                  bool                `yaml:"cors,omitempty"`
-	Proxy                 string              `yaml:"proxy,omitempty"`
-	OpenAPI               string              `yaml:"openapi,omitempty"`                 // path to OpenAPI spec for request validation
-	OpenAPIStrict         bool                `yaml:"openapi_strict,omitempty"`          // return 400 on validation failures instead of warning
-	OpenAPIStrictResponse bool                `yaml:"openapi_strict_response,omitempty"` // return 500 when mock response violates schema
-	Include               []string            `yaml:"include,omitempty"`                 // glob patterns of additional config files to merge
-	Routes                []Route             `yaml:"routes"`
-	Scenarios             map[string]Scenario `yaml:"scenarios,omitempty"`
+	CORS                  bool                   `yaml:"cors,omitempty"`
+	Proxy                 string                 `yaml:"proxy,omitempty"`
+	OpenAPI               string                 `yaml:"openapi,omitempty"`                 // path to OpenAPI spec for request validation
+	OpenAPIStrict         bool                   `yaml:"openapi_strict,omitempty"`          // return 400 on validation failures instead of warning
+	OpenAPIStrictResponse bool                   `yaml:"openapi_strict_response,omitempty"` // return 500 when mock response violates schema
+	Include               []string               `yaml:"include,omitempty"`                 // glob patterns of additional config files to merge
+	Routes                []Route                `yaml:"routes"`
+	Scenarios             map[string]Scenario    `yaml:"scenarios,omitempty"`
+	Stores                map[string]StoreConfig `yaml:"stores,omitempty"`
 }
 
 func Load(path string) (*Config, error) {

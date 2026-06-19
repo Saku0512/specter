@@ -13,16 +13,22 @@ import (
 type DataStore struct {
 	mu             sync.Mutex
 	collections    map[string][]map[string]any
+	seed           map[string][]map[string]any
 	persistPath    string
 	lastPersistErr error
 }
 
-func newDataStore() *DataStore {
-	return &DataStore{collections: map[string][]map[string]any{}}
+func newDataStore(seeds ...map[string][]map[string]any) *DataStore {
+	var seed map[string][]map[string]any
+	if len(seeds) > 0 {
+		seed = seeds[0]
+	}
+	clonedSeed := cloneCollections(seed)
+	return &DataStore{collections: cloneCollections(clonedSeed), seed: clonedSeed}
 }
 
-func newDataStoreWithFile(path string) (*DataStore, error) {
-	store := newDataStore()
+func newDataStoreWithFile(path string, seed map[string][]map[string]any) (*DataStore, error) {
+	store := newDataStore(seed)
 	if path == "" {
 		return store, nil
 	}
@@ -30,6 +36,7 @@ func newDataStoreWithFile(path string) (*DataStore, error) {
 	if err != nil {
 		if os.IsNotExist(err) {
 			store.persistPath = path
+			store.saveAfterMutation()
 			return store, nil
 		}
 		return nil, err
@@ -40,8 +47,13 @@ func newDataStoreWithFile(path string) (*DataStore, error) {
 			return nil, err
 		}
 		store.collections = cloneCollections(collections)
+	} else {
+		store.collections = cloneCollections(seed)
 	}
 	store.persistPath = path
+	if len(data) == 0 {
+		store.saveAfterMutation()
+	}
 	return store, nil
 }
 
@@ -228,6 +240,20 @@ func (d *DataStore) ClearAll() {
 	d.collections = map[string][]map[string]any{}
 	d.mu.Unlock()
 	d.saveAfterMutation()
+}
+
+// ResetAll restores the configured seed collections.
+func (d *DataStore) ResetAll() {
+	d.mu.Lock()
+	d.collections = cloneCollections(d.seed)
+	d.mu.Unlock()
+	d.saveAfterMutation()
+}
+
+func (d *DataStore) SetSeed(seed map[string][]map[string]any) {
+	d.mu.Lock()
+	d.seed = cloneCollections(seed)
+	d.mu.Unlock()
 }
 
 // ReplaceAll replaces every collection with a shallow copy of collections.

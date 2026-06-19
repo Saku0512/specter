@@ -1,28 +1,28 @@
 class Specter < Formula
   desc "Lightweight mock API server"
   homepage "https://github.com/Saku0512/specter"
-  version "0.6.0"
+  version "1.0.1"
   license "MIT"
 
   on_macos do
     on_arm do
       url "https://github.com/Saku0512/specter/releases/download/v#{version}/specter_darwin_arm64"
-      sha256 "c61b7fd41c520ba20eb50527e226bc425c22e5b70a4e1585c956b446db116f39"
+      sha256 "cdeb04c2393e1d6e7f765b09028ce00940eed34bfe4b546730845db78198c1e4"
     end
     on_intel do
       url "https://github.com/Saku0512/specter/releases/download/v#{version}/specter_darwin_amd64"
-      sha256 "0d7503574d8b1c847fcb879799289be4d2fe509d33487fccd7e229a6e4989afc"
+      sha256 "71f610799f24d1cc53942f1238a109315d88d83a774d5272c7c3f2963960c778"
     end
   end
 
   on_linux do
     on_arm do
       url "https://github.com/Saku0512/specter/releases/download/v#{version}/specter_linux_arm64"
-      sha256 "5b98445bdee680e354953b941b90159e4b384a7fc97a4c1f78484d4e2dc4f64c"
+      sha256 "91c39662bec08f10b9b4b6f153e24067c875eef7c91cb10ff53a898e36ebb4c5"
     end
     on_intel do
       url "https://github.com/Saku0512/specter/releases/download/v#{version}/specter_linux_amd64"
-      sha256 "31ad419ac80ff51553901f377db57e05dcd18eb7d1815fccf43a1c0ddbaea1e8"
+      sha256 "099e341bd641e9fadd4d8e710af63e028edbbe4f1bb42b9e171edfd3de1b85fb"
     end
   end
 

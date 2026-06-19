@@ -1451,6 +1451,130 @@ func TestErrorRate_neverFault(t *testing.T) {
 	}
 }
 
+func TestFaultProfile_emptyBody(t *testing.T) {
+	srv := newSrv(&config.Config{
+		Routes: []config.Route{
+			{Path: "/api", Method: "GET", Status: 204, Fault: "empty-body", Response: map[string]any{"ok": true}},
+		},
+	})
+	w := do(srv, "GET", "/api", "")
+	if w.Code != http.StatusNoContent {
+		t.Errorf("expected 204, got %d", w.Code)
+	}
+	if w.Body.Len() != 0 {
+		t.Errorf("expected empty body, got %q", w.Body.String())
+	}
+	if w.Header().Get("X-Specter-Fault") != "empty-body" {
+		t.Errorf("expected fault header, got %q", w.Header().Get("X-Specter-Fault"))
+	}
+}
+
+func TestFaultProfile_malformedJSON(t *testing.T) {
+	srv := newSrv(&config.Config{
+		Routes: []config.Route{
+			{Path: "/api", Method: "GET", Fault: "malformed-json", Response: map[string]any{"ok": true}},
+		},
+	})
+	w := do(srv, "GET", "/api", "")
+	if w.Code != http.StatusOK {
+		t.Errorf("expected 200, got %d", w.Code)
+	}
+	if w.Body.String() != `{"error":` {
+		t.Errorf("expected malformed JSON body, got %q", w.Body.String())
+	}
+	if ct := w.Header().Get("Content-Type"); !strings.Contains(ct, "application/json") {
+		t.Errorf("expected application/json content type, got %q", ct)
+	}
+}
+
+func TestFaultProfile_httpErrorWithRate(t *testing.T) {
+	srv := newSrv(&config.Config{
+		Routes: []config.Route{
+			{Path: "/api", Method: "GET", Fault: "http-error", ErrorRate: 1.0, ErrorStatus: 502, Response: map[string]any{"ok": true}},
+		},
+	})
+	w := do(srv, "GET", "/api", "")
+	if w.Code != http.StatusBadGateway {
+		t.Errorf("expected 502, got %d", w.Code)
+	}
+}
+
+func TestFaultProfile_responseEntry(t *testing.T) {
+	srv := newSrv(&config.Config{
+		Routes: []config.Route{
+			{
+				Path:   "/api",
+				Method: "GET",
+				Responses: []config.RouteResponse{
+					{Fault: "empty-body", Status: 202},
+					{Status: 200, Response: map[string]any{"ok": true}},
+				},
+			},
+		},
+	})
+	w1 := do(srv, "GET", "/api", "")
+	if w1.Code != http.StatusAccepted || w1.Body.Len() != 0 {
+		t.Errorf("expected first response to be empty 202, got %d %q", w1.Code, w1.Body.String())
+	}
+	w2 := do(srv, "GET", "/api", "")
+	if w2.Code != http.StatusOK {
+		t.Errorf("expected second response 200, got %d", w2.Code)
+	}
+}
+
+func TestFaultProfile_matchEntry(t *testing.T) {
+	srv := newSrv(&config.Config{
+		Routes: []config.Route{
+			{
+				Path:   "/api",
+				Method: "GET",
+				Match: []config.RouteMatch{
+					{Query: map[string]string{"bad": "true"}, Fault: "malformed-json", Status: 500},
+				},
+				Response: map[string]any{"ok": true},
+			},
+		},
+	})
+	w := do(srv, "GET", "/api?bad=true", "")
+	if w.Code != http.StatusInternalServerError {
+		t.Errorf("expected 500, got %d", w.Code)
+	}
+	if w.Body.String() != `{"error":` {
+		t.Errorf("expected malformed JSON body, got %q", w.Body.String())
+	}
+}
+
+func TestFaultProfile_timeout(t *testing.T) {
+	srv := newSrv(&config.Config{
+		Routes: []config.Route{
+			{Path: "/api", Method: "GET", Fault: "timeout", Delay: 100, Response: map[string]any{"ok": true}},
+		},
+	})
+	ts := httptest.NewServer(srv.engine.Load())
+	defer ts.Close()
+
+	client := &http.Client{Timeout: 20 * time.Millisecond}
+	_, err := client.Get(ts.URL + "/api")
+	if err == nil {
+		t.Fatal("expected client timeout error")
+	}
+}
+
+func TestFaultProfile_connectionReset(t *testing.T) {
+	srv := newSrv(&config.Config{
+		Routes: []config.Route{
+			{Path: "/api", Method: "GET", Fault: "connection-reset", Response: map[string]any{"ok": true}},
+		},
+	})
+	ts := httptest.NewServer(srv.engine.Load())
+	defer ts.Close()
+
+	_, err := http.Get(ts.URL + "/api")
+	if err == nil {
+		t.Fatal("expected connection reset error")
+	}
+}
+
 func TestDelayRange_valid(t *testing.T) {
 	srv := newSrv(&config.Config{
 		Routes: []config.Route{

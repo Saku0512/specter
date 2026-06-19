@@ -158,3 +158,21 @@ routes:
         response: { ok: true }
       - status: 503
         response: { error: unavailable }
+
+  # Fault profile — simulates a timeout
+  - path: /timeout
+    method: GET
+    fault: timeout
+    delay: 5000
+    response: { ok: true }
+
+  # Fault profile inside sequential responses
+  - path: /polling-job
+    method: GET
+    responses:
+      - fault: empty-body
+        status: 202
+      - fault: malformed-json
+        status: 200
+      - status: 200
+        response: { status: completed }

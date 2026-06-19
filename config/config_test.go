@@ -191,3 +191,45 @@ routes:
 		t.Errorf("expected match query q=x")
 	}
 }
+
+func TestLoad_faultProfiles(t *testing.T) {
+	path := writeTemp(t, "config.yaml", `
+routes:
+  - path: /faulty
+    method: GET
+    fault: timeout
+    responses:
+      - fault: empty-body
+        status: 202
+      - status: 200
+        response: done
+    match:
+      - query:
+          bad: "true"
+        fault: malformed-json
+        status: 500
+`)
+	cfg, err := Load(path)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(cfg.Routes) != 1 {
+		t.Fatalf("expected 1 route, got %d", len(cfg.Routes))
+	}
+	r := cfg.Routes[0]
+	if r.Fault != "timeout" {
+		t.Errorf("expected route fault timeout, got %q", r.Fault)
+	}
+	if len(r.Responses) != 2 {
+		t.Fatalf("expected 2 responses, got %d", len(r.Responses))
+	}
+	if r.Responses[0].Fault != "empty-body" {
+		t.Errorf("expected response fault empty-body, got %q", r.Responses[0].Fault)
+	}
+	if len(r.Match) != 1 {
+		t.Fatalf("expected 1 match, got %d", len(r.Match))
+	}
+	if r.Match[0].Fault != "malformed-json" {
+		t.Errorf("expected match fault malformed-json, got %q", r.Match[0].Fault)
+	}
+}

@@ -363,6 +363,23 @@ func newEngine(cfg *config.Config, verbose bool, random bool, history *RequestHi
 					return
 				}
 
+				fault := ""
+				shouldFault := false
+				if rt.Fault != "" {
+					fault = normalizeFault(rt.Fault)
+					shouldFault = true
+					if rt.ErrorRate > 0 {
+						shouldFault = rand.Float64() < rt.ErrorRate
+					}
+				} else if rt.ErrorRate > 0 && rand.Float64() < rt.ErrorRate {
+					fault = faultHTTPError
+					shouldFault = true
+				}
+				if shouldFault && fault == faultTimeout {
+					writeFault(c, fault, rt.ErrorStatus, rt.Delay)
+					return
+				}
+
 				// Delay: random range takes precedence over fixed delay
 				if rt.DelayMin > 0 || rt.DelayMax > 0 {
 					d := rt.DelayMin
@@ -374,12 +391,12 @@ func newEngine(cfg *config.Config, verbose bool, random bool, history *RequestHi
 					time.Sleep(time.Duration(rt.Delay) * time.Millisecond)
 				}
 				// Fault injection
-				if rt.ErrorRate > 0 && rand.Float64() < rt.ErrorRate {
+				if shouldFault {
 					status := rt.ErrorStatus
-					if status == 0 {
-						status = http.StatusServiceUnavailable
+					if status == 0 && fault != faultHTTPError {
+						status = rt.Status
 					}
-					c.JSON(status, gin.H{"error": "injected fault"})
+					writeFault(c, fault, status, rt.Delay)
 					return
 				}
 				for hk, hv := range rt.Headers {
@@ -415,6 +432,10 @@ func newEngine(cfg *config.Config, verbose bool, random bool, history *RequestHi
 						// match-level delay (additive on top of route-level delay)
 						if m.Delay > 0 {
 							time.Sleep(time.Duration(m.Delay) * time.Millisecond)
+						}
+						if m.Fault != "" {
+							writeFault(c, normalizeFault(m.Fault), m.Status, m.Delay)
+							return
 						}
 						// match-level response headers override route-level headers
 						for hk, hv := range m.ResponseHeaders {
@@ -476,6 +497,10 @@ func newEngine(cfg *config.Config, verbose bool, random bool, history *RequestHi
 					body, fileCT, scriptStatus2 := resolveBody(picked.Response, picked.File, picked.Script, tmplData, c.Params, store)
 					if scriptStatus2 != 0 {
 						status = scriptStatus2
+					}
+					if picked.Fault != "" {
+						writeFault(c, normalizeFault(picked.Fault), status, 0)
+						return
 					}
 					ct := picked.ContentType
 					if ct == "" {

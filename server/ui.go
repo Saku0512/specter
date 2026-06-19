@@ -652,7 +652,7 @@ function routeFeatures(rt){
   const notes = [];
   if (rt.delay || rt.delay_min || rt.delay_max) notes.push('delay');
   if (rt.rate_limit) notes.push('rate limit');
-  if (rt.error_rate) notes.push('faults');
+  if (rt.fault || rt.error_rate) notes.push('faults');
   if (rt.proxy) notes.push('proxy');
   if (rt.stream) notes.push('stream');
   if (rt.match && rt.match.length) notes.push('match');

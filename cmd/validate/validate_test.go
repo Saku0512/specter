@@ -199,6 +199,43 @@ func TestCheck_delayMinGtMax(t *testing.T) {
 	assertContains(t, check(cfg), "delay_min must be <= delay_max")
 }
 
+func TestCheck_latencyProfileValidBuiltInAndCustom(t *testing.T) {
+	cfg := &config.Config{
+		LatencyProfile: "mobile-4g",
+		LatencyProfiles: map[string]config.LatencyProfile{
+			"lab": {Delay: 15},
+		},
+		Routes: []config.Route{
+			{Path: "/a", Method: "GET"},
+			{Path: "/b", Method: "GET", LatencyProfile: "fast"},
+			{Path: "/c", Method: "GET", LatencyProfile: "lab"},
+		},
+	}
+	if errs := check(cfg); len(errs) != 0 {
+		t.Fatalf("expected no errors, got %v", errs)
+	}
+}
+
+func TestCheck_latencyProfileUnknown(t *testing.T) {
+	cfg := &config.Config{
+		LatencyProfile: "missing",
+		Routes:         []config.Route{{Path: "/a", Method: "GET", LatencyProfile: "also-missing"}},
+	}
+	errs := check(cfg)
+	assertContains(t, errs, `unknown latency profile "missing"`)
+	assertContains(t, errs, `unknown latency profile "also-missing"`)
+}
+
+func TestCheck_latencyProfileInvalidRange(t *testing.T) {
+	cfg := &config.Config{
+		LatencyProfiles: map[string]config.LatencyProfile{
+			"bad": {DelayMin: 50, DelayMax: 10},
+		},
+		Routes: []config.Route{{Path: "/a", Method: "GET", LatencyProfile: "bad"}},
+	}
+	assertContains(t, check(cfg), `latency profile "bad": delay_min must be <= delay_max`)
+}
+
 func assertContains(t *testing.T, errs []string, substr string) {
 	t.Helper()
 	for _, e := range errs {

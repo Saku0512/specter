@@ -73,11 +73,18 @@ type Webhook struct {
 	Delay   int               `yaml:"delay,omitempty"` // milliseconds before sending
 }
 
+type LatencyProfile struct {
+	Delay    int `yaml:"delay,omitempty"`     // fixed response delay in ms
+	DelayMin int `yaml:"delay_min,omitempty"` // min random delay in ms
+	DelayMax int `yaml:"delay_max,omitempty"` // max random delay in ms
+}
+
 type Route struct {
 	Path           string            `yaml:"path"`
 	Method         string            `yaml:"method"`
 	Status         int               `yaml:"status,omitempty"`
-	Delay          int               `yaml:"delay,omitempty"` // milliseconds
+	Delay          int               `yaml:"delay,omitempty"`           // milliseconds
+	LatencyProfile string            `yaml:"latency_profile,omitempty"` // named latency profile for this route
 	Headers        map[string]string `yaml:"headers,omitempty"`
 	ContentType    string            `yaml:"content_type,omitempty"`
 	Response       any               `yaml:"response,omitempty"`
@@ -130,15 +137,17 @@ type StoreConfig struct {
 }
 
 type Config struct {
-	CORS                  bool                   `yaml:"cors,omitempty"`
-	Proxy                 string                 `yaml:"proxy,omitempty"`
-	OpenAPI               string                 `yaml:"openapi,omitempty"`                 // path to OpenAPI spec for request validation
-	OpenAPIStrict         bool                   `yaml:"openapi_strict,omitempty"`          // return 400 on validation failures instead of warning
-	OpenAPIStrictResponse bool                   `yaml:"openapi_strict_response,omitempty"` // return 500 when mock response violates schema
-	Include               []string               `yaml:"include,omitempty"`                 // glob patterns of additional config files to merge
-	Routes                []Route                `yaml:"routes"`
-	Scenarios             map[string]Scenario    `yaml:"scenarios,omitempty"`
-	Stores                map[string]StoreConfig `yaml:"stores,omitempty"`
+	CORS                  bool                      `yaml:"cors,omitempty"`
+	Proxy                 string                    `yaml:"proxy,omitempty"`
+	LatencyProfile        string                    `yaml:"latency_profile,omitempty"`         // default named latency profile for routes
+	LatencyProfiles       map[string]LatencyProfile `yaml:"latency_profiles,omitempty"`        // custom named latency profiles
+	OpenAPI               string                    `yaml:"openapi,omitempty"`                 // path to OpenAPI spec for request validation
+	OpenAPIStrict         bool                      `yaml:"openapi_strict,omitempty"`          // return 400 on validation failures instead of warning
+	OpenAPIStrictResponse bool                      `yaml:"openapi_strict_response,omitempty"` // return 500 when mock response violates schema
+	Include               []string                  `yaml:"include,omitempty"`                 // glob patterns of additional config files to merge
+	Routes                []Route                   `yaml:"routes"`
+	Scenarios             map[string]Scenario       `yaml:"scenarios,omitempty"`
+	Stores                map[string]StoreConfig    `yaml:"stores,omitempty"`
 }
 
 func Load(path string) (*Config, error) {

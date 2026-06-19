@@ -261,6 +261,9 @@ func newEngine(cfg *config.Config, verbose bool, random bool, history *RequestHi
 			return
 		}
 		applyScenarioPreset(name, preset, state, vars, scenario, store)
+		if storePersistFailed(c, store) {
+			return
+		}
 		c.JSON(http.StatusOK, gin.H{"ok": true, "active": name})
 	})
 	r.GET("/__specter/timelines", func(c *gin.Context) {
@@ -312,6 +315,9 @@ func newEngine(cfg *config.Config, verbose bool, random bool, history *RequestHi
 		}
 		if reset("stores") {
 			store.ClearAll()
+			if storePersistFailed(c, store) {
+				return
+			}
 		}
 		if reset("scenario") {
 			scenario.Clear()
@@ -407,10 +413,16 @@ func newEngine(cfg *config.Config, verbose bool, random bool, history *RequestHi
 			return
 		}
 		store.SetCollection(c.Param("name"), items)
+		if storePersistFailed(c, store) {
+			return
+		}
 		c.Status(http.StatusNoContent)
 	})
 	r.DELETE("/__specter/stores/:name", func(c *gin.Context) {
 		store.Clear(c.Param("name"))
+		if storePersistFailed(c, store) {
+			return
+		}
 		c.Status(http.StatusNoContent)
 	})
 

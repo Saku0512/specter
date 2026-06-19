@@ -1184,7 +1184,19 @@ routes:
     store_clear: users         # delete all → 204
 ```
 
-Store data resets when the server restarts. Use `POST /__specter/reset` with `"targets":["stores"]` or `DELETE /__specter/stores/:name` to clear it during tests. See [introspection.md](introspection.md) for the full stores API.
+By default, store data resets when the server restarts. To persist store state across restarts, start specter with `--store-file stores.json` or `SPECTER_STORE_FILE=stores.json`. The file is loaded on startup and rewritten atomically after each store mutation.
+
+The store file contains a JSON object keyed by collection name:
+
+```json
+{
+  "users": [
+    { "id": "u1", "name": "Alice" }
+  ]
+}
+```
+
+Scenario presets that replace stores, `POST /__specter/reset` with `"targets":["stores"]`, and `DELETE /__specter/stores/:name` are also written back to the store file. See [introspection.md](introspection.md) for the full stores API.
 
 ## Cookie Matching
 

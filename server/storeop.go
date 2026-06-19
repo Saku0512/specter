@@ -17,6 +17,14 @@ func hasStoreOp(rt config.Route) bool {
 		rt.StorePut != "" || rt.StorePatch != "" || rt.StoreDelete != "" || rt.StoreClear != ""
 }
 
+func storePersistFailed(c *gin.Context, store *DataStore) bool {
+	if err := store.LastPersistError(); err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": fmt.Sprintf("failed to persist store: %v", err)})
+		return true
+	}
+	return false
+}
+
 func handleStoreOp(c *gin.Context, rt config.Route, bodyBytes []byte, store *DataStore) {
 	key := rt.StoreKey
 	if key == "" {
@@ -29,6 +37,9 @@ func handleStoreOp(c *gin.Context, rt config.Route, bodyBytes []byte, store *Dat
 		var item map[string]any
 		json.Unmarshal(bodyBytes, &item) //nolint:errcheck
 		stored := store.Push(rt.StorePush, item)
+		if storePersistFailed(c, store) {
+			return
+		}
 		c.JSON(http.StatusCreated, stored)
 
 	case rt.StoreList != "":
@@ -91,6 +102,9 @@ func handleStoreOp(c *gin.Context, rt config.Route, bodyBytes []byte, store *Dat
 			item = map[string]any{}
 		}
 		store.Put(rt.StorePut, id, item)
+		if storePersistFailed(c, store) {
+			return
+		}
 		c.JSON(http.StatusOK, item)
 
 	case rt.StorePatch != "":
@@ -101,6 +115,9 @@ func handleStoreOp(c *gin.Context, rt config.Route, bodyBytes []byte, store *Dat
 			c.JSON(http.StatusNotFound, gin.H{"error": "not found"})
 			return
 		}
+		if storePersistFailed(c, store) {
+			return
+		}
 		c.JSON(http.StatusOK, updated)
 
 	case rt.StoreDelete != "":
@@ -108,10 +125,16 @@ func handleStoreOp(c *gin.Context, rt config.Route, bodyBytes []byte, store *Dat
 			c.JSON(http.StatusNotFound, gin.H{"error": "not found"})
 			return
 		}
+		if storePersistFailed(c, store) {
+			return
+		}
 		c.Status(http.StatusNoContent)
 
 	case rt.StoreClear != "":
 		store.Clear(rt.StoreClear)
+		if storePersistFailed(c, store) {
+			return
+		}
 		c.Status(http.StatusNoContent)
 	}
 }

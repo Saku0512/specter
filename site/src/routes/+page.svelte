@@ -21,6 +21,9 @@
 			downloadKicker: 'Download',
 			downloadTitle: '自分のワークフローに合うインストール方法を選ぶ',
 			allBinaries: 'すべてのバイナリ',
+			copyCommand: 'コピー',
+			copiedCommand: 'コピー済み',
+			copyCommandLabel: 'インストールコマンドをコピー',
 			howKicker: 'How It Works',
 			howTitle: '空のフォルダから実用的なモック API までの 3 ステップ',
 			operateKicker: 'Operate',
@@ -115,6 +118,9 @@ UI running on http://localhost:4444`
 			downloadKicker: 'Download',
 			downloadTitle: 'Pick the install path that matches your workflow',
 			allBinaries: 'All binaries',
+			copyCommand: 'Copy',
+			copiedCommand: 'Copied',
+			copyCommandLabel: 'Copy install command',
 			howKicker: 'How It Works',
 			howTitle: 'Three moves from blank folder to useful mock API',
 			operateKicker: 'Operate',
@@ -208,6 +214,34 @@ UI running on http://localhost:4444`
     response:
       token: abc123`;
 
+	let copiedCommand = $state('');
+	let copyTimer: ReturnType<typeof setTimeout> | undefined;
+
+	async function copyInstallCommand(command: string, name: string) {
+		try {
+			await navigator.clipboard.writeText(command);
+		} catch {
+			const textarea = document.createElement('textarea');
+			textarea.value = command;
+			textarea.setAttribute('readonly', '');
+			textarea.style.position = 'fixed';
+			textarea.style.opacity = '0';
+			document.body.appendChild(textarea);
+			textarea.select();
+			document.execCommand('copy');
+			textarea.remove();
+		}
+
+		copiedCommand = name;
+
+		if (copyTimer) {
+			clearTimeout(copyTimer);
+		}
+
+		copyTimer = setTimeout(() => {
+			copiedCommand = '';
+		}, 1600);
+	}
 </script>
 
 <svelte:head>
@@ -330,7 +364,20 @@ UI running on http://localhost:4444`
 						<h3>{method.name}</h3>
 						<p>{method.note}</p>
 					</div>
-					<pre>{method.copy}</pre>
+					<button
+						type="button"
+						class="command-copy"
+						aria-label={`${copy[$language].copyCommandLabel}: ${method.name}`}
+						onclick={() => copyInstallCommand(method.copy, method.name)}
+					>
+						<code>{method.copy}</code>
+						<span class="copy-badge" class:copied={copiedCommand === method.name}>
+							<span class="copy-icon" aria-hidden="true"></span>
+							{copiedCommand === method.name
+								? copy[$language].copiedCommand
+								: copy[$language].copyCommand}
+						</span>
+					</button>
 				</article>
 			{/each}
 		</div>
@@ -811,6 +858,98 @@ UI running on http://localhost:4444`
 	.install-card,
 	.step {
 		padding: 1.15rem;
+	}
+
+	.command-copy {
+		position: relative;
+		display: block;
+		width: 100%;
+		margin: 0;
+		padding: 0;
+		border: 1px solid rgba(145, 184, 220, 0.12);
+		border-radius: 10px;
+		background: rgba(5, 12, 22, 0.5);
+		color: #d8e5f7;
+		cursor: pointer;
+		text-align: left;
+		overflow: hidden;
+		transition:
+			border-color 160ms ease,
+			background 160ms ease,
+			transform 160ms ease;
+	}
+
+	.command-copy:hover,
+	.command-copy:focus-visible {
+		border-color: rgba(138, 220, 238, 0.42);
+		background: rgba(7, 18, 32, 0.78);
+		transform: translateY(-1px);
+		outline: none;
+	}
+
+	.command-copy code {
+		display: block;
+		min-height: 4rem;
+		padding: 1rem 5.7rem 1.1rem 1.05rem;
+		font-family:
+			'SFMono-Regular',
+			'JetBrains Mono',
+			'IBM Plex Mono',
+			Consolas,
+			monospace;
+		font-size: 0.84rem;
+		line-height: 1.58;
+		white-space: pre-wrap;
+		word-break: break-word;
+	}
+
+	.copy-badge {
+		position: absolute;
+		top: 0.75rem;
+		right: 0.75rem;
+		display: inline-flex;
+		align-items: center;
+		gap: 0.35rem;
+		padding: 0.34rem 0.52rem;
+		border-radius: 999px;
+		background: rgba(138, 241, 255, 0.08);
+		color: #dff9ff;
+		font-size: 0.72rem;
+		font-weight: 800;
+		line-height: 1;
+	}
+
+	.copy-badge.copied {
+		background: rgba(185, 255, 210, 0.16);
+		color: #baffcf;
+	}
+
+	.copy-icon {
+		position: relative;
+		width: 0.8rem;
+		height: 0.8rem;
+	}
+
+	.copy-icon::before,
+	.copy-icon::after {
+		content: '';
+		position: absolute;
+		width: 0.52rem;
+		height: 0.62rem;
+		border: 1.5px solid currentColor;
+		border-radius: 2px;
+	}
+
+	.copy-icon::before {
+		left: 0.08rem;
+		top: 0.18rem;
+		opacity: 0.55;
+	}
+
+	.copy-icon::after {
+		left: 0.22rem;
+		top: 0.02rem;
+		background: rgba(7, 18, 32, 0.9);
 	}
 
 	.card-top {

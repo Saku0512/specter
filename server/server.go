@@ -19,18 +19,19 @@ type Server struct {
 	cfg      atomic.Pointer[config.Config]
 	dynamic  *DynamicRouteStore
 	store    *DataStore
+	timeline *TimelineStore
 }
 
 func New(cfg *config.Config, verbose bool, random bool) *Server {
-	s := &Server{verbose: verbose, random: random, history: &RequestHistory{}, state: &StateStore{}, vars: newVarStore(), scenario: &ScenarioStore{}, dynamic: &DynamicRouteStore{}, store: newDataStore()}
+	s := &Server{verbose: verbose, random: random, history: &RequestHistory{}, state: &StateStore{}, vars: newVarStore(), scenario: &ScenarioStore{}, dynamic: &DynamicRouteStore{}, store: newDataStore(), timeline: newTimelineStore()}
 	s.cfg.Store(cfg)
-	s.engine.Store(newEngine(cfg, verbose, random, s.history, s.state, s.vars, s.scenario, s.dynamic, s.store, s.rebuild))
+	s.engine.Store(newEngine(cfg, verbose, random, s.history, s.state, s.vars, s.scenario, s.dynamic, s.store, s.timeline, s.rebuild))
 	return s
 }
 
 func (s *Server) rebuild() {
 	cfg := s.cfg.Load()
-	s.engine.Store(newEngine(cfg, s.verbose, s.random, s.history, s.state, s.vars, s.scenario, s.dynamic, s.store, s.rebuild))
+	s.engine.Store(newEngine(cfg, s.verbose, s.random, s.history, s.state, s.vars, s.scenario, s.dynamic, s.store, s.timeline, s.rebuild))
 }
 
 func (s *Server) Reload(cfg *config.Config) {

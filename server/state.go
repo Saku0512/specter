@@ -192,4 +192,79 @@ func (d *DynamicRouteStore) Clear() {
 	d.routes = nil
 }
 
+type TimelineProgress struct {
+	Key         string `json:"key"`
+	Method      string `json:"method"`
+	Path        string `json:"path"`
+	Source      string `json:"source"`
+	Step        int    `json:"step"`
+	Total       int    `json:"total"`
+	Calls       uint64 `json:"calls"`
+	Complete    bool   `json:"complete"`
+	Description string `json:"description,omitempty"`
+}
+
+type TimelineStore struct {
+	mu       sync.Mutex
+	progress map[string]TimelineProgress
+}
+
+func newTimelineStore() *TimelineStore {
+	return &TimelineStore{progress: map[string]TimelineProgress{}}
+}
+
+func (t *TimelineStore) Advance(key, method, path, source string, total int) TimelineProgress {
+	t.mu.Lock()
+	defer t.mu.Unlock()
+	if t.progress == nil {
+		t.progress = map[string]TimelineProgress{}
+	}
+	p := t.progress[key]
+	p.Key = key
+	p.Method = method
+	p.Path = path
+	p.Source = source
+	p.Total = total
+	p.Calls++
+	step := int(p.Calls)
+	if step > total {
+		step = total
+	}
+	if step < 1 {
+		step = 1
+	}
+	p.Step = step
+	p.Complete = total > 0 && step >= total
+	t.progress[key] = p
+	return p
+}
+
+func (t *TimelineStore) Snapshot(defs []TimelineProgress) []TimelineProgress {
+	t.mu.Lock()
+	defer t.mu.Unlock()
+	out := make([]TimelineProgress, 0, len(defs))
+	for _, def := range defs {
+		p := def
+		if current, ok := t.progress[def.Key]; ok {
+			p.Step = current.Step
+			p.Calls = current.Calls
+			p.Complete = current.Complete
+		}
+		out = append(out, p)
+	}
+	return out
+}
+
+func (t *TimelineStore) Reset(key string) {
+	t.mu.Lock()
+	defer t.mu.Unlock()
+	delete(t.progress, key)
+}
+
+func (t *TimelineStore) Clear() {
+	t.mu.Lock()
+	defer t.mu.Unlock()
+	t.progress = map[string]TimelineProgress{}
+}
+
 func newID() string { return gofakeit.UUID() }

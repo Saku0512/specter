@@ -125,6 +125,14 @@ func CheckNoFilesystem(cfg *config.Config) []string {
 				errs = append(errs, prefix+fmt.Sprintf(": responses[%d] on_call must be non-negative", j))
 			}
 		}
+		for j, step := range r.Timeline {
+			if step.Status != 0 && (step.Status < 100 || step.Status > 599) {
+				errs = append(errs, prefix+fmt.Sprintf(": timeline[%d] invalid status %d", j, step.Status))
+			}
+			if step.OnCall != 0 {
+				errs = append(errs, prefix+fmt.Sprintf(": timeline[%d] on_call is not supported", j))
+			}
+		}
 		if r.OnCall < 0 {
 			errs = append(errs, prefix+": on_call must be non-negative")
 		}
@@ -247,6 +255,13 @@ func checkFiles(cfg *config.Config) []string {
 			if resp.File != "" {
 				if _, err := os.Stat(resp.File); err != nil {
 					errs = append(errs, prefix+fmt.Sprintf(": responses[%d] file %q not found", j, resp.File))
+				}
+			}
+		}
+		for j, step := range r.Timeline {
+			if step.File != "" {
+				if _, err := os.Stat(step.File); err != nil {
+					errs = append(errs, prefix+fmt.Sprintf(": timeline[%d] file %q not found", j, step.File))
 				}
 			}
 		}

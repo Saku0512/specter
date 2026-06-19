@@ -1,4 +1,4 @@
-# Specter VS Code Extension
+# Specter Config VS Code Extension
 
 VS Code support for Specter configuration files.
 

@@ -1,6 +1,6 @@
 # Changelog
 
-All notable changes to the Specter VS Code extension will be documented in this file.
+All notable changes to the Specter Config VS Code extension will be documented in this file.
 
 ## [0.0.1] - 2026-06-20
 

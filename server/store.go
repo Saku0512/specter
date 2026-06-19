@@ -115,6 +115,18 @@ func (d *DataStore) ClearAll() {
 	d.collections = map[string][]map[string]any{}
 }
 
+// ReplaceAll replaces every collection with a shallow copy of collections.
+func (d *DataStore) ReplaceAll(collections map[string][]map[string]any) {
+	d.mu.Lock()
+	defer d.mu.Unlock()
+	d.collections = map[string][]map[string]any{}
+	for name, items := range collections {
+		copied := make([]map[string]any, len(items))
+		copy(copied, items)
+		d.collections[name] = copied
+	}
+}
+
 // Names returns the names of all collections that have been written to.
 func (d *DataStore) Names() []string {
 	d.mu.Lock()

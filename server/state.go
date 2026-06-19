@@ -105,6 +105,36 @@ func (v *VarStore) Clear() {
 	v.vars = map[string]string{}
 }
 
+func (v *VarStore) Replace(vals map[string]string) {
+	v.mu.Lock()
+	defer v.mu.Unlock()
+	v.vars = map[string]string{}
+	for k, val := range vals {
+		v.vars[k] = val
+	}
+}
+
+type ScenarioStore struct {
+	mu     sync.Mutex
+	active string
+}
+
+func (s *ScenarioStore) Get() string {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	return s.active
+}
+
+func (s *ScenarioStore) Set(name string) {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	s.active = name
+}
+
+func (s *ScenarioStore) Clear() {
+	s.Set("")
+}
+
 // DynamicRoute is a route added at runtime via the introspection API.
 type DynamicRoute struct {
 	ID    string       `json:"id"`

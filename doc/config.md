@@ -11,6 +11,16 @@ openapi: ./openapi.yaml  # optional — enables request validation
 include:                 # optional — merge routes from other files
   - routes/*.yml
 
+scenarios:               # optional — reusable state/vars/store presets
+  login-success:
+    state: logged_in
+    vars:
+      role: admin
+    stores:
+      users:
+        - id: "1"
+          name: Alice
+
 routes:
   - path: /users
     method: GET
@@ -656,6 +666,44 @@ GET  /admin                   → 403 { error: forbidden }
 `vars` conditions use AND logic (all specified keys must match). Multiple routes with the same path are evaluated in order — first match wins.
 
 See [introspection.md](introspection.md) for the `/__specter/vars` endpoint to read/write vars from tests.
+
+## Scenario Presets
+
+Use `scenarios` to define named presets that replace the current server `state`, `vars`, and in-memory store collections in one step. This is useful for E2E setup, demos, and quickly switching between known application states.
+
+```yaml
+scenarios:
+  login-success:
+    state: logged_in
+    vars:
+      role: admin
+      tier: gold
+    stores:
+      users:
+        - id: "1"
+          name: Alice
+
+  logged-out:
+    state: ""
+    vars: {}
+    stores: {}
+```
+
+Apply a scenario on a running server:
+
+```sh
+specter scenario login-success
+```
+
+Applying a scenario replaces all three scenario-controlled areas:
+
+| Field | Behaviour |
+|---|---|
+| `state` | Sets the current state. Omit or set `""` for no state. |
+| `vars` | Clears all vars, then sets the provided key/value pairs. |
+| `stores` | Clears all store collections, then loads the provided collections. |
+
+Scenario presets persist across hot reloads because they are read from config, but active state/vars/stores still reset when the server restarts.
 
 ## Chaos / Fault Injection
 

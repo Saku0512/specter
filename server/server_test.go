@@ -2829,6 +2829,183 @@ func TestReset_selective(t *testing.T) {
 	}
 }
 
+// --- Scenario presets ---
+
+func TestScenarioPreset_applyReplacesStateVarsAndStores(t *testing.T) {
+	srv := newSrv(&config.Config{
+		Scenarios: map[string]config.Scenario{
+			"login-success": {
+				State: "logged_in",
+				Vars:  map[string]string{"role": "admin", "tier": "gold"},
+				Stores: map[string][]map[string]any{
+					"users": {
+						{"id": "1", "name": "Alice"},
+					},
+				},
+			},
+		},
+		Routes: []config.Route{{Path: "/x", Method: "GET", Status: 200}},
+	})
+	srv.state.Set("old")
+	srv.vars.Set("role", "user")
+	srv.vars.Set("stale", "true")
+	srv.store.SetCollection("users", []map[string]any{{"id": "old", "name": "Old"}})
+	srv.store.SetCollection("orders", []map[string]any{{"id": "old"}})
+
+	w := do(srv, "POST", "/__specter/scenarios/login-success", "")
+	if w.Code != http.StatusOK {
+		t.Fatalf("expected 200, got %d: %s", w.Code, w.Body.String())
+	}
+	if srv.state.Get() != "logged_in" {
+		t.Errorf("expected state logged_in, got %q", srv.state.Get())
+	}
+	gotVars := srv.vars.All()
+	if gotVars["role"] != "admin" || gotVars["tier"] != "gold" || gotVars["stale"] != "" {
+		t.Errorf("unexpected vars after scenario: %v", gotVars)
+	}
+	users := srv.store.List("users")
+	if len(users) != 1 || users[0]["id"] != "1" || users[0]["name"] != "Alice" {
+		t.Errorf("unexpected users store: %v", users)
+	}
+	if orders := srv.store.List("orders"); len(orders) != 0 {
+		t.Errorf("expected stores to be replaced, got orders=%v", orders)
+	}
+
+	w = do(srv, "GET", "/__specter/scenario", "")
+	var active map[string]string
+	json.NewDecoder(w.Body).Decode(&active)
+	if active["active"] != "login-success" {
+		t.Errorf("expected active scenario login-success, got %v", active)
+	}
+}
+
+func TestScenarioPreset_appliesToRouteMatchingAndStoreRoutes(t *testing.T) {
+	srv := newSrv(&config.Config{
+		Scenarios: map[string]config.Scenario{
+			"admin-ready": {
+				State: "logged_in",
+				Vars:  map[string]string{"role": "admin"},
+				Stores: map[string][]map[string]any{
+					"users": {
+						{"id": "1", "name": "Alice"},
+					},
+				},
+			},
+		},
+		Routes: []config.Route{
+			{Path: "/profile", Method: "GET", State: "logged_in", Vars: map[string]string{"role": "admin"}, Response: map[string]any{"ok": true}},
+			{Path: "/profile", Method: "GET", Status: 401, Response: map[string]any{"error": "unauthorized"}},
+			{Path: "/users", Method: "GET", StoreList: "users"},
+		},
+	})
+
+	w := do(srv, "GET", "/profile", "")
+	if w.Code != http.StatusUnauthorized {
+		t.Fatalf("before scenario: expected 401, got %d", w.Code)
+	}
+
+	w = do(srv, "POST", "/__specter/scenarios/admin-ready", "")
+	if w.Code != http.StatusOK {
+		t.Fatalf("apply scenario: expected 200, got %d", w.Code)
+	}
+
+	w = do(srv, "GET", "/profile", "")
+	if w.Code != http.StatusOK {
+		t.Fatalf("after scenario: expected 200, got %d", w.Code)
+	}
+	profile := jsonBody(t, w)
+	if profile["ok"] != true {
+		t.Errorf("expected profile ok response, got %v", profile)
+	}
+
+	w = do(srv, "GET", "/users", "")
+	if w.Code != http.StatusOK {
+		t.Fatalf("users: expected 200, got %d", w.Code)
+	}
+	var users []map[string]any
+	json.NewDecoder(w.Body).Decode(&users)
+	if len(users) != 1 || users[0]["id"] != "1" || users[0]["name"] != "Alice" {
+		t.Errorf("unexpected scenario-seeded users: %v", users)
+	}
+}
+
+func TestScenarioPreset_listAndNotFound(t *testing.T) {
+	srv := newSrv(&config.Config{
+		Scenarios: map[string]config.Scenario{
+			"b": {},
+			"a": {},
+		},
+		Routes: []config.Route{},
+	})
+
+	w := do(srv, "GET", "/__specter/scenarios", "")
+	if w.Code != http.StatusOK {
+		t.Fatalf("expected 200, got %d", w.Code)
+	}
+	var payload struct {
+		Active    string   `json:"active"`
+		Scenarios []string `json:"scenarios"`
+	}
+	json.NewDecoder(w.Body).Decode(&payload)
+	if payload.Active != "" {
+		t.Errorf("expected no active scenario, got %q", payload.Active)
+	}
+	if len(payload.Scenarios) != 2 || payload.Scenarios[0] != "a" || payload.Scenarios[1] != "b" {
+		t.Errorf("expected sorted scenarios [a b], got %v", payload.Scenarios)
+	}
+
+	w = do(srv, "POST", "/__specter/scenarios/missing", "")
+	if w.Code != http.StatusNotFound {
+		t.Fatalf("expected 404, got %d", w.Code)
+	}
+}
+
+func TestScenarioPreset_resetClearsActiveScenario(t *testing.T) {
+	srv := newSrv(&config.Config{
+		Scenarios: map[string]config.Scenario{
+			"ready": {State: "ready"},
+		},
+		Routes: []config.Route{},
+	})
+	w := do(srv, "POST", "/__specter/scenarios/ready", "")
+	if w.Code != http.StatusOK {
+		t.Fatalf("expected 200, got %d", w.Code)
+	}
+	w = do(srv, "POST", "/__specter/reset", `{"targets":["scenario"]}`)
+	if w.Code != http.StatusOK {
+		t.Fatalf("expected 200, got %d", w.Code)
+	}
+	if srv.scenario.Get() != "" {
+		t.Errorf("expected active scenario to reset, got %q", srv.scenario.Get())
+	}
+	if srv.state.Get() != "ready" {
+		t.Errorf("scenario-only reset should leave state alone, got %q", srv.state.Get())
+	}
+}
+
+func TestScenarioPreset_resetAllClearsActiveScenario(t *testing.T) {
+	srv := newSrv(&config.Config{
+		Scenarios: map[string]config.Scenario{
+			"ready": {State: "ready"},
+		},
+		Routes: []config.Route{},
+	})
+	w := do(srv, "POST", "/__specter/scenarios/ready", "")
+	if w.Code != http.StatusOK {
+		t.Fatalf("expected 200, got %d", w.Code)
+	}
+	w = do(srv, "POST", "/__specter/reset", "")
+	if w.Code != http.StatusOK {
+		t.Fatalf("expected 200, got %d", w.Code)
+	}
+	if srv.scenario.Get() != "" {
+		t.Errorf("expected active scenario to reset, got %q", srv.scenario.Get())
+	}
+	if srv.state.Get() != "" {
+		t.Errorf("expected state to reset, got %q", srv.state.Get())
+	}
+}
+
 // --- In-memory CRUD store ---
 
 func TestStore_PushAndList(t *testing.T) {

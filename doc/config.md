@@ -21,6 +21,12 @@ scenarios:               # optional — reusable state/vars/store presets
         - id: "1"
           name: Alice
 
+stores:                  # optional — initial CRUD store data
+  users:
+    seed:
+      - id: "1"
+        name: Alice
+
 routes:
   - path: /users
     method: GET
@@ -1134,6 +1140,22 @@ specter includes a built-in CRUD store you can wire directly to routes — no ba
 
 **Use one `store_*` field per route.** The `store_key` field names the path parameter used as the item ID (default: `id`).
 
+### Seed data
+
+Use top-level `stores` to declare initial data for CRUD stores:
+
+```yaml
+stores:
+  users:
+    seed:
+      - id: "1"
+        name: Alice
+      - id: "2"
+        name: Bob
+```
+
+Seed data is loaded when the server starts. `POST /__specter/reset` with `"targets":["stores"]` restores these configured seed collections. Without configured seed data, resetting stores clears all collections.
+
 ### Filtering, sorting, and pagination (`store_list`)
 
 `store_list` routes automatically apply query parameters from the request:
@@ -1184,7 +1206,7 @@ routes:
     store_clear: users         # delete all → 204
 ```
 
-By default, store data resets when the server restarts. To persist store state across restarts, start specter with `--store-file stores.json` or `SPECTER_STORE_FILE=stores.json`. The file is loaded on startup and rewritten atomically after each store mutation.
+By default, store data resets to configured seed data when the server restarts. To persist store state across restarts, start specter with `--store-file stores.json` or `SPECTER_STORE_FILE=stores.json`. If the file already contains data, it wins over config seed data. If the file does not exist or is empty, specter starts from config seed data and writes it to the file. The file is rewritten atomically after each store mutation.
 
 The store file contains a JSON object keyed by collection name:
 
@@ -1196,7 +1218,7 @@ The store file contains a JSON object keyed by collection name:
 }
 ```
 
-Scenario presets that replace stores, `POST /__specter/reset` with `"targets":["stores"]`, and `DELETE /__specter/stores/:name` are also written back to the store file. See [introspection.md](introspection.md) for the full stores API.
+Scenario presets that replace stores, `POST /__specter/reset` with `"targets":["stores"]`, and `DELETE /__specter/stores/:name` are also written back to the store file. Resetting stores writes the configured seed data back to the file. See [introspection.md](introspection.md) for the full stores API.
 
 ## Cookie Matching
 

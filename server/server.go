@@ -30,8 +30,16 @@ func New(cfg *config.Config, verbose bool, random bool) *Server {
 	return s
 }
 
+func seedStoresFromConfig(cfg *config.Config) map[string][]map[string]any {
+	seeds := map[string][]map[string]any{}
+	for name, storeCfg := range cfg.Stores {
+		seeds[name] = storeCfg.Seed
+	}
+	return seeds
+}
+
 func NewWithStoreFile(cfg *config.Config, verbose bool, random bool, storeFile string) (*Server, error) {
-	store, err := newDataStoreWithFile(storeFile)
+	store, err := newDataStoreWithFile(storeFile, seedStoresFromConfig(cfg))
 	if err != nil {
 		return nil, err
 	}
@@ -43,6 +51,7 @@ func NewWithStoreFile(cfg *config.Config, verbose bool, random bool, storeFile s
 
 func (s *Server) rebuild() {
 	cfg := s.cfg.Load()
+	s.store.SetSeed(seedStoresFromConfig(cfg))
 	s.engine.Store(newEngine(cfg, s.verbose, s.random, s.history, s.state, s.vars, s.scenario, s.dynamic, s.store, s.timeline, s.rebuild))
 }
 

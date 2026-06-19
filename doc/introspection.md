@@ -198,7 +198,7 @@ PUT    /__specter/stores/:name     # replace collection ← [{ "id": "...", ... 
 DELETE /__specter/stores/:name     # clear a collection
 ```
 
-Stores persist across hot reloads. By default they reset when the server restarts; with `--store-file stores.json`, they are loaded from that JSON file on startup and every mutation through these endpoints is written back atomically.
+Stores persist across hot reloads. By default they reset to configured seed data when the server restarts; with `--store-file stores.json`, existing file data wins on startup and every mutation through these endpoints is written back atomically. Resetting the `stores` target restores configured seed data, or clears stores when no seed data is configured.
 
 ## Timelines
 
@@ -247,7 +247,7 @@ curl -X POST http://localhost:8080/__specter/reset \
 | `state` | Server state (same as `PUT /__specter/state {"state":""}`) |
 | `vars` | All vars (same as `DELETE /__specter/vars`) |
 | `history` | Request history (same as `DELETE /__specter/requests`) |
-| `stores` | All in-memory store collections |
+| `stores` | All in-memory store collections, restored to configured seed data when present |
 | `scenario` | Active scenario name |
 | `timelines` | Timeline step and request counters |
 

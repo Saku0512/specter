@@ -2879,6 +2879,56 @@ func TestScenarioPreset_applyReplacesStateVarsAndStores(t *testing.T) {
 	}
 }
 
+func TestScenarioPreset_appliesToRouteMatchingAndStoreRoutes(t *testing.T) {
+	srv := newSrv(&config.Config{
+		Scenarios: map[string]config.Scenario{
+			"admin-ready": {
+				State: "logged_in",
+				Vars:  map[string]string{"role": "admin"},
+				Stores: map[string][]map[string]any{
+					"users": {
+						{"id": "1", "name": "Alice"},
+					},
+				},
+			},
+		},
+		Routes: []config.Route{
+			{Path: "/profile", Method: "GET", State: "logged_in", Vars: map[string]string{"role": "admin"}, Response: map[string]any{"ok": true}},
+			{Path: "/profile", Method: "GET", Status: 401, Response: map[string]any{"error": "unauthorized"}},
+			{Path: "/users", Method: "GET", StoreList: "users"},
+		},
+	})
+
+	w := do(srv, "GET", "/profile", "")
+	if w.Code != http.StatusUnauthorized {
+		t.Fatalf("before scenario: expected 401, got %d", w.Code)
+	}
+
+	w = do(srv, "POST", "/__specter/scenarios/admin-ready", "")
+	if w.Code != http.StatusOK {
+		t.Fatalf("apply scenario: expected 200, got %d", w.Code)
+	}
+
+	w = do(srv, "GET", "/profile", "")
+	if w.Code != http.StatusOK {
+		t.Fatalf("after scenario: expected 200, got %d", w.Code)
+	}
+	profile := jsonBody(t, w)
+	if profile["ok"] != true {
+		t.Errorf("expected profile ok response, got %v", profile)
+	}
+
+	w = do(srv, "GET", "/users", "")
+	if w.Code != http.StatusOK {
+		t.Fatalf("users: expected 200, got %d", w.Code)
+	}
+	var users []map[string]any
+	json.NewDecoder(w.Body).Decode(&users)
+	if len(users) != 1 || users[0]["id"] != "1" || users[0]["name"] != "Alice" {
+		t.Errorf("unexpected scenario-seeded users: %v", users)
+	}
+}
+
 func TestScenarioPreset_listAndNotFound(t *testing.T) {
 	srv := newSrv(&config.Config{
 		Scenarios: map[string]config.Scenario{
@@ -2930,6 +2980,29 @@ func TestScenarioPreset_resetClearsActiveScenario(t *testing.T) {
 	}
 	if srv.state.Get() != "ready" {
 		t.Errorf("scenario-only reset should leave state alone, got %q", srv.state.Get())
+	}
+}
+
+func TestScenarioPreset_resetAllClearsActiveScenario(t *testing.T) {
+	srv := newSrv(&config.Config{
+		Scenarios: map[string]config.Scenario{
+			"ready": {State: "ready"},
+		},
+		Routes: []config.Route{},
+	})
+	w := do(srv, "POST", "/__specter/scenarios/ready", "")
+	if w.Code != http.StatusOK {
+		t.Fatalf("expected 200, got %d", w.Code)
+	}
+	w = do(srv, "POST", "/__specter/reset", "")
+	if w.Code != http.StatusOK {
+		t.Fatalf("expected 200, got %d", w.Code)
+	}
+	if srv.scenario.Get() != "" {
+		t.Errorf("expected active scenario to reset, got %q", srv.scenario.Get())
+	}
+	if srv.state.Get() != "" {
+		t.Errorf("expected state to reset, got %q", srv.state.Get())
 	}
 }
 

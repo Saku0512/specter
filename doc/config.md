@@ -8,6 +8,11 @@ Both `.yaml` and `.yml` extensions are supported. See [config.example.yml](../co
 cors: true               # optional
 proxy: http://api.example.com  # optional
 openapi: ./openapi.yaml  # optional — enables request validation
+latency_profile: fast     # optional — default latency profile for routes
+latency_profiles:         # optional — custom latency profiles
+  local-lab:
+    delay_min: 50
+    delay_max: 150
 include:                 # optional — merge routes from other files
   - routes/*.yml
 
@@ -47,6 +52,7 @@ routes:
 | `headers` | map | Custom response headers |
 | `content_type` | string | Response Content-Type (default: `application/json`) |
 | `delay` | int | Response delay in milliseconds |
+| `latency_profile` | string | Named latency profile for this route |
 | `on_call` | int | Only match on this call number (1-based); use on multiple routes with same path for retry simulation |
 | `match` | list | Conditional responses by query/body/headers/body_path |
 | `mode` | string | `sequential` (default) or `random` |
@@ -1279,3 +1285,42 @@ Use `redirect` to issue an HTTP redirect without writing a custom handler. The d
   response:
     message: finally
 ```
+
+## Latency Profiles
+
+Use `latency_profile` to apply named response-delay presets without repeating delay fields on every route.
+
+```yaml
+latency_profile: mobile-4g
+
+routes:
+  - path: /feed
+    method: GET
+    response: []
+
+  - path: /checkout
+    method: POST
+    latency_profile: slow-api
+    response: { ok: true }
+```
+
+Built-in profiles:
+
+| Profile | Delay |
+|---|---|
+| `fast` | 20-80 ms |
+| `mobile-4g` | 150-450 ms |
+| `slow-api` | 800-1600 ms |
+
+Define custom profiles with fixed delay or jitter:
+
+```yaml
+latency_profiles:
+  lab-fixed:
+    delay: 250
+  lab-jitter:
+    delay_min: 100
+    delay_max: 700
+```
+
+Explicit route `delay_min` / `delay_max` or `delay` fields take precedence over `latency_profile`.

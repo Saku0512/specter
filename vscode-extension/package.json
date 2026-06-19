@@ -1,6 +1,6 @@
 {
-  "name": "specter-config",
-  "displayName": "Specter Config",
+  "name": "specter-mock-server",
+  "displayName": "Specter Mock Server",
   "description": "VS Code support for Specter config files.",
   "version": "0.0.1",
   "publisher": "saku0512-sec",

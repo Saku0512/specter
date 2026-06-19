@@ -1,4 +1,4 @@
-# Specter Config VS Code Extension
+# Specter Mock Server VS Code Extension
 
 VS Code support for Specter configuration files.
 

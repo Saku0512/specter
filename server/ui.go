@@ -348,6 +348,7 @@ tbody tr.active{background:rgba(103,232,249,.09)}
   <div class="toolbar">
     <span class="pill"><strong>Requests</strong> <span id="quick-requests">0</span></span>
     <span class="pill"><strong>Routes</strong> <span id="quick-routes">0</span></span>
+    <span class="pill"><strong>Timelines</strong> <span id="quick-timelines">0</span></span>
     <span class="pill"><strong>Stores</strong> <span id="quick-stores">0</span></span>
     <span class="pill"><strong>State</strong> <span id="quick-state">(none)</span></span>
   </div>
@@ -525,6 +526,22 @@ tbody tr.active{background:rgba(103,232,249,.09)}
         <div class="panel">
           <div class="panel-head">
             <div>
+              <h2>Timelines</h2>
+              <p>Route progress for multi-step responses.</p>
+            </div>
+            <div class="table-actions">
+              <span class="tag" id="timeline-count">0 timelines</span>
+              <button class="small warn" onclick="resetTargets(['timelines'])">Reset Timelines</button>
+            </div>
+          </div>
+          <div class="panel-body">
+            <div id="timelines-body" class="list"></div>
+          </div>
+        </div>
+
+        <div class="panel">
+          <div class="panel-head">
+            <div>
               <h2>Current Snapshot</h2>
               <p>Useful when you want a quick read without leaving the tab.</p>
             </div>
@@ -621,6 +638,7 @@ const API='{{API}}';
 const ui = {
   requests: [],
   routes: [],
+  timelines: [],
   stores: [],
   autoRefresh: true,
   selectedRequest: null,
@@ -718,6 +736,7 @@ function routeFeatures(rt){
   if (rt.proxy) notes.push('proxy');
   if (rt.stream) notes.push('stream');
   if (rt.match && rt.match.length) notes.push('match');
+  if (rt.timeline && rt.timeline.length) notes.push('timeline');
   if (rt.responses && rt.responses.length) notes.push('responses');
   if (rt.store_push || rt.store_list || rt.store_get || rt.store_put || rt.store_patch || rt.store_delete || rt.store_clear) notes.push('store');
   if (rt.redirect) notes.push('redirect');
@@ -727,6 +746,7 @@ function routeFeatures(rt){
 function updateHeaderMetrics(){
   document.getElementById('quick-requests').textContent = String(ui.requests.length);
   document.getElementById('quick-routes').textContent = String(ui.routes.length);
+  document.getElementById('quick-timelines').textContent = String(ui.timelines.length);
   document.getElementById('quick-stores').textContent = String(ui.stores.length);
   const stateValue = document.getElementById('state-val').textContent || '(none)';
   document.getElementById('quick-state').textContent = stateValue;
@@ -1015,6 +1035,43 @@ function renderStateSummary(stateValue, vars){
     '<div class="detail-card"><h3>Counts</h3><div class="kv"><span class="key">Vars</span><span>' + varEntries.length + '</span><span class="key">Requests</span><span>' + ui.requests.length + '</span><span class="key">Stores</span><span>' + ui.stores.length + '</span></div></div>';
 }
 
+function renderTimelines(){
+  const body = document.getElementById('timelines-body');
+  document.getElementById('timeline-count').textContent = ui.timelines.length + ' timeline' + (ui.timelines.length === 1 ? '' : 's');
+  if (!ui.timelines.length) {
+    body.innerHTML = '<div class="list-item"><p class="hint">No timelines configured.</p></div>';
+    updateHeaderMetrics();
+    return;
+  }
+  body.innerHTML = ui.timelines.map(function(item){
+    const step = item.step || 0;
+    const total = item.total || 0;
+    const label = step ? step + ' / ' + total : 'not started';
+    const complete = item.complete ? '<span class="tag">complete</span>' : '';
+    return '<div class="list-item">' +
+      '<div class="list-head">' +
+      '<div>' +
+      '<h4>' + methodBadge(item.method) + ' <span class="mono">' + esc(item.path) + '</span></h4>' +
+      '<p>Step ' + esc(label) + ' · ' + esc(item.calls || 0) + ' request' + (item.calls === 1 ? '' : 's') + ' · ' + esc(item.source || 'config') + '</p>' +
+      '</div>' +
+      '<div class="table-actions">' + complete + '<button class="small warn" onclick="resetTimeline(\'' + esc(item.key) + '\')">Reset</button></div>' +
+      '</div>' +
+      '</div>';
+  }).join('');
+  updateHeaderMetrics();
+}
+
+async function loadTimelines(){
+  ui.timelines = await fetchJSON('/__specter/timelines') || [];
+  renderTimelines();
+}
+
+async function resetTimeline(key){
+  await sendJSON('/__specter/timelines/' + encodeURIComponent(key) + '/reset', 'POST', {});
+  showFlash('Timeline reset.', 'success');
+  await loadTimelines();
+}
+
 function renderConfigValidation(result){
   const el = document.getElementById('config-result');
   const tag = document.getElementById('config-validity');
@@ -1115,7 +1172,7 @@ async function resetTargets(targets){
 }
 
 async function resetAll(){
-  if (!confirm('Reset state, vars, history, and stores?')) return;
+  if (!confirm('Reset state, vars, history, stores, and timelines?')) return;
   await sendJSON('/__specter/reset', 'POST', {});
   clearVarEditor();
   newStore();
@@ -1229,7 +1286,7 @@ function toggleAutoRefresh(force){
 
 async function refreshAll(){
   try {
-    await Promise.all([loadRequests(), loadRoutes(), loadState(), loadStores()]);
+    await Promise.all([loadRequests(), loadRoutes(), loadState(), loadStores(), loadTimelines()]);
     document.getElementById('last-update').textContent = new Date().toLocaleTimeString([], {hour12:false});
   } catch (e) {
     showFlash(e.message || 'Refresh failed.', 'error');

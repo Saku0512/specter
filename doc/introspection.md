@@ -200,12 +200,38 @@ DELETE /__specter/stores/:name     # clear a collection
 
 Stores persist across hot reloads but reset when the server restarts.
 
+## Timelines
+
+Inspect and reset route timeline progress for multi-step responses.
+
+```sh
+GET  /__specter/timelines            # list timeline progress
+POST /__specter/timelines/:key/reset # reset one timeline
+```
+
+Example response:
+
+```json
+[
+  {
+    "key": "config-0",
+    "method": "GET",
+    "path": "/jobs/1",
+    "source": "config",
+    "step": 2,
+    "total": 3,
+    "calls": 2,
+    "complete": false
+  }
+]
+```
+
 ## Reset
 
 Reset state, vars, and request history in a single call. Useful for test setup/teardown.
 
 ```sh
-POST /__specter/reset        # reset everything (state + vars + history + stores)
+POST /__specter/reset        # reset everything (state + vars + history + stores + timelines)
 ```
 
 With an optional `targets` array to reset selectively:
@@ -223,8 +249,9 @@ curl -X POST http://localhost:8080/__specter/reset \
 | `history` | Request history (same as `DELETE /__specter/requests`) |
 | `stores` | All in-memory store collections |
 | `scenario` | Active scenario name |
+| `timelines` | Timeline step and request counters |
 
-Omit `targets` (or send `{}`) to reset all five at once.
+Omit `targets` (or send `{}`) to reset all six at once.
 
 Dynamic routes are **not** affected — use `DELETE /__specter/routes` to clear those separately.
 

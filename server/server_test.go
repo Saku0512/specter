@@ -226,6 +226,202 @@ func TestRandomResponses(t *testing.T) {
 	}
 }
 
+func TestTimelineResponsesAdvanceAndHoldLastStep(t *testing.T) {
+	srv := newSrv(&config.Config{
+		Routes: []config.Route{
+			{
+				Path:   "/jobs/1",
+				Method: "GET",
+				Timeline: []config.RouteResponse{
+					{Status: 202, Response: map[string]any{"status": "pending"}},
+					{Status: 202, Response: map[string]any{"status": "processing"}},
+					{Status: 200, Response: map[string]any{"status": "completed"}},
+				},
+			},
+		},
+	})
+
+	cases := []struct {
+		wantCode   int
+		wantStatus string
+		wantStep   string
+	}{
+		{202, "pending", "1"},
+		{202, "processing", "2"},
+		{200, "completed", "3"},
+		{200, "completed", "3"},
+	}
+	for _, tc := range cases {
+		w := do(srv, "GET", "/jobs/1", "")
+		if w.Code != tc.wantCode {
+			t.Fatalf("expected %d, got %d", tc.wantCode, w.Code)
+		}
+		body := jsonBody(t, w)
+		if body["status"] != tc.wantStatus {
+			t.Fatalf("expected status %q, got %v", tc.wantStatus, body["status"])
+		}
+		if got := w.Header().Get("X-Specter-Timeline-Step"); got != tc.wantStep {
+			t.Fatalf("expected timeline step header %q, got %q", tc.wantStep, got)
+		}
+	}
+
+	w := do(srv, "GET", "/__specter/timelines", "")
+	var timelines []struct {
+		Key      string `json:"key"`
+		Method   string `json:"method"`
+		Path     string `json:"path"`
+		Step     int    `json:"step"`
+		Total    int    `json:"total"`
+		Calls    uint64 `json:"calls"`
+		Complete bool   `json:"complete"`
+	}
+	if err := json.NewDecoder(w.Body).Decode(&timelines); err != nil {
+		t.Fatal(err)
+	}
+	if len(timelines) != 1 {
+		t.Fatalf("expected one timeline, got %v", timelines)
+	}
+	if timelines[0].Method != "GET" || timelines[0].Path != "/jobs/1" || timelines[0].Step != 3 || timelines[0].Total != 3 || timelines[0].Calls != 4 || !timelines[0].Complete {
+		t.Fatalf("unexpected timeline progress: %+v", timelines[0])
+	}
+}
+
+func TestTimelineReset(t *testing.T) {
+	srv := newSrv(&config.Config{
+		Routes: []config.Route{
+			{
+				Path:   "/jobs/1",
+				Method: "GET",
+				Timeline: []config.RouteResponse{
+					{Status: 202, Response: map[string]any{"status": "pending"}},
+					{Status: 200, Response: map[string]any{"status": "done"}},
+				},
+			},
+		},
+	})
+
+	do(srv, "GET", "/jobs/1", "")
+	do(srv, "GET", "/jobs/1", "")
+	w := do(srv, "POST", "/__specter/timelines/config-0/reset", `{}`)
+	if w.Code != http.StatusOK {
+		t.Fatalf("expected reset 200, got %d: %s", w.Code, w.Body.String())
+	}
+	w = do(srv, "GET", "/jobs/1", "")
+	body := jsonBody(t, w)
+	if body["status"] != "pending" {
+		t.Fatalf("expected timeline to restart at pending, got %v", body)
+	}
+
+	do(srv, "GET", "/jobs/1", "")
+	w = do(srv, "POST", "/__specter/reset", `{"targets":["timelines"]}`)
+	if w.Code != http.StatusOK {
+		t.Fatalf("expected reset 200, got %d: %s", w.Code, w.Body.String())
+	}
+	w = do(srv, "GET", "/jobs/1", "")
+	body = jsonBody(t, w)
+	if body["status"] != "pending" {
+		t.Fatalf("expected global reset to restart timeline, got %v", body)
+	}
+}
+
+func TestTimelineSnapshotBeforeFirstRequest(t *testing.T) {
+	srv := newSrv(&config.Config{
+		Routes: []config.Route{
+			{
+				Path:   "/jobs/1",
+				Method: "GET",
+				Timeline: []config.RouteResponse{
+					{Status: 202, Response: map[string]any{"status": "pending"}},
+					{Status: 200, Response: map[string]any{"status": "done"}},
+				},
+			},
+			{Path: "/plain", Method: "GET", Status: 204},
+		},
+	})
+
+	w := do(srv, "GET", "/__specter/timelines", "")
+	if w.Code != http.StatusOK {
+		t.Fatalf("expected 200, got %d: %s", w.Code, w.Body.String())
+	}
+	var timelines []struct {
+		Key      string `json:"key"`
+		Method   string `json:"method"`
+		Path     string `json:"path"`
+		Source   string `json:"source"`
+		Step     int    `json:"step"`
+		Total    int    `json:"total"`
+		Calls    uint64 `json:"calls"`
+		Complete bool   `json:"complete"`
+	}
+	if err := json.NewDecoder(w.Body).Decode(&timelines); err != nil {
+		t.Fatal(err)
+	}
+	if len(timelines) != 1 {
+		t.Fatalf("expected only timeline routes in snapshot, got %+v", timelines)
+	}
+	got := timelines[0]
+	if got.Key != "config-0" || got.Method != "GET" || got.Path != "/jobs/1" || got.Source != "config" {
+		t.Fatalf("unexpected timeline identity: %+v", got)
+	}
+	if got.Step != 0 || got.Calls != 0 || got.Total != 2 || got.Complete {
+		t.Fatalf("unexpected initial timeline progress: %+v", got)
+	}
+}
+
+func TestTimelineResetMissingReturns404(t *testing.T) {
+	srv := newSrv(&config.Config{
+		Routes: []config.Route{
+			{
+				Path:     "/jobs/1",
+				Method:   "GET",
+				Timeline: []config.RouteResponse{{Status: 200, Response: map[string]any{"ok": true}}},
+			},
+		},
+	})
+
+	w := do(srv, "POST", "/__specter/timelines/missing/reset", `{}`)
+	if w.Code != http.StatusNotFound {
+		t.Fatalf("expected 404, got %d: %s", w.Code, w.Body.String())
+	}
+	body := jsonBody(t, w)
+	if body["error"] != "timeline not found" {
+		t.Fatalf("unexpected error body: %v", body)
+	}
+}
+
+func TestResetAllClearsTimelineProgress(t *testing.T) {
+	srv := newSrv(&config.Config{
+		Routes: []config.Route{
+			{
+				Path:   "/jobs/1",
+				Method: "GET",
+				Timeline: []config.RouteResponse{
+					{Status: 202, Response: map[string]any{"status": "pending"}},
+					{Status: 200, Response: map[string]any{"status": "done"}},
+				},
+			},
+		},
+	})
+
+	do(srv, "GET", "/jobs/1", "")
+	do(srv, "GET", "/jobs/1", "")
+	w := do(srv, "POST", "/__specter/reset", `{}`)
+	if w.Code != http.StatusOK {
+		t.Fatalf("expected reset 200, got %d: %s", w.Code, w.Body.String())
+	}
+	w = do(srv, "GET", "/__specter/timelines", "")
+	var timelines []struct {
+		Step  int    `json:"step"`
+		Calls uint64 `json:"calls"`
+	}
+	if err := json.NewDecoder(w.Body).Decode(&timelines); err != nil {
+		t.Fatal(err)
+	}
+	if len(timelines) != 1 || timelines[0].Step != 0 || timelines[0].Calls != 0 {
+		t.Fatalf("expected reset-all to clear timeline progress, got %+v", timelines)
+	}
+}
+
 // --- Query matching ---
 
 func TestQueryMatch(t *testing.T) {
@@ -2029,6 +2225,66 @@ func TestDynamicRoute_addAndUse(t *testing.T) {
 	w = do(srv, "GET", "/dynamic", "")
 	if w.Code != 200 {
 		t.Errorf("expected 200 after adding route, got %d", w.Code)
+	}
+}
+
+func TestDynamicRouteTimelineLifecycle(t *testing.T) {
+	srv := newSrv(&config.Config{})
+
+	w := postRoute(srv, `{"path":"/dynamic-job","method":"GET","timeline":[{"status":202,"response":{"status":"queued"}},{"status":200,"response":{"status":"done"}}]}`)
+	if w.Code != http.StatusCreated {
+		t.Fatalf("expected 201, got %d: %s", w.Code, w.Body.String())
+	}
+	var created struct {
+		ID string `json:"id"`
+	}
+	if err := json.NewDecoder(w.Body).Decode(&created); err != nil {
+		t.Fatal(err)
+	}
+	if created.ID == "" {
+		t.Fatalf("expected dynamic route id")
+	}
+	time.Sleep(20 * time.Millisecond)
+
+	w = do(srv, "GET", "/dynamic-job", "")
+	if w.Code != http.StatusAccepted {
+		t.Fatalf("expected first step 202, got %d: %s", w.Code, w.Body.String())
+	}
+	body := jsonBody(t, w)
+	if body["status"] != "queued" {
+		t.Fatalf("expected queued step, got %v", body)
+	}
+	w = do(srv, "GET", "/dynamic-job", "")
+	if w.Code != http.StatusOK {
+		t.Fatalf("expected second step 200, got %d: %s", w.Code, w.Body.String())
+	}
+	body = jsonBody(t, w)
+	if body["status"] != "done" {
+		t.Fatalf("expected done step, got %v", body)
+	}
+
+	w = do(srv, "GET", "/__specter/timelines", "")
+	var timelines []struct {
+		Key    string `json:"key"`
+		Source string `json:"source"`
+		Step   int    `json:"step"`
+		Calls  uint64 `json:"calls"`
+	}
+	if err := json.NewDecoder(w.Body).Decode(&timelines); err != nil {
+		t.Fatal(err)
+	}
+	if len(timelines) != 1 || timelines[0].Key != created.ID || timelines[0].Source != "dynamic" || timelines[0].Step != 2 || timelines[0].Calls != 2 {
+		t.Fatalf("unexpected dynamic timeline snapshot: %+v", timelines)
+	}
+
+	w = do(srv, "POST", "/__specter/timelines/"+created.ID+"/reset", `{}`)
+	if w.Code != http.StatusOK {
+		t.Fatalf("expected dynamic timeline reset 200, got %d: %s", w.Code, w.Body.String())
+	}
+	w = do(srv, "GET", "/dynamic-job", "")
+	body = jsonBody(t, w)
+	if body["status"] != "queued" {
+		t.Fatalf("expected dynamic timeline to restart, got %v", body)
 	}
 }
 

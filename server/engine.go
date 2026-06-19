@@ -21,12 +21,43 @@ import (
 
 type routeEntry struct {
 	route     config.Route
+	key       string
+	source    string
 	counter   *atomic.Uint64 // sequential responses cycling index
 	callCount *atomic.Uint64 // total matched calls (for on_call)
 	limiter   *rateLimiter
 }
 
-func newEngine(cfg *config.Config, verbose bool, random bool, history *RequestHistory, state *StateStore, vars *VarStore, scenario *ScenarioStore, dynamic *DynamicRouteStore, store *DataStore, rebuild func()) *gin.Engine {
+func timelineDefinitions(cfg *config.Config, dynamic *DynamicRouteStore) []TimelineProgress {
+	var out []TimelineProgress
+	for i, route := range cfg.Routes {
+		if len(route.Timeline) == 0 {
+			continue
+		}
+		out = append(out, TimelineProgress{
+			Key:    fmt.Sprintf("config-%d", i),
+			Method: route.Method,
+			Path:   route.Path,
+			Source: "config",
+			Total:  len(route.Timeline),
+		})
+	}
+	for _, dr := range dynamic.All() {
+		if len(dr.Route.Timeline) == 0 {
+			continue
+		}
+		out = append(out, TimelineProgress{
+			Key:    dr.ID,
+			Method: dr.Route.Method,
+			Path:   dr.Route.Path,
+			Source: "dynamic",
+			Total:  len(dr.Route.Timeline),
+		})
+	}
+	return out
+}
+
+func newEngine(cfg *config.Config, verbose bool, random bool, history *RequestHistory, state *StateStore, vars *VarStore, scenario *ScenarioStore, dynamic *DynamicRouteStore, store *DataStore, timeline *TimelineStore, rebuild func()) *gin.Engine {
 	r := gin.New()
 	r.Use(redactedGinLogger(), gin.Recovery())
 
@@ -232,11 +263,30 @@ func newEngine(cfg *config.Config, verbose bool, random bool, history *RequestHi
 		applyScenarioPreset(name, preset, state, vars, scenario, store)
 		c.JSON(http.StatusOK, gin.H{"ok": true, "active": name})
 	})
+	r.GET("/__specter/timelines", func(c *gin.Context) {
+		c.JSON(http.StatusOK, timeline.Snapshot(timelineDefinitions(cfg, dynamic)))
+	})
+	r.POST("/__specter/timelines/:key/reset", func(c *gin.Context) {
+		key := c.Param("key")
+		found := false
+		for _, def := range timelineDefinitions(cfg, dynamic) {
+			if def.Key == key {
+				found = true
+				break
+			}
+		}
+		if !found {
+			c.JSON(http.StatusNotFound, gin.H{"error": "timeline not found"})
+			return
+		}
+		timeline.Reset(key)
+		c.JSON(http.StatusOK, gin.H{"ok": true})
+	})
 
 	// Reset endpoint clears runtime state in one call.
 	r.POST("/__specter/reset", func(c *gin.Context) {
 		var body struct {
-			Targets []string `json:"targets"` // optional: ["state","vars","history","stores","scenario"] — defaults to all
+			Targets []string `json:"targets"` // optional: ["state","vars","history","stores","scenario","timelines"] — defaults to all
 		}
 		_ = c.ShouldBindJSON(&body)
 		all := len(body.Targets) == 0
@@ -265,6 +315,9 @@ func newEngine(cfg *config.Config, verbose bool, random bool, history *RequestHi
 		}
 		if reset("scenario") {
 			scenario.Clear()
+		}
+		if reset("timelines") {
+			timeline.Clear()
 		}
 		c.JSON(http.StatusOK, gin.H{"ok": true})
 	})
@@ -368,13 +421,22 @@ func newEngine(cfg *config.Config, verbose bool, random bool, history *RequestHi
 	var order []routeKey
 	seen := map[routeKey]bool{}
 
-	allRoutes := cfg.Routes
-	for _, dr := range dynamic.All() {
-		allRoutes = append(allRoutes, dr.Route)
+	type routeSource struct {
+		key    string
+		source string
+		route  config.Route
 	}
-	for _, route := range allRoutes {
+	allRoutes := make([]routeSource, 0, len(cfg.Routes)+len(dynamic.All()))
+	for i, route := range cfg.Routes {
+		allRoutes = append(allRoutes, routeSource{key: fmt.Sprintf("config-%d", i), source: "config", route: route})
+	}
+	for _, dr := range dynamic.All() {
+		allRoutes = append(allRoutes, routeSource{key: dr.ID, source: "dynamic", route: dr.Route})
+	}
+	for _, item := range allRoutes {
+		route := item.route
 		key := routeKey{route.Method, route.Path}
-		e := &routeEntry{route: route, counter: &atomic.Uint64{}, callCount: &atomic.Uint64{}}
+		e := &routeEntry{route: route, key: item.key, source: item.source, counter: &atomic.Uint64{}, callCount: &atomic.Uint64{}}
 		if route.RateLimit > 0 {
 			e.limiter = newRateLimiter(route.RateLimit, route.RateReset)
 		}
@@ -564,6 +626,42 @@ func newEngine(cfg *config.Config, verbose bool, random bool, history *RequestHi
 						fireWebhook(rt.Webhook, tmplData, c.Params, store)
 						return
 					}
+				}
+
+				// timeline responses
+				if len(rt.Timeline) > 0 {
+					progress := timeline.Advance(e.key, rt.Method, rt.Path, e.source, len(rt.Timeline))
+					picked := rt.Timeline[progress.Step-1]
+					status := picked.Status
+					if status == 0 {
+						status = http.StatusOK
+					}
+					body, fileCT, scriptStatus2 := resolveBody(picked.Response, picked.File, picked.Script, tmplData, c.Params, store)
+					if scriptStatus2 != 0 {
+						status = scriptStatus2
+					}
+					if picked.Fault != "" {
+						writeFault(c, normalizeFault(picked.Fault), status, 0)
+						return
+					}
+					ct := picked.ContentType
+					if ct == "" {
+						ct = fileCT
+					}
+					if ct == "" {
+						ct = rt.ContentType
+					}
+					c.Header("X-Specter-Timeline-Step", strconv.Itoa(progress.Step))
+					c.Header("X-Specter-Timeline-Calls", strconv.FormatUint(progress.Calls, 10))
+					respondValidated(c, oaRouter, cfg.OpenAPIStrictResponse, status, ct, body)
+					if rt.SetState != nil {
+						state.Set(*rt.SetState)
+					}
+					for k, v := range rt.SetVars {
+						vars.Set(k, v)
+					}
+					fireWebhook(rt.Webhook, tmplData, c.Params, store)
+					return
 				}
 
 				// multiple responses

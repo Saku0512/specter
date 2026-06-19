@@ -35,11 +35,16 @@ Example response for `GET /__specter/requests`:
 
 | Field | Type | Description |
 |---|---|---|
+| `request` | string | Shorthand request selector like `POST /api/orders` |
 | `method` | string | HTTP method to match (case-insensitive) |
 | `path` | string | Exact path to match |
 | `query` | object | Query params that must be present (subset match) |
+| `headers` | object | Headers that must be present with exact values |
 | `body` | object | JSON fields that must be present in the request body (subset match) |
+| `body_mode` | string | `subset` (default) or `exact` for JSON body matching |
+| `body_path` | object | Dot-notation JSON body paths matched with regex patterns |
 | `count` | int | Exact number of matching requests expected. Omit to require at least 1. |
+| `called` | int | Alias for `count` |
 
 ### Examples
 
@@ -52,6 +57,18 @@ curl -X POST http://localhost:8080/__specter/requests/assert \
 # Assert POST /users was called with name=Alice exactly once
 curl -X POST http://localhost:8080/__specter/requests/assert \
   -d '{"method":"POST","path":"/users","body":{"name":"Alice"},"count":1}'
+
+# Shorthand form: assert POST /api/orders was called twice with submitted status
+curl -X POST http://localhost:8080/__specter/requests/assert \
+  -d '{"request":"POST /api/orders","called":2,"body":{"status":"submitted"}}'
+
+# Exact body mode rejects extra JSON fields
+curl -X POST http://localhost:8080/__specter/requests/assert \
+  -d '{"request":"POST /api/orders","body":{"status":"submitted"},"body_mode":"exact","called":1}'
+
+# Match nested JSON fields with body_path regex patterns
+curl -X POST http://localhost:8080/__specter/requests/assert \
+  -d '{"request":"POST /api/orders","body_path":{"order.status":"^submitted$"}}'
 
 # Assert /admin was never called
 curl -X POST http://localhost:8080/__specter/requests/assert \

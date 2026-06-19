@@ -65,6 +65,7 @@ routes:
 ## Documentation
 
 - [Config reference](doc/config.md) — routes, matching, templates, faker, state, rate limiting, ...
+- [Examples gallery](doc/examples.md) — auth, CRUD, pagination, GraphQL, webhooks, SSE, OpenAPI, and more
 - [JSON Schema](doc/schema.md) — schema for editor completion and validation
 - [CLI reference](doc/cli.md) — flags, env vars, `init` / `examples` / `gen` / `validate` / `doctor` / `record`
 - [Introspection API](doc/introspection.md) — `/__specter/requests`, `/__specter/state`

@@ -108,6 +108,8 @@ Available examples:
 | `graphql` | GraphQL operationName and variable matching |
 | `errors` | Common 400, 404, 429, and flaky 503-style responses |
 
+See [Examples gallery](examples.md) for complete walkthroughs and copyable configs.
+
 ### `specter gen`
 
 Generate a config file from an OpenAPI spec.

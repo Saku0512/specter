@@ -46,10 +46,10 @@ func forwardRequest(c *gin.Context, targetBase string) {
 	}
 	outReq.Host = target.Host
 
-	log.Printf("proxy → %s %s", outReq.Method, outReq.URL)
+	log.Printf("proxy → %s %s", outReq.Method, safeURLForLog(outReq.URL))
 	resp, err := http.DefaultClient.Do(outReq)
 	if err != nil {
-		log.Printf("proxy: %s %s failed: %v", outReq.Method, outReq.URL, err)
+		log.Printf("proxy: %s %s failed: %v", outReq.Method, safeURLForLog(outReq.URL), err)
 		c.JSON(http.StatusBadGateway, gin.H{"error": "proxy request failed"})
 		return
 	}
@@ -103,7 +103,7 @@ func fireWebhook(wh *config.Webhook, tmplData map[string]any, params gin.Params,
 
 		req, err := http.NewRequest(method, targetURL, bodyReader)
 		if err != nil {
-			log.Printf("webhook: failed to build request to %s: %v", targetURL, err)
+			log.Printf("webhook: failed to build request to %s: %v", safeURLForLog(targetURL), err)
 			return
 		}
 		if wh.Body != nil {
@@ -115,10 +115,10 @@ func fireWebhook(wh *config.Webhook, tmplData map[string]any, params gin.Params,
 
 		resp, err := http.DefaultClient.Do(req)
 		if err != nil {
-			log.Printf("webhook: %s %s failed: %v", method, targetURL, err)
+			log.Printf("webhook: %s %s failed: %v", method, safeURLForLog(targetURL), err)
 			return
 		}
 		resp.Body.Close()
-		log.Printf("webhook: %s %s → %d", method, targetURL, resp.StatusCode)
+		log.Printf("webhook: %s %s → %d", method, safeURLForLog(targetURL), resp.StatusCode)
 	}()
 }

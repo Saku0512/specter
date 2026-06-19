@@ -104,7 +104,7 @@ Flags:
   -h, --help   Show this help
 
 Commands:
-  init         Create a starter config.yml
+  init         Create a starter config.yml (--template basic|crud|auth|openapi)
   gen          Generate config from an OpenAPI spec
   validate     Validate a config file
   record       Proxy a real API and record responses to config.yml

@@ -14,6 +14,7 @@
 				{ href: '#quick-start', label: 'Quick Start' },
 				{ href: '#config', label: 'config.yml' },
 				{ href: '#examples', label: 'Examples' },
+				{ href: '#comparison', label: '比較' },
 				{ href: '#recipes', label: 'レシピ' },
 				{ href: '#cli', label: 'CLI' },
 				{ href: '#contributing', label: 'Contributing' }
@@ -56,6 +57,15 @@
 				['openapi', 'OpenAPI spec による request / response validation を試せます。'],
 				['polling', 'long-running job の queued / running / complete を sequential responses で表現します。'],
 				['errors', 'rate limit、flaky 503、latency、400/404 response で error UI を鍛えます。']
+			],
+			comparisonTitle: 'どの mock-server tool を選ぶか',
+			comparisonBody:
+				'Specter は YAML-first の local mock server です。json-server、Prism、WireMock と重なる部分はありますが、state、stores、scenarios、timelines、request assertions、Web UI を 1 つの local workflow にまとめることを重視しています。',
+			comparisonCta: '比較ガイドを読む',
+			comparisonCards: [
+				['json-server', 'JSON database から CRUD REST API をすばやく作る用途に向いています。Specter は同じ path で条件分岐・state・scenario・assertion が必要なときに向いています。'],
+				['Prism', 'OpenAPI / Postman contract を source of truth にした mock と validation proxy に強い tool です。Specter は OpenAPI validation に加えて hand-written behavior を重ねたいときに向いています。'],
+				['WireMock', 'rich matching、verification、record/playback、JVM integration、service virtualization に強い mature tool です。Specter は小さく読める YAML と built-in UI で local dev / E2E を軽く回したいときに向いています。']
 			],
 			sections: {
 				topLevel: {
@@ -145,6 +155,7 @@
 				{ href: '#quick-start', label: 'Quick Start' },
 				{ href: '#config', label: 'config.yml' },
 				{ href: '#examples', label: 'Examples' },
+				{ href: '#comparison', label: 'Comparison' },
 				{ href: '#recipes', label: 'Recipes' },
 				{ href: '#cli', label: 'CLI' },
 				{ href: '#contributing', label: 'Contributing' }
@@ -181,6 +192,15 @@
 				['openapi', 'Validate mock requests and responses against an OpenAPI spec.'],
 				['polling', 'Represent long-running queued, running, and complete jobs with sequential responses.'],
 				['errors', 'Exercise error UI with rate limits, flaky 503s, latency, and 400/404 responses.']
+			],
+			comparisonTitle: 'Choosing a mock-server tool',
+			comparisonBody:
+				'Specter is a YAML-first local mock server. It overlaps with json-server, Prism, and WireMock, but focuses on combining state, stores, scenarios, timelines, request assertions, and a Web UI into one local workflow.',
+			comparisonCta: 'Read the comparison guide',
+			comparisonCards: [
+				['json-server', 'Best when you want a CRUD REST API from a JSON database. Specter fits better when one path needs matching, state, scenarios, or assertions.'],
+				['Prism', 'Best when an OpenAPI or Postman contract is the source of truth for mocks and validation proxy behavior. Specter fits better when you want OpenAPI validation plus hand-written behavior.'],
+				['WireMock', 'Best for rich matching, verification, record/playback, JVM integration, and broad service virtualization. Specter fits better when local dev and E2E need a small readable YAML workflow with a built-in UI.']
 			],
 			sections: {
 				topLevel: { title: 'Top-level fields', body: 'Use these fields once at the root of the YAML file.' },
@@ -639,6 +659,24 @@ specter record -t http://api.example.com -o config.yml`;
 			</div>
 		</section>
 
+		<section class="section" id="comparison">
+			<div class="section-head wide">
+				<p class="kicker">Comparison</p>
+				<h2>{copy[$language].comparisonTitle}</h2>
+				<p>{copy[$language].comparisonBody}</p>
+				<a class="text-link" href="https://github.com/Saku0512/specter/blob/main/doc/comparison.md">{copy[$language].comparisonCta}</a>
+			</div>
+
+			<div class="comparison-grid">
+				{#each copy[$language].comparisonCards as item}
+					<article>
+						<strong>{item[0]}</strong>
+						<p>{item[1]}</p>
+					</article>
+				{/each}
+			</div>
+		</section>
+
 		<section class="section" id="recipes">
 			<div class="section-head">
 				<p class="kicker">Recipes</p>
@@ -971,6 +1009,7 @@ specter record -t http://api.example.com -o config.yml`;
 	.code-block,
 	.steps article,
 	.example-grid article,
+	.comparison-grid article,
 	.recipe-grid article,
 	.contribute-list div {
 		border: 1px solid rgba(145, 184, 220, 0.16);
@@ -1071,6 +1110,7 @@ specter record -t http://api.example.com -o config.yml`;
 
 	.steps,
 	.example-grid,
+	.comparison-grid,
 	.recipe-grid {
 		display: grid;
 		grid-template-columns: repeat(3, minmax(0, 1fr));
@@ -1079,11 +1119,13 @@ specter record -t http://api.example.com -o config.yml`;
 
 	.steps article,
 	.example-grid article,
+	.comparison-grid article,
 	.recipe-grid article {
 		padding: 1.1rem;
 	}
 
-	.example-grid strong {
+	.example-grid strong,
+	.comparison-grid strong {
 		display: block;
 		color: #e4f1ff;
 		font-size: 1.08rem;
@@ -1263,6 +1305,7 @@ specter record -t http://api.example.com -o config.yml`;
 		.reference-grid,
 		.steps,
 		.example-grid,
+		.comparison-grid,
 		.recipe-grid {
 			grid-template-columns: 1fr;
 		}

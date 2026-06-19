@@ -1,0 +1,567 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "https://specter.dev/schemas/config.schema.json",
+  "title": "Specter Config",
+  "description": "Configuration for the Specter API mock server.",
+  "type": "object",
+  "additionalProperties": false,
+  "properties": {
+    "cors": {
+      "type": "boolean",
+      "description": "Enable permissive CORS headers."
+    },
+    "proxy": {
+      "type": "string",
+      "format": "uri",
+      "description": "Default upstream URL for unmatched requests."
+    },
+    "latency_profile": {
+      "$ref": "#/$defs/latencyProfileName"
+    },
+    "latency_profiles": {
+      "type": "object",
+      "description": "Custom named latency profiles.",
+      "additionalProperties": {
+        "$ref": "#/$defs/latencyProfile"
+      }
+    },
+    "openapi": {
+      "type": "string",
+      "description": "Path to an OpenAPI document for request validation."
+    },
+    "openapi_strict": {
+      "type": "boolean",
+      "description": "Return 400 on OpenAPI request validation failures."
+    },
+    "openapi_strict_response": {
+      "type": "boolean",
+      "description": "Return 500 when mock responses violate the OpenAPI schema."
+    },
+    "include": {
+      "type": "array",
+      "description": "Glob patterns of additional config files to merge.",
+      "items": {
+        "type": "string"
+      }
+    },
+    "routes": {
+      "type": "array",
+      "description": "Mock routes served by Specter.",
+      "items": {
+        "$ref": "#/$defs/route"
+      },
+      "defaultSnippets": [
+        {
+          "label": "GET route",
+          "body": [
+            {
+              "path": "${1:/api/example}",
+              "method": "GET",
+              "status": 200,
+              "response": {
+                "ok": true
+              }
+            }
+          ]
+        },
+        {
+          "label": "CRUD store route",
+          "body": [
+            {
+              "path": "${1:/api/items}",
+              "method": "POST",
+              "store_push": "${2:items}"
+            }
+          ]
+        }
+      ]
+    },
+    "scenarios": {
+      "type": "object",
+      "description": "Named state, variable, and store presets.",
+      "additionalProperties": {
+        "$ref": "#/$defs/scenario"
+      }
+    },
+    "stores": {
+      "type": "object",
+      "description": "Named CRUD stores and optional seed data.",
+      "additionalProperties": {
+        "$ref": "#/$defs/store"
+      }
+    }
+  },
+  "required": [
+    "routes"
+  ],
+  "$defs": {
+    "httpMethod": {
+      "type": "string",
+      "enum": [
+        "GET",
+        "POST",
+        "PUT",
+        "PATCH",
+        "DELETE",
+        "HEAD",
+        "OPTIONS"
+      ]
+    },
+    "statusCode": {
+      "type": "integer",
+      "minimum": 100,
+      "maximum": 599
+    },
+    "nonNegativeInteger": {
+      "type": "integer",
+      "minimum": 0
+    },
+    "headers": {
+      "type": "object",
+      "additionalProperties": {
+        "type": "string"
+      }
+    },
+    "stringMap": {
+      "type": "object",
+      "additionalProperties": {
+        "type": "string"
+      }
+    },
+    "latencyProfileName": {
+      "anyOf": [
+        {
+          "type": "string",
+          "enum": [
+            "fast",
+            "mobile-4g",
+            "slow-api"
+          ]
+        },
+        {
+          "type": "string"
+        }
+      ],
+      "description": "Named latency profile. Built-ins are fast, mobile-4g, and slow-api."
+    },
+    "latencyProfile": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "delay": {
+          "$ref": "#/$defs/nonNegativeInteger",
+          "description": "Fixed response delay in milliseconds."
+        },
+        "delay_min": {
+          "$ref": "#/$defs/nonNegativeInteger",
+          "description": "Minimum random response delay in milliseconds."
+        },
+        "delay_max": {
+          "$ref": "#/$defs/nonNegativeInteger",
+          "description": "Maximum random response delay in milliseconds."
+        }
+      }
+    },
+    "fault": {
+      "type": "string",
+      "enum": [
+        "timeout",
+        "connection_reset",
+        "malformed_json",
+        "empty_response",
+        "http_error"
+      ],
+      "description": "Built-in fault profile to inject."
+    },
+    "routeResponse": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "status": {
+          "$ref": "#/$defs/statusCode"
+        },
+        "content_type": {
+          "type": "string"
+        },
+        "response": true,
+        "file": {
+          "type": "string"
+        },
+        "on_call": {
+          "$ref": "#/$defs/nonNegativeInteger"
+        },
+        "script": {
+          "type": "string"
+        },
+        "fault": {
+          "$ref": "#/$defs/fault"
+        }
+      }
+    },
+    "routeMatch": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "query": {
+          "$ref": "#/$defs/stringMap",
+          "description": "Query parameter regex matchers."
+        },
+        "body": {
+          "type": "object"
+        },
+        "headers": {
+          "$ref": "#/$defs/stringMap",
+          "description": "Header regex matchers."
+        },
+        "body_path": {
+          "type": "object",
+          "description": "Dot-notation request body paths mapped to regex patterns.",
+          "additionalProperties": {
+            "type": "string"
+          }
+        },
+        "status": {
+          "$ref": "#/$defs/statusCode"
+        },
+        "content_type": {
+          "type": "string"
+        },
+        "response": true,
+        "file": {
+          "type": "string"
+        },
+        "script": {
+          "type": "string"
+        },
+        "form": {
+          "$ref": "#/$defs/stringMap"
+        },
+        "graphql": {
+          "$ref": "#/$defs/graphqlMatch"
+        },
+        "cookies": {
+          "$ref": "#/$defs/stringMap"
+        },
+        "body_schema": {
+          "type": "object",
+          "description": "JSON Schema the request body must satisfy."
+        },
+        "set_state": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "set_vars": {
+          "$ref": "#/$defs/stringMap"
+        },
+        "response_headers": {
+          "$ref": "#/$defs/headers"
+        },
+        "delay": {
+          "$ref": "#/$defs/nonNegativeInteger"
+        },
+        "fault": {
+          "$ref": "#/$defs/fault"
+        }
+      }
+    },
+    "graphqlMatch": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "operation": {
+          "type": "string"
+        },
+        "variables": {
+          "$ref": "#/$defs/stringMap"
+        }
+      }
+    },
+    "streamEvent": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "data": true,
+        "event": {
+          "type": "string"
+        },
+        "id": {
+          "type": "string"
+        },
+        "delay": {
+          "$ref": "#/$defs/nonNegativeInteger"
+        }
+      }
+    },
+    "setCookie": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "name",
+        "value"
+      ],
+      "properties": {
+        "name": {
+          "type": "string"
+        },
+        "value": {
+          "type": "string"
+        },
+        "path": {
+          "type": "string"
+        },
+        "domain": {
+          "type": "string"
+        },
+        "max_age": {
+          "type": "integer"
+        },
+        "http_only": {
+          "type": "boolean"
+        },
+        "secure": {
+          "type": "boolean"
+        },
+        "same_site": {
+          "type": "string",
+          "enum": [
+            "Strict",
+            "Lax",
+            "None"
+          ]
+        }
+      }
+    },
+    "webhook": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "url"
+      ],
+      "properties": {
+        "url": {
+          "type": "string",
+          "format": "uri"
+        },
+        "method": {
+          "$ref": "#/$defs/httpMethod"
+        },
+        "body": true,
+        "headers": {
+          "$ref": "#/$defs/headers"
+        },
+        "delay": {
+          "$ref": "#/$defs/nonNegativeInteger"
+        }
+      }
+    },
+    "route": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "path",
+        "method"
+      ],
+      "properties": {
+        "path": {
+          "type": "string",
+          "description": "Request path to match, such as /api/users/:id."
+        },
+        "method": {
+          "$ref": "#/$defs/httpMethod"
+        },
+        "status": {
+          "$ref": "#/$defs/statusCode"
+        },
+        "delay": {
+          "$ref": "#/$defs/nonNegativeInteger"
+        },
+        "latency_profile": {
+          "$ref": "#/$defs/latencyProfileName"
+        },
+        "headers": {
+          "$ref": "#/$defs/headers"
+        },
+        "content_type": {
+          "type": "string"
+        },
+        "response": true,
+        "mode": {
+          "type": "string",
+          "enum": [
+            "sequential",
+            "random"
+          ]
+        },
+        "responses": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/routeResponse"
+          }
+        },
+        "timeline": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/routeResponse"
+          }
+        },
+        "match": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/routeMatch"
+          }
+        },
+        "rate_limit": {
+          "$ref": "#/$defs/nonNegativeInteger"
+        },
+        "rate_reset": {
+          "$ref": "#/$defs/nonNegativeInteger"
+        },
+        "state": {
+          "type": "string"
+        },
+        "set_state": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "vars": {
+          "$ref": "#/$defs/stringMap"
+        },
+        "set_vars": {
+          "$ref": "#/$defs/stringMap"
+        },
+        "webhook": {
+          "$ref": "#/$defs/webhook"
+        },
+        "file": {
+          "type": "string"
+        },
+        "error_rate": {
+          "type": "number",
+          "minimum": 0,
+          "maximum": 1
+        },
+        "error_status": {
+          "$ref": "#/$defs/statusCode"
+        },
+        "fault": {
+          "$ref": "#/$defs/fault"
+        },
+        "delay_min": {
+          "$ref": "#/$defs/nonNegativeInteger"
+        },
+        "delay_max": {
+          "$ref": "#/$defs/nonNegativeInteger"
+        },
+        "on_call": {
+          "$ref": "#/$defs/nonNegativeInteger"
+        },
+        "script": {
+          "type": "string"
+        },
+        "proxy": {
+          "type": "string",
+          "format": "uri"
+        },
+        "redirect": {
+          "type": "string"
+        },
+        "redirect_status": {
+          "type": "integer",
+          "enum": [
+            301,
+            302,
+            303,
+            307,
+            308
+          ]
+        },
+        "store_push": {
+          "type": "string"
+        },
+        "store_list": {
+          "type": "string"
+        },
+        "store_get": {
+          "type": "string"
+        },
+        "store_put": {
+          "type": "string"
+        },
+        "store_patch": {
+          "type": "string"
+        },
+        "store_delete": {
+          "type": "string"
+        },
+        "store_clear": {
+          "type": "string"
+        },
+        "store_key": {
+          "type": "string",
+          "default": "id"
+        },
+        "stream": {
+          "type": "boolean"
+        },
+        "events": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/streamEvent"
+          }
+        },
+        "stream_repeat": {
+          "type": "boolean"
+        },
+        "set_cookies": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/setCookie"
+          }
+        },
+        "priority": {
+          "$ref": "#/$defs/nonNegativeInteger"
+        },
+        "times": {
+          "$ref": "#/$defs/nonNegativeInteger"
+        }
+      }
+    },
+    "scenario": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "state": {
+          "type": "string"
+        },
+        "vars": {
+          "$ref": "#/$defs/stringMap"
+        },
+        "stores": {
+          "type": "object",
+          "additionalProperties": {
+            "type": "array",
+            "items": {
+              "type": "object"
+            }
+          }
+        }
+      }
+    },
+    "store": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "seed": {
+          "type": "array",
+          "items": {
+            "type": "object"
+          }
+        }
+      }
+    }
+  }
+}

@@ -1,21 +1,37 @@
 {
   "name": "specter",
-  "displayName": "specter-vscode-extension",
-  "description": "A lightweight and powerful API mock server written in Go.",
+  "displayName": "Specter",
+  "description": "VS Code support for Specter config files.",
   "version": "0.0.1",
   "engines": {
     "vscode": "^1.125.0"
   },
   "categories": [
-    "Other"
+    "Linters",
+    "Programming Languages"
   ],
   "activationEvents": [],
   "main": "./dist/extension.js",
+  "extensionDependencies": [
+    "redhat.vscode-yaml"
+  ],
   "contributes": {
-    "commands": [
+    "yamlValidation": [
       {
-        "command": "specter.helloWorld",
-        "title": "Hello World"
+        "fileMatch": "specter.yaml",
+        "url": "./schemas/specter.schema.json"
+      },
+      {
+        "fileMatch": "specter.yml",
+        "url": "./schemas/specter.schema.json"
+      },
+      {
+        "fileMatch": "config.yaml",
+        "url": "./schemas/specter.schema.json"
+      },
+      {
+        "fileMatch": "config.yml",
+        "url": "./schemas/specter.schema.json"
       }
     ]
   },
@@ -28,9 +44,10 @@
     "package": "npm run check-types && npm run lint && node esbuild.js --production",
     "compile-tests": "tsc -p . --outDir out",
     "watch-tests": "tsc -p . -w --outDir out",
-    "pretest": "npm run compile-tests && npm run compile && npm run lint",
+    "pretest": "npm run test:schema && npm run compile-tests && npm run compile && npm run lint",
     "check-types": "tsc --noEmit",
     "lint": "eslint src",
+    "test:schema": "node scripts/validate-schema.cjs",
     "test": "vscode-test"
   },
   "devDependencies": {

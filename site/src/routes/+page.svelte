@@ -1,54 +1,199 @@
 <script lang="ts">
 	import { base } from '$app/paths';
+	import LanguageToggle from '$lib/LanguageToggle.svelte';
+	import { language } from '$lib/language';
 	import mark from '$lib/assets/logo-icon.png';
 
-	const installMethods = [
-		{
-			name: 'Homebrew',
-			copy: 'brew tap Saku0512/specter https://github.com/Saku0512/specter\nbrew install specter',
-			note: 'Fastest path on macOS and Linux if you already live in Homebrew.'
-		},
-		{
-			name: 'curl',
-			copy: 'curl -fsSL https://raw.githubusercontent.com/Saku0512/specter/main/install.sh | bash',
-			note: 'Single-command install for macOS and Linux.'
-		},
-		{
-			name: 'PowerShell',
-			copy: 'irm https://raw.githubusercontent.com/Saku0512/specter/main/install.ps1 | iex',
-			note: 'Windows install with a colored installer flow.'
-		},
-		{
-			name: 'Docker',
-			copy: 'docker run -v $(pwd)/config.yml:/config.yml ghcr.io/saku0512/specter -c /config.yml',
-			note: 'Nice when you want a throwaway mock server without touching your machine.'
-		}
-	];
+	const copy = {
+		ja: {
+			title: 'specter | 手軽に使えるモック API サーバー',
+			description:
+				'specter は hot reload、OpenAPI、状態管理、組み込み UI を備えた軽量なモック API サーバーです。',
+			navDocs: 'Docs',
+			navRepo: 'GitHub',
+			eyebrow: '軽量モック API サーバー',
+			pronounced: 'pronounced',
+			lede:
+				'手間の少ないモック API。YAML でルートを定義し、単一バイナリを起動するだけで、実バックエンドの完成を待たずにフロントエンド、テスト、デモを進められます。',
+			downloadLatest: '最新版をダウンロード',
+			readDocs: 'ドキュメントを読む',
+			viewRepository: 'リポジトリを見る',
+			downloadKicker: 'Download',
+			downloadTitle: '自分のワークフローに合うインストール方法を選ぶ',
+			allBinaries: 'すべてのバイナリ',
+			howKicker: 'How It Works',
+			howTitle: '空のフォルダから実用的なモック API までの 3 ステップ',
+			operateKicker: 'Operate',
+			operateTitle: 'アプリを作り直さずにモックを操作する',
+			operateBody:
+				'specter は、フロントエンドがバックエンドより先行している時期、決まった失敗を再現したいデモ、実バックエンドなしで API 形状を使いたいテストのために作られています。',
+			operateBody2:
+				'まずは 1 つのルートから始め、必要に応じて状態遷移、OpenAPI 検証、フィルタ、ストア、組み込み UI を重ねて現実的なシナリオにできます。',
+			panel: [
+				{
+					title: 'YAML を編集',
+					body: '保存するとルートが再読み込みされるため、レスポンス変更をすぐ確認できます。'
+				},
+				{
+					title: 'コントロール UI を使う',
+					body: 'リクエスト確認、状態変更、ストア初期化、シナリオ操作をブラウザから行えます。'
+				},
+				{
+					title: 'フロントエンド開発を止めない',
+					body: '本物の API が固まり切っていない間も、開発やデモを前に進められます。'
+				}
+			],
+			features: [
+				'YAML で定義するルートと hot reload',
+				'状態管理、vars、stores、rate limit、delay、fault',
+				'OpenAPI 生成とバリデーション',
+				'モックを確認・操作できる組み込み Web UI'
+			],
+			installMethods: [
+				{
+					name: 'Homebrew',
+					copy: 'brew tap Saku0512/specter https://github.com/Saku0512/specter\nbrew install specter',
+					note: 'macOS / Linux で Homebrew を使っているなら一番手早い方法です。'
+				},
+				{
+					name: 'curl',
+					copy: 'curl -fsSL https://raw.githubusercontent.com/Saku0512/specter/main/install.sh | bash',
+					note: 'macOS / Linux で使える 1 コマンドのインストール方法です。'
+				},
+				{
+					name: 'PowerShell',
+					copy: 'irm https://raw.githubusercontent.com/Saku0512/specter/main/install.ps1 | iex',
+					note: 'Windows 向けのインストーラーです。'
+				},
+				{
+					name: 'Docker',
+					copy: 'docker run -v $(pwd)/config.yml:/config.yml ghcr.io/saku0512/specter -c /config.yml',
+					note: '手元の環境を汚さず、一時的なモックサーバーとして使いたいときに便利です。'
+				}
+			],
+			quickstart: [
+				{
+					title: '設定ファイルを生成',
+					command: 'specter init',
+					body: '大きなバックエンドを作る前に、小さな YAML ファイルから始められます。'
+				},
+				{
+					title: 'モック API を起動',
+					command: 'specter -c config.yml',
+					body: 'サーバーをすぐ起動し、ファイル保存ごとに hot reload しながら調整できます。'
+				},
+				{
+					title: '現実的なシナリオを作る',
+					command: 'curl http://localhost:8080/users',
+					body: '状態、vars、matching、delay、fault、組み込み UI を使って必要なフローを再現できます。'
+				}
+			],
+			uiLog: ['Requests', 'Routes', 'State & Vars', 'Stores', 'Auto Refresh On'],
+			terminalExample: `$ specter init
+config.yml を作成しました
 
-	const quickstart = [
-		{
-			title: 'Generate a config',
-			command: 'specter init',
-			body: 'Start from a tiny YAML file instead of scaffolding a full backend.'
-		},
-		{
-			title: 'Run the mock API',
-			command: 'specter -c config.yml',
-			body: 'Boot the server instantly and iterate with hot reload while you edit the file.'
-		},
-		{
-			title: 'Shape real scenarios',
-			command: 'curl http://localhost:8080/users',
-			body: 'Use state, vars, matching, delays, faults, and the built-in UI to simulate the flow you need.'
-		}
-	];
+$ specter -c config.yml
+registered 2 route(s):
+  GET      /users
+  POST     /login
 
-	const features = [
-		'YAML-defined routes with hot reload',
-		'Stateful mocks, vars, stores, rate limits, delays, and faults',
-		'OpenAPI generation and validation',
-		'Built-in web UI for inspecting and controlling mocks'
-	];
+UI running on http://localhost:4444`
+		},
+		en: {
+			title: 'specter | Mock APIs without the ceremony',
+			description:
+				'specter is a lightweight mock API server with hot reload, OpenAPI support, stateful flows, and a built-in control room UI.',
+			navDocs: 'Docs',
+			navRepo: 'GitHub',
+			eyebrow: 'lightweight mock API server',
+			pronounced: 'pronounced',
+			lede:
+				'Mock APIs without the ceremony. Define routes in YAML, run a single binary, and keep your frontend, tests, and demos moving while the real backend catches up.',
+			downloadLatest: 'Download Latest',
+			readDocs: 'Read Docs',
+			viewRepository: 'View Repository',
+			downloadKicker: 'Download',
+			downloadTitle: 'Pick the install path that matches your workflow',
+			allBinaries: 'All binaries',
+			howKicker: 'How It Works',
+			howTitle: 'Three moves from blank folder to useful mock API',
+			operateKicker: 'Operate',
+			operateTitle: 'Control the mock without rebuilding your app around it',
+			operateBody:
+				'specter is built for the awkward middle of product development: frontend ahead of backend, demos that need deterministic failures, and tests that want a backend shape without a backend team on standby.',
+			operateBody2:
+				'You can start tiny with one route, then layer in state transitions, OpenAPI validation, filters, stores, or the built-in UI as the scenario gets more realistic.',
+			panel: [
+				{
+					title: 'Edit YAML',
+					body: 'Routes reload on save, so changing a response is a quick feedback loop.'
+				},
+				{
+					title: 'Use the control room UI',
+					body: 'Inspect requests, tweak state, reset stores, and steer scenarios live.'
+				},
+				{
+					title: 'Ship your frontend anyway',
+					body: 'Keep development and demos moving while the real API is still settling down.'
+				}
+			],
+			features: [
+				'YAML-defined routes with hot reload',
+				'Stateful mocks, vars, stores, rate limits, delays, and faults',
+				'OpenAPI generation and validation',
+				'Built-in web UI for inspecting and controlling mocks'
+			],
+			installMethods: [
+				{
+					name: 'Homebrew',
+					copy: 'brew tap Saku0512/specter https://github.com/Saku0512/specter\nbrew install specter',
+					note: 'Fastest path on macOS and Linux if you already live in Homebrew.'
+				},
+				{
+					name: 'curl',
+					copy: 'curl -fsSL https://raw.githubusercontent.com/Saku0512/specter/main/install.sh | bash',
+					note: 'Single-command install for macOS and Linux.'
+				},
+				{
+					name: 'PowerShell',
+					copy: 'irm https://raw.githubusercontent.com/Saku0512/specter/main/install.ps1 | iex',
+					note: 'Windows install with a colored installer flow.'
+				},
+				{
+					name: 'Docker',
+					copy: 'docker run -v $(pwd)/config.yml:/config.yml ghcr.io/saku0512/specter -c /config.yml',
+					note: 'Nice when you want a throwaway mock server without touching your machine.'
+				}
+			],
+			quickstart: [
+				{
+					title: 'Generate a config',
+					command: 'specter init',
+					body: 'Start from a tiny YAML file instead of scaffolding a full backend.'
+				},
+				{
+					title: 'Run the mock API',
+					command: 'specter -c config.yml',
+					body: 'Boot the server instantly and iterate with hot reload while you edit the file.'
+				},
+				{
+					title: 'Shape real scenarios',
+					command: 'curl http://localhost:8080/users',
+					body: 'Use state, vars, matching, delays, faults, and the built-in UI to simulate the flow you need.'
+				}
+			],
+			uiLog: ['Requests', 'Routes', 'State & Vars', 'Stores', 'Auto Refresh On'],
+			terminalExample: `$ specter init
+created config.yml
+
+$ specter -c config.yml
+registered 2 route(s):
+  GET      /users
+  POST     /login
+
+UI running on http://localhost:4444`
+		}
+	};
 
 	const routeExample = `routes:
   - path: /users
@@ -63,58 +208,58 @@
     response:
       token: abc123`;
 
-	const terminalExample = `$ specter init
-created config.yml
-
-$ specter -c config.yml
-registered 2 route(s):
-  GET      /users
-  POST     /login
-
-UI running on http://localhost:4444`;
-
-	const uiLog = [
-		'Requests',
-		'Routes',
-		'State & Vars',
-		'Stores',
-		'Auto Refresh On'
-	];
 </script>
 
 <svelte:head>
-	<title>specter | Mock APIs without the ceremony</title>
+	<title>{copy[$language].title}</title>
 	<meta
 		name="description"
-		content="specter is a lightweight mock API server with hot reload, OpenAPI support, stateful flows, and a built-in control room UI."
+		content={copy[$language].description}
 	/>
 </svelte:head>
 
 <div class="page">
 	<section class="hero">
+		<header class="site-header">
+			<a class="brand" href={base ? `${base}/` : '/'}>
+				<img src={mark} alt="" />
+				<span>specter</span>
+			</a>
+			<div class="header-actions">
+				<a href={`${base}/docs/`}>{copy[$language].navDocs}</a>
+				<a href="https://github.com/Saku0512/specter">{copy[$language].navRepo}</a>
+				<LanguageToggle />
+			</div>
+		</header>
+
 		<div class="hero-inner">
 			<div class="hero-copy">
 				<div class="eyebrow">
 					<img src={mark} alt="specter mark" />
-					<span>lightweight mock API server</span>
+					<span>{copy[$language].eyebrow}</span>
 				</div>
 
 				<h1>specter</h1>
-				<p class="lede">
-					Mock APIs without the ceremony. Define routes in YAML, run a single binary, and keep your
-					frontend, tests, and demos moving while the real backend catches up.
+				<p class="pronunciation" aria-label="specter pronunciation: SPEK-ter">
+					<span>{copy[$language].pronounced}</span>
+					<strong>SPEK-ter</strong>
+					<code>/ˈspɛk.tɚ/</code>
+					<small>スペクター</small>
 				</p>
+				<p class="lede">{copy[$language].lede}</p>
 
 				<div class="cta-row">
 					<a class="button primary" href="https://github.com/Saku0512/specter/releases/latest"
-						>Download Latest</a
+						>{copy[$language].downloadLatest}</a
 					>
-					<a class="button ghost" href={`${base}/docs/`}>Read Docs</a>
-					<a class="button ghost" href="https://github.com/Saku0512/specter">View Repository</a>
+					<a class="button ghost" href={`${base}/docs/`}>{copy[$language].readDocs}</a>
+					<a class="button ghost" href="https://github.com/Saku0512/specter"
+						>{copy[$language].viewRepository}</a
+					>
 				</div>
 
 				<ul class="signal-list">
-					{#each features as feature}
+					{#each copy[$language].features as feature}
 						<li>{feature}</li>
 					{/each}
 				</ul>
@@ -127,7 +272,7 @@ UI running on http://localhost:4444`;
 							<span></span><span></span><span></span>
 							<strong>terminal</strong>
 						</div>
-						<pre>{terminalExample}</pre>
+						<pre>{copy[$language].terminalExample}</pre>
 					</div>
 
 					<div class="dashboard">
@@ -150,7 +295,7 @@ UI running on http://localhost:4444`;
 							</div>
 						</div>
 						<div class="ui-list">
-							{#each uiLog as item}
+							{#each copy[$language].uiLog as item}
 								<div>{item}</div>
 							{/each}
 						</div>
@@ -170,16 +315,16 @@ UI running on http://localhost:4444`;
 	<section class="band" id="download">
 		<div class="band-head">
 			<div>
-				<p class="kicker">Download</p>
-				<h2>Pick the install path that matches your workflow</h2>
+				<p class="kicker">{copy[$language].downloadKicker}</p>
+				<h2>{copy[$language].downloadTitle}</h2>
 			</div>
 			<a class="button ghost" href="https://github.com/Saku0512/specter/releases/latest"
-				>All binaries</a
+				>{copy[$language].allBinaries}</a
 			>
 		</div>
 
 		<div class="install-grid">
-			{#each installMethods as method}
+			{#each copy[$language].installMethods as method}
 				<article class="install-card">
 					<div class="card-top">
 						<h3>{method.name}</h3>
@@ -194,13 +339,13 @@ UI running on http://localhost:4444`;
 	<section class="band alt" id="how-it-works">
 		<div class="band-head">
 			<div>
-				<p class="kicker">How It Works</p>
-				<h2>Three moves from blank folder to useful mock API</h2>
+				<p class="kicker">{copy[$language].howKicker}</p>
+				<h2>{copy[$language].howTitle}</h2>
 			</div>
 		</div>
 
 		<div class="steps">
-			{#each quickstart as step, index}
+			{#each copy[$language].quickstart as step, index}
 				<article class="step">
 					<div class="step-number">0{index + 1}</div>
 					<h3>{step.title}</h3>
@@ -214,41 +359,22 @@ UI running on http://localhost:4444`;
 	<section class="band">
 		<div class="explain">
 			<div class="explain-copy">
-				<p class="kicker">Operate</p>
-				<h2>Control the mock without rebuilding your app around it</h2>
-				<p>
-					specter is built for the awkward middle of product development: frontend ahead of backend,
-					demos that need deterministic failures, and tests that want a backend shape without a backend
-					team on standby.
-				</p>
-				<p>
-					You can start tiny with one route, then layer in state transitions, OpenAPI validation,
-					filters, stores, or the built-in UI as the scenario gets more realistic.
-				</p>
+				<p class="kicker">{copy[$language].operateKicker}</p>
+				<h2>{copy[$language].operateTitle}</h2>
+				<p>{copy[$language].operateBody}</p>
+				<p>{copy[$language].operateBody2}</p>
 			</div>
 
 			<div class="explain-panel">
-				<div class="panel-line">
-					<span>1</span>
-					<div>
-						<strong>Edit YAML</strong>
-						<p>Routes reload on save, so changing a response is a quick feedback loop.</p>
+				{#each copy[$language].panel as item, index}
+					<div class="panel-line">
+						<span>{index + 1}</span>
+						<div>
+							<strong>{item.title}</strong>
+							<p>{item.body}</p>
+						</div>
 					</div>
-				</div>
-				<div class="panel-line">
-					<span>2</span>
-					<div>
-						<strong>Use the control room UI</strong>
-						<p>Inspect requests, tweak state, reset stores, and steer scenarios live.</p>
-					</div>
-				</div>
-				<div class="panel-line">
-					<span>3</span>
-					<div>
-						<strong>Ship your frontend anyway</strong>
-						<p>Keep development and demos moving while the real API is still settling down.</p>
-					</div>
-				</div>
+				{/each}
 			</div>
 		</div>
 	</section>
@@ -287,6 +413,43 @@ UI running on http://localhost:4444`;
 	.hero {
 		min-height: 94svh;
 		padding: 2rem clamp(1rem, 2vw, 2rem) 1.25rem;
+	}
+
+	.site-header {
+		display: flex;
+		align-items: center;
+		justify-content: space-between;
+		gap: 1rem;
+		max-width: 1180px;
+		margin: 0 auto;
+	}
+
+	.brand,
+	.header-actions {
+		display: flex;
+		align-items: center;
+		gap: 0.85rem;
+	}
+
+	.brand {
+		font-weight: 800;
+	}
+
+	.brand img {
+		width: 2rem;
+		height: 2rem;
+	}
+
+	.header-actions {
+		flex-wrap: wrap;
+		justify-content: flex-end;
+		color: #c7d7ec;
+		font-size: 0.92rem;
+		font-weight: 700;
+	}
+
+	.header-actions a {
+		padding: 0.45rem 0.2rem;
 	}
 
 	.hero-inner,
@@ -361,6 +524,49 @@ UI running on http://localhost:4444`;
 		font-size: clamp(4rem, 10vw, 7rem);
 		line-height: 0.92;
 		margin-top: 0.85rem;
+	}
+
+	.pronunciation {
+		display: inline-flex;
+		align-items: center;
+		flex-wrap: wrap;
+		gap: 0.55rem;
+		margin: 1rem 0 0;
+		padding: 0.58rem 0.72rem;
+		border: 1px solid rgba(138, 220, 238, 0.22);
+		border-radius: 999px;
+		background: rgba(9, 17, 31, 0.32);
+		color: #c8d7ee;
+		box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.04);
+		backdrop-filter: blur(10px);
+	}
+
+	.pronunciation span,
+	.pronunciation small {
+		text-transform: uppercase;
+		letter-spacing: 0.1em;
+		font-size: 0.72rem;
+		color: #8adcee;
+	}
+
+	.pronunciation strong {
+		color: #f0fbff;
+		font-size: clamp(1rem, 1.35vw, 1.16rem);
+		letter-spacing: 0.02em;
+	}
+
+	.pronunciation code {
+		padding: 0.2rem 0.45rem;
+		border-radius: 999px;
+		background: rgba(138, 241, 255, 0.08);
+		color: #dff9ff;
+		font-family:
+			'SFMono-Regular',
+			'JetBrains Mono',
+			'IBM Plex Mono',
+			Consolas,
+			monospace;
+		font-size: 0.86rem;
 	}
 
 	.lede {
@@ -714,10 +920,23 @@ UI running on http://localhost:4444`;
 			min-height: auto;
 		}
 
+		.site-header {
+			align-items: flex-start;
+			flex-direction: column;
+		}
+
+		.header-actions {
+			justify-content: flex-start;
+		}
+
 		.eyebrow {
 			align-items: flex-start;
 			flex-direction: column;
 			gap: 0.75rem;
+		}
+
+		.pronunciation {
+			border-radius: 14px;
 		}
 
 		.signal-list {

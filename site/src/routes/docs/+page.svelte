@@ -1,99 +1,284 @@
 <script lang="ts">
 	import { base } from '$app/paths';
+	import LanguageToggle from '$lib/LanguageToggle.svelte';
+	import { language } from '$lib/language';
 	import mark from '$lib/assets/logo-icon.png';
 
-	const toc = [
-		{ href: '#introduction', label: 'Introduction' },
-		{ href: '#quick-start', label: 'Quick Start' },
-		{ href: '#config', label: 'config.yml' },
-		{ href: '#recipes', label: 'Recipes' },
-		{ href: '#cli', label: 'CLI' },
-		{ href: '#contributing', label: 'Contributing' }
-	];
+	const copy = {
+		ja: {
+			title: 'specter docs | はじめに、Quick Start、config.yml、Contributing',
+			description:
+				'specter のドキュメント。はじめに、Quick Start、config.yml リファレンス、CLI、コントリビュート方法をまとめています。',
+			toc: [
+				{ href: '#introduction', label: 'はじめに' },
+				{ href: '#quick-start', label: 'Quick Start' },
+				{ href: '#config', label: 'config.yml' },
+				{ href: '#recipes', label: 'レシピ' },
+				{ href: '#cli', label: 'CLI' },
+				{ href: '#contributing', label: 'Contributing' }
+			],
+			kicker: 'Documentation',
+			heroTitle: '1 つの YAML から信頼できるモック API を作る。',
+			heroBody:
+				'specter はフロントエンド開発、デモ、自動テスト、API 契約の確認に使える軽量なモック API サーバーです。config.yml にルートを書き、単一バイナリを起動するだけで、アプリを作り直さずに挙動を調整できます。',
+			startQuickly: 'すぐ始める',
+			configReference: '設定リファレンス',
+			quickStartTitle: '空のフォルダからモック API へ',
+			quickStart: [
+				{
+					title: 'スターターを作成',
+					body: '現在のディレクトリに config.yml を作成します。'
+				},
+				{
+					title: 'サーバーを起動',
+					body: 'API は 8080、コントロール UI は 4444 で起動します。'
+				},
+				{
+					title: 'ルートを呼び出す',
+					body: 'YAML を編集して保存すると、specter が自動で再読み込みします。'
+				}
+			],
+			configTitle: '完全リファレンス',
+			configBody:
+				'config は 1 つのルートだけの小さなファイルにも、状態管理、条件分岐、fixtures、OpenAPI 検証、proxy、stores、callbacks、delays、streams を含む本格的なシナリオにもできます。',
+			sections: {
+				topLevel: {
+					title: 'トップレベルのフィールド',
+					body: 'YAML ファイルのルートに 1 回だけ書くフィールドです。'
+				},
+				route: {
+					title: 'ルートのフィールド',
+					body: 'routes の各要素は、モック、proxy、store 操作、redirect、stream のいずれかを表します。'
+				},
+				match: {
+					title: 'match のフィールド',
+					body: '同じ method と path で、リクエスト内容に応じてレスポンスを分岐したいときに使います。1 つの match 内の条件はすべて満たす必要があります。'
+				},
+				response: {
+					title: 'responses の要素',
+					body: 'responses と mode: sequential / random を使うと、retry、polling、不安定な API、変化するデータを再現できます。'
+				}
+			},
+			tableHead: ['Field', 'Type', 'Description'],
+			recipesTitle: 'よく使う config パターン',
+			recipes: {
+				conditional: {
+					title: '条件付きレスポンス',
+					body: 'request body、query、headers、cookies、form data、GraphQL の値で分岐できます。'
+				},
+				state: {
+					title: '状態を持つフロー',
+					body: 'login flow やシナリオの分岐には state、set_state、vars、set_vars を使います。'
+				},
+				store: {
+					title: 'インメモリ CRUD',
+					body: 'REST endpoint を名前付き store に直接接続できます。store のデータはサーバー再起動時にリセットされます。'
+				},
+				advanced: {
+					title: 'OpenAPI、proxy、chaos、SSE',
+					body: '実サービスと mock を混ぜ、request 検証、jitter、failure injection、event stream を使えます。'
+				},
+				template: {
+					title: 'Templates と faker',
+					body: 'template は .body、.query、.params、.headers、.method、.path を参照できます。'
+				},
+				fixture: {
+					title: 'Fixtures、redirects、cookies、webhooks',
+					body: '大きな JSON/YAML/text fixture には file、HTTP redirect には redirect、認証 simulation には set_cookies、非同期 callback には webhook を使います。'
+				}
+			},
+			cliTitle: 'よく使うコマンド',
+			cliBody:
+				'flags は environment variables より優先されます。API のデフォルト port は 8080、組み込み dashboard は 4444 です。無効化するには --ui-port 0 を指定します。',
+			contributingTitle: 'specter を一緒に良くする',
+			contributingBody:
+				'docs、examples、bug fixes、CLI behavior、validation、UI improvements、新しい mock-server features への contribution を歓迎します。変更は focused にし、挙動変更には tests を追加し、config や CLI behavior が変わる場合は docs も更新してください。',
+			contributingSteps: [
+				{
+					title: '1. Fork and branch',
+					body: '目的が分かる branch を作り、小さく意味のある変更にします。'
+				},
+				{
+					title: '2. Validate locally',
+					body: '関連する tests を実行し、docs examples には specter validate -c config.yml を使います。'
+				},
+				{
+					title: '3. Open a pull request',
+					body: 'scenario、変更内容、既存 config への compatibility notes を書いて pull request を作成します。'
+				}
+			]
+		},
+		en: {
+			title: 'specter docs | Introduction, Quick Start, config.yml, Contributing',
+			description:
+				'Documentation for specter, including introduction, quick start, complete config.yml reference, CLI usage, and contribution guide.',
+			toc: [
+				{ href: '#introduction', label: 'Introduction' },
+				{ href: '#quick-start', label: 'Quick Start' },
+				{ href: '#config', label: 'config.yml' },
+				{ href: '#recipes', label: 'Recipes' },
+				{ href: '#cli', label: 'CLI' },
+				{ href: '#contributing', label: 'Contributing' }
+			],
+			kicker: 'Documentation',
+			heroTitle: 'Build reliable mock APIs from one YAML file.',
+			heroBody:
+				'specter is a lightweight mock API server for frontend development, demos, automated tests, and API contract work. Define routes in config.yml, run a single binary, and adjust behavior without rebuilding your application.',
+			startQuickly: 'Start Quickly',
+			configReference: 'Config Reference',
+			quickStartTitle: 'From blank folder to mock API',
+			quickStart: [
+				{ title: 'Generate a starter file', body: 'Creates config.yml in the current directory.' },
+				{
+					title: 'Run the server',
+					body: 'The API listens on port 8080 and the control UI opens on port 4444.'
+				},
+				{ title: 'Call a route', body: 'Edit the YAML and save. specter reloads the config automatically.' }
+			],
+			configTitle: 'Complete reference',
+			configBody:
+				'A config can stay tiny with one route, or grow into a full scenario with state, conditional matching, fixtures, OpenAPI validation, proxying, stores, callbacks, delays, and streams.',
+			sections: {
+				topLevel: { title: 'Top-level fields', body: 'Use these fields once at the root of the YAML file.' },
+				route: {
+					title: 'Route fields',
+					body: 'Each item in routes describes one mock, proxy, store operation, redirect, or stream.'
+				},
+				match: {
+					title: 'Match fields',
+					body: 'Use match when one method and path should branch based on request data. All conditions in one match entry must pass.'
+				},
+				response: {
+					title: 'Response entries',
+					body: 'Use responses with mode: sequential or mode: random to simulate retries, polling, flaky APIs, or changing data.'
+				}
+			},
+			tableHead: ['Field', 'Type', 'Description'],
+			recipesTitle: 'Common config patterns',
+			recipes: {
+				conditional: {
+					title: 'Conditional responses',
+					body: 'Branch by request body, query parameters, headers, cookies, form data, or GraphQL values.'
+				},
+				state: {
+					title: 'Stateful flows',
+					body: 'Use state, set_state, vars, and set_vars for login flows and scenario gates.'
+				},
+				store: {
+					title: 'In-memory CRUD',
+					body: 'Wire REST endpoints directly to a named store. Store data resets when the server restarts.'
+				},
+				advanced: {
+					title: 'OpenAPI, proxy, chaos, and SSE',
+					body: 'Mix real services with mocks, validate requests, add jitter, inject failures, and stream events.'
+				},
+				template: {
+					title: 'Templates and faker',
+					body: 'Templates can read .body, .query, .params, .headers, .method, and .path.'
+				},
+				fixture: {
+					title: 'Fixtures, redirects, cookies, and webhooks',
+					body: 'Use file for large JSON/YAML/text fixtures, redirect for HTTP redirects, set_cookies for auth simulations, and webhook for async callbacks.'
+				}
+			},
+			cliTitle: 'Useful commands',
+			cliBody:
+				'Flags override environment variables. The default API port is 8080, and the built-in dashboard uses 4444. Set --ui-port 0 to disable it.',
+			contributingTitle: 'Help improve specter',
+			contributingBody:
+				'Contributions are welcome across docs, examples, bug fixes, CLI behavior, validation, UI improvements, and new mock-server features. Keep changes focused, add tests for behavioral changes, and update documentation when config or CLI behavior changes.',
+			contributingSteps: [
+				{ title: '1. Fork and branch', body: 'Create a branch with a focused name, then make the smallest useful change.' },
+				{ title: '2. Validate locally', body: 'Run the relevant tests and use specter validate -c config.yml for docs examples.' },
+				{ title: '3. Open a pull request', body: 'Describe the scenario, what changed, and any compatibility notes for existing configs.' }
+			]
+		}
+	};
 
 	const topLevelFields = [
-		['cors', 'boolean', 'Enables CORS headers and handles OPTIONS preflight requests.'],
-		['proxy', 'string', 'Forwards unmatched requests to a real backend.'],
-		['openapi', 'string', 'Path to an OpenAPI YAML or JSON file for request and response validation.'],
-		['openapi_strict', 'boolean', 'When true, invalid requests return 400 instead of only adding a warning header.'],
+		['cors', 'boolean', 'Enables CORS headers and handles OPTIONS preflight requests.', 'CORS headers を有効化し、OPTIONS preflight requests を処理します。'],
+		['proxy', 'string', 'Forwards unmatched requests to a real backend.', '一致する route がない requests を実 backend に転送します。'],
+		['openapi', 'string', 'Path to an OpenAPI YAML or JSON file for request and response validation.', 'request / response validation に使う OpenAPI YAML または JSON file の path です。'],
+		['openapi_strict', 'boolean', 'When true, invalid requests return 400 instead of only adding a warning header.', 'true の場合、invalid requests は warning header の追加だけでなく 400 を返します。'],
 		[
 			'openapi_strict_response',
 			'boolean',
-			'When true, invalid mock responses return 500 instead of being served with a warning header.'
+			'When true, invalid mock responses return 500 instead of being served with a warning header.',
+			'true の場合、invalid mock responses は warning header 付きで返されず 500 になります。'
 		],
-		['include', 'list', 'Merges routes from other YAML files. Glob patterns are supported.'],
-		['routes', 'list', 'The route definitions served by specter.']
+		['include', 'list', 'Merges routes from other YAML files. Glob patterns are supported.', '他の YAML files から routes を merge します。glob patterns も使えます。'],
+		['routes', 'list', 'The route definitions served by specter.', 'specter が提供する route definitions です。']
 	];
 
 	const routeFields = [
-		['path', 'string', 'Required. URL path. Supports :param path parameters.'],
-		['method', 'string', 'Required. HTTP method such as GET, POST, PUT, PATCH, or DELETE.'],
-		['status', 'int', 'Response status code. Defaults to 200.'],
-		['response', 'any', 'Inline JSON object, array, scalar, or string response body.'],
-		['headers', 'map', 'Custom response headers for the route.'],
-		['content_type', 'string', 'Response MIME type. Defaults to application/json.'],
-		['delay', 'int', 'Fixed response delay in milliseconds.'],
-		['delay_min', 'int', 'Minimum random delay in milliseconds. Use with delay_max.'],
-		['delay_max', 'int', 'Maximum random delay in milliseconds. Use with delay_min.'],
-		['error_rate', 'float', 'Probability from 0.0 to 1.0 that the route returns an injected error.'],
-		['error_status', 'int', 'Status code for injected errors. Defaults to 503.'],
-		['on_call', 'int', 'Only match this route on a specific 1-based call number.'],
-		['match', 'list', 'Conditional responses based on query, headers, body, form data, cookies, or GraphQL.'],
-		['mode', 'string', 'Controls responses selection. Use sequential or random.'],
-		['responses', 'list', 'Multiple response entries for cycling, retry simulation, or random behavior.'],
-		['rate_limit', 'int', 'Maximum requests before returning 429.'],
-		['rate_reset', 'int', 'Seconds until the rate-limit counter resets. Adds Retry-After on 429.'],
-		['state', 'string', 'Only match when the server state equals this value.'],
-		['set_state', 'string', 'Set the server state after responding.'],
-		['vars', 'map', 'Only match when all named variables equal these values.'],
-		['set_vars', 'map', 'Set named variables after responding. Values can use templates.'],
-		['webhook', 'object', 'Fire an outgoing callback after the response.'],
-		['file', 'string', 'Serve a response body from a JSON, YAML, or text fixture file.'],
-		['script', 'string', 'Go template that generates the response body. Takes priority over file and response.'],
-		['proxy', 'string', 'Forward this route to a real backend. Takes priority over mock response fields.'],
-		['store_push', 'string', 'Push the request body into an in-memory store and respond 201.'],
-		['store_list', 'string', 'List all items in an in-memory store with filtering, sorting, and pagination.'],
-		['store_get', 'string', 'Get one store item by the store_key path parameter.'],
-		['store_put', 'string', 'Replace or upsert one store item.'],
-		['store_patch', 'string', 'Merge the request body into one store item.'],
-		['store_delete', 'string', 'Delete one store item.'],
-		['store_clear', 'string', 'Delete every item in a named store.'],
-		['store_key', 'string', 'Path parameter used as the item ID. Defaults to id.'],
-		['stream', 'boolean', 'Respond with a Server-Sent Events stream.'],
-		['events', 'list', 'Ordered SSE events for a stream route.'],
-		['stream_repeat', 'boolean', 'Repeat SSE events until the client disconnects.'],
-		['set_cookies', 'list', 'Set cookies in the response.'],
-		['redirect', 'string', 'Redirect to another path or URL.'],
-		['redirect_status', 'int', 'Redirect status code. Use 301, 302, 303, 307, or 308.']
+		['path', 'string', 'Required. URL path. Supports :param path parameters.', '必須。URL path です。:param 形式の path parameters を使えます。'],
+		['method', 'string', 'Required. HTTP method such as GET, POST, PUT, PATCH, or DELETE.', '必須。GET、POST、PUT、PATCH、DELETE などの HTTP method です。'],
+		['status', 'int', 'Response status code. Defaults to 200.', 'response status code です。default は 200 です。'],
+		['response', 'any', 'Inline JSON object, array, scalar, or string response body.', 'inline の JSON object、array、scalar、string response body です。'],
+		['headers', 'map', 'Custom response headers for the route.', 'route に付与する custom response headers です。'],
+		['content_type', 'string', 'Response MIME type. Defaults to application/json.', 'response MIME type です。default は application/json です。'],
+		['delay', 'int', 'Fixed response delay in milliseconds.', '固定 response delay を milliseconds で指定します。'],
+		['delay_min', 'int', 'Minimum random delay in milliseconds. Use with delay_max.', 'random delay の最小値を milliseconds で指定します。delay_max と一緒に使います。'],
+		['delay_max', 'int', 'Maximum random delay in milliseconds. Use with delay_min.', 'random delay の最大値を milliseconds で指定します。delay_min と一緒に使います。'],
+		['error_rate', 'float', 'Probability from 0.0 to 1.0 that the route returns an injected error.', 'injected error を返す確率を 0.0 から 1.0 で指定します。'],
+		['error_status', 'int', 'Status code for injected errors. Defaults to 503.', 'injected errors の status code です。default は 503 です。'],
+		['on_call', 'int', 'Only match this route on a specific 1-based call number.', '1 始まりの指定 call number のときだけこの route に match します。'],
+		['match', 'list', 'Conditional responses based on query, headers, body, form data, cookies, or GraphQL.', 'query、headers、body、form data、cookies、GraphQL に基づく conditional responses です。'],
+		['mode', 'string', 'Controls responses selection. Use sequential or random.', 'responses の選択方法です。sequential または random を使います。'],
+		['responses', 'list', 'Multiple response entries for cycling, retry simulation, or random behavior.', 'cycling、retry simulation、random behavior 用の複数 response entries です。'],
+		['rate_limit', 'int', 'Maximum requests before returning 429.', '429 を返すまでの最大 requests 数です。'],
+		['rate_reset', 'int', 'Seconds until the rate-limit counter resets. Adds Retry-After on 429.', 'rate-limit counter が reset されるまでの秒数です。429 に Retry-After を追加します。'],
+		['state', 'string', 'Only match when the server state equals this value.', 'server state がこの値と等しいときだけ match します。'],
+		['set_state', 'string', 'Set the server state after responding.', 'response 後に server state を設定します。'],
+		['vars', 'map', 'Only match when all named variables equal these values.', '指定した variables がすべてこの値と等しいときだけ match します。'],
+		['set_vars', 'map', 'Set named variables after responding. Values can use templates.', 'response 後に named variables を設定します。値には templates を使えます。'],
+		['webhook', 'object', 'Fire an outgoing callback after the response.', 'response 後に outgoing callback を送信します。'],
+		['file', 'string', 'Serve a response body from a JSON, YAML, or text fixture file.', 'JSON、YAML、text fixture file から response body を返します。'],
+		['script', 'string', 'Go template that generates the response body. Takes priority over file and response.', 'response body を生成する Go template です。file と response より優先されます。'],
+		['proxy', 'string', 'Forward this route to a real backend. Takes priority over mock response fields.', 'この route を実 backend に転送します。mock response fields より優先されます。'],
+		['store_push', 'string', 'Push the request body into an in-memory store and respond 201.', 'request body を in-memory store に追加し 201 を返します。'],
+		['store_list', 'string', 'List all items in an in-memory store with filtering, sorting, and pagination.', 'in-memory store の items を filtering、sorting、pagination 付きで一覧します。'],
+		['store_get', 'string', 'Get one store item by the store_key path parameter.', 'store_key path parameter で store item を 1 件取得します。'],
+		['store_put', 'string', 'Replace or upsert one store item.', 'store item を replace または upsert します。'],
+		['store_patch', 'string', 'Merge the request body into one store item.', 'request body を store item に merge します。'],
+		['store_delete', 'string', 'Delete one store item.', 'store item を 1 件削除します。'],
+		['store_clear', 'string', 'Delete every item in a named store.', 'named store 内のすべての item を削除します。'],
+		['store_key', 'string', 'Path parameter used as the item ID. Defaults to id.', 'item ID として使う path parameter です。default は id です。'],
+		['stream', 'boolean', 'Respond with a Server-Sent Events stream.', 'Server-Sent Events stream として response します。'],
+		['events', 'list', 'Ordered SSE events for a stream route.', 'stream route 用の順序付き SSE events です。'],
+		['stream_repeat', 'boolean', 'Repeat SSE events until the client disconnects.', 'client が disconnect するまで SSE events を繰り返します。'],
+		['set_cookies', 'list', 'Set cookies in the response.', 'response に cookies を設定します。'],
+		['redirect', 'string', 'Redirect to another path or URL.', '別の path または URL に redirect します。'],
+		['redirect_status', 'int', 'Redirect status code. Use 301, 302, 303, 307, or 308.', 'redirect status code です。301、302、303、307、308 を使います。']
 	];
 
 	const matchFields = [
-		['query', 'map', 'Match query parameters using Go regular expressions.'],
-		['headers', 'map', 'Match request headers. Header names are case-insensitive.'],
-		['body', 'map', 'Match top-level JSON request body fields.'],
-		['body_path', 'map', 'Match nested JSON fields with dot notation such as user.role.'],
-		['form', 'map', 'Match application/x-www-form-urlencoded request bodies.'],
-		['graphql', 'object', 'Match GraphQL operationName and variables.'],
-		['cookies', 'map', 'Match request cookies with regex patterns.'],
-		['status', 'int', 'Status code returned when this match fires.'],
-		['response', 'any', 'Response body returned when this match fires.'],
-		['response_headers', 'map', 'Headers applied only for this match. Overrides route headers.'],
-		['content_type', 'string', 'Content type applied only for this match.'],
-		['delay', 'int', 'Extra delay in milliseconds for this match. Added after route delay.'],
-		['set_state', 'string', 'State transition applied only when this match fires.'],
-		['set_vars', 'map', 'Variable updates applied only when this match fires.'],
-		['file', 'string', 'Fixture file returned only when this match fires.'],
-		['script', 'string', 'Template response returned only when this match fires.']
+		['query', 'map', 'Match query parameters using Go regular expressions.', 'query parameters を Go regular expressions で match します。'],
+		['headers', 'map', 'Match request headers. Header names are case-insensitive.', 'request headers を match します。header names は case-insensitive です。'],
+		['body', 'map', 'Match top-level JSON request body fields.', 'top-level JSON request body fields を match します。'],
+		['body_path', 'map', 'Match nested JSON fields with dot notation such as user.role.', 'user.role のような dot notation で nested JSON fields を match します。'],
+		['form', 'map', 'Match application/x-www-form-urlencoded request bodies.', 'application/x-www-form-urlencoded request bodies を match します。'],
+		['graphql', 'object', 'Match GraphQL operationName and variables.', 'GraphQL operationName と variables を match します。'],
+		['cookies', 'map', 'Match request cookies with regex patterns.', 'request cookies を regex patterns で match します。'],
+		['status', 'int', 'Status code returned when this match fires.', 'この match が発火したときに返す status code です。'],
+		['response', 'any', 'Response body returned when this match fires.', 'この match が発火したときに返す response body です。'],
+		['response_headers', 'map', 'Headers applied only for this match. Overrides route headers.', 'この match にだけ適用する headers です。route headers を override します。'],
+		['content_type', 'string', 'Content type applied only for this match.', 'この match にだけ適用する content type です。'],
+		['delay', 'int', 'Extra delay in milliseconds for this match. Added after route delay.', 'この match 用の追加 delay です。route delay の後に加算されます。'],
+		['set_state', 'string', 'State transition applied only when this match fires.', 'この match が発火したときだけ適用する state transition です。'],
+		['set_vars', 'map', 'Variable updates applied only when this match fires.', 'この match が発火したときだけ適用する variable updates です。'],
+		['file', 'string', 'Fixture file returned only when this match fires.', 'この match が発火したときだけ返す fixture file です。'],
+		['script', 'string', 'Template response returned only when this match fires.', 'この match が発火したときだけ返す template response です。']
 	];
 
 	const responseFields = [
-		['on_call', 'int', 'Pin this response entry to a specific call number.'],
-		['status', 'int', 'Status for this response entry.'],
-		['response', 'any', 'Inline body for this response entry.'],
-		['content_type', 'string', 'Content type for this response entry.'],
-		['delay', 'int', 'Delay for this response entry.'],
-		['file', 'string', 'Fixture file for this response entry.'],
-		['script', 'string', 'Template body for this response entry.']
+		['on_call', 'int', 'Pin this response entry to a specific call number.', 'この response entry を特定の call number に固定します。'],
+		['status', 'int', 'Status for this response entry.', 'この response entry の status です。'],
+		['response', 'any', 'Inline body for this response entry.', 'この response entry の inline body です。'],
+		['content_type', 'string', 'Content type for this response entry.', 'この response entry の content type です。'],
+		['delay', 'int', 'Delay for this response entry.', 'この response entry の delay です。'],
+		['file', 'string', 'Fixture file for this response entry.', 'この response entry の fixture file です。'],
+		['script', 'string', 'Template body for this response entry.', 'この response entry の template body です。']
 	];
 
 	const fakerTypes = [
@@ -250,10 +435,10 @@ specter record -t http://api.example.com -o config.yml`;
 </script>
 
 <svelte:head>
-	<title>specter docs | Introduction, Quick Start, config.yml, Contributing</title>
+	<title>{copy[$language].title}</title>
 	<meta
 		name="description"
-		content="Documentation for specter, including introduction, quick start, complete config.yml reference, CLI usage, and contribution guide."
+		content={copy[$language].description}
 	/>
 </svelte:head>
 
@@ -265,24 +450,21 @@ specter record -t http://api.example.com -o config.yml`;
 				<span>specter</span>
 			</a>
 			<div class="nav-links">
-				{#each toc as item}
+				{#each copy[$language].toc as item}
 					<a href={item.href}>{item.label}</a>
 				{/each}
+				<LanguageToggle />
 			</div>
 		</nav>
 
 		<div class="hero-grid">
 			<div>
-				<p class="kicker">Documentation</p>
-				<h1>Build reliable mock APIs from one YAML file.</h1>
-				<p class="lede">
-					specter is a lightweight mock API server for frontend development, demos, automated
-					tests, and API contract work. Define routes in <code>config.yml</code>, run a single
-					binary, and adjust behavior without rebuilding your application.
-				</p>
+				<p class="kicker">{copy[$language].kicker}</p>
+				<h1>{copy[$language].heroTitle}</h1>
+				<p class="lede">{copy[$language].heroBody}</p>
 				<div class="hero-actions">
-					<a class="button primary" href="#quick-start">Start Quickly</a>
-					<a class="button ghost" href="#config">Config Reference</a>
+					<a class="button primary" href="#quick-start">{copy[$language].startQuickly}</a>
+					<a class="button ghost" href="#config">{copy[$language].configReference}</a>
 				</div>
 			</div>
 
@@ -294,27 +476,27 @@ specter record -t http://api.example.com -o config.yml`;
 		<section class="section" id="quick-start">
 			<div class="section-head">
 				<p class="kicker">Quick Start</p>
-				<h2>From blank folder to mock API</h2>
+				<h2>{copy[$language].quickStartTitle}</h2>
 			</div>
 
 			<div class="steps">
 				<article>
 					<span>01</span>
-					<h3>Generate a starter file</h3>
+					<h3>{copy[$language].quickStart[0].title}</h3>
 					<pre>specter init</pre>
-					<p>Creates <code>config.yml</code> in the current directory.</p>
+					<p>{copy[$language].quickStart[0].body}</p>
 				</article>
 				<article>
 					<span>02</span>
-					<h3>Run the server</h3>
+					<h3>{copy[$language].quickStart[1].title}</h3>
 					<pre>specter -c config.yml</pre>
-					<p>The API listens on port <code>8080</code> and the control UI opens on port <code>4444</code>.</p>
+					<p>{copy[$language].quickStart[1].body}</p>
 				</article>
 				<article>
 					<span>03</span>
-					<h3>Call a route</h3>
+					<h3>{copy[$language].quickStart[2].title}</h3>
 					<pre>curl http://localhost:8080/users</pre>
-					<p>Edit the YAML and save. specter reloads the config automatically.</p>
+					<p>{copy[$language].quickStart[2].body}</p>
 				</article>
 			</div>
 		</section>
@@ -322,48 +504,38 @@ specter record -t http://api.example.com -o config.yml`;
 		<section class="section" id="config">
 			<div class="section-head wide">
 				<p class="kicker">config.yml</p>
-				<h2>Complete reference</h2>
-				<p>
-					A config can stay tiny with one route, or grow into a full scenario with state,
-					conditional matching, fixtures, OpenAPI validation, proxying, stores, callbacks, delays,
-					and streams.
-				</p>
+				<h2>{copy[$language].configTitle}</h2>
+				<p>{copy[$language].configBody}</p>
 			</div>
 
 			<div class="reference-grid">
 				<div class="reference-copy">
-					<h3>Top-level fields</h3>
-					<p>Use these fields once at the root of the YAML file.</p>
+					<h3>{copy[$language].sections.topLevel.title}</h3>
+					<p>{copy[$language].sections.topLevel.body}</p>
 				</div>
 				{@render table(topLevelFields)}
 			</div>
 
 			<div class="reference-grid">
 				<div class="reference-copy">
-					<h3>Route fields</h3>
-					<p>Each item in <code>routes</code> describes one mock, proxy, store operation, redirect, or stream.</p>
+					<h3>{copy[$language].sections.route.title}</h3>
+					<p>{copy[$language].sections.route.body}</p>
 				</div>
 				{@render table(routeFields)}
 			</div>
 
 			<div class="reference-grid">
 				<div class="reference-copy">
-					<h3>Match fields</h3>
-					<p>
-						Use <code>match</code> when one method and path should branch based on request data.
-						All conditions in one match entry must pass.
-					</p>
+					<h3>{copy[$language].sections.match.title}</h3>
+					<p>{copy[$language].sections.match.body}</p>
 				</div>
 				{@render table(matchFields)}
 			</div>
 
 			<div class="reference-grid">
 				<div class="reference-copy">
-					<h3>Response entries</h3>
-					<p>
-						Use <code>responses</code> with <code>mode: sequential</code> or <code>mode: random</code>
-						to simulate retries, polling, flaky APIs, or changing data.
-					</p>
+					<h3>{copy[$language].sections.response.title}</h3>
+					<p>{copy[$language].sections.response.body}</p>
 				</div>
 				{@render table(responseFields)}
 			</div>
@@ -372,41 +544,38 @@ specter record -t http://api.example.com -o config.yml`;
 		<section class="section" id="recipes">
 			<div class="section-head">
 				<p class="kicker">Recipes</p>
-				<h2>Common config patterns</h2>
+				<h2>{copy[$language].recipesTitle}</h2>
 			</div>
 
 			<div class="recipe-grid">
 				<article>
-					<h3>Conditional responses</h3>
-					<p>Branch by request body, query parameters, headers, cookies, form data, or GraphQL values.</p>
+					<h3>{copy[$language].recipes.conditional.title}</h3>
+					<p>{copy[$language].recipes.conditional.body}</p>
 					{@render codeBlock(matchingConfig)}
 				</article>
 
 				<article>
-					<h3>Stateful flows</h3>
-					<p>Use <code>state</code>, <code>set_state</code>, <code>vars</code>, and <code>set_vars</code> for login flows and scenario gates.</p>
+					<h3>{copy[$language].recipes.state.title}</h3>
+					<p>{copy[$language].recipes.state.body}</p>
 					{@render codeBlock(stateConfig)}
 				</article>
 
 				<article>
-					<h3>In-memory CRUD</h3>
-					<p>Wire REST endpoints directly to a named store. Store data resets when the server restarts.</p>
+					<h3>{copy[$language].recipes.store.title}</h3>
+					<p>{copy[$language].recipes.store.body}</p>
 					{@render codeBlock(storeConfig)}
 					{@render codeBlock(storeQuery, 'request')}
 				</article>
 
 				<article>
-					<h3>OpenAPI, proxy, chaos, and SSE</h3>
-					<p>Mix real services with mocks, validate requests, add jitter, inject failures, and stream events.</p>
+					<h3>{copy[$language].recipes.advanced.title}</h3>
+					<p>{copy[$language].recipes.advanced.body}</p>
 					{@render codeBlock(advancedConfig)}
 				</article>
 
 				<article>
-					<h3>Templates and faker</h3>
-					<p>
-						Templates can read <code>.body</code>, <code>.query</code>, <code>.params</code>,
-						<code>.headers</code>, <code>.method</code>, and <code>.path</code>.
-					</p>
+					<h3>{copy[$language].recipes.template.title}</h3>
+					<p>{copy[$language].recipes.template.body}</p>
 					{@render codeBlock(scriptConfig)}
 					<div class="pill-list" aria-label="Faker types">
 						{#each fakerTypes as type}
@@ -416,12 +585,8 @@ specter record -t http://api.example.com -o config.yml`;
 				</article>
 
 				<article>
-					<h3>Fixtures, redirects, cookies, and webhooks</h3>
-					<p>
-						Use <code>file</code> for large JSON/YAML/text fixtures, <code>redirect</code> for
-						HTTP redirects, <code>set_cookies</code> for auth simulations, and <code>webhook</code>
-						for async callbacks.
-					</p>
+					<h3>{copy[$language].recipes.fixture.title}</h3>
+					<p>{copy[$language].recipes.fixture.body}</p>
 					{@render codeBlock(`routes:
   - path: /login
     method: POST
@@ -445,11 +610,8 @@ specter record -t http://api.example.com -o config.yml`;
 		<section class="section split" id="cli">
 			<div>
 				<p class="kicker">CLI</p>
-				<h2>Useful commands</h2>
-				<p>
-					Flags override environment variables. The default API port is <code>8080</code>, and
-					the built-in dashboard uses <code>4444</code>. Set <code>--ui-port 0</code> to disable it.
-				</p>
+				<h2>{copy[$language].cliTitle}</h2>
+				<p>{copy[$language].cliBody}</p>
 			</div>
 			<div class="hero-panel">
 				<div class="panel-title">commands</div>
@@ -460,27 +622,17 @@ specter record -t http://api.example.com -o config.yml`;
 		<section class="section split" id="contributing">
 			<div>
 				<p class="kicker">Contributing</p>
-				<h2>Help improve specter</h2>
-				<p>
-					Contributions are welcome across docs, examples, bug fixes, CLI behavior, validation,
-					UI improvements, and new mock-server features. Keep changes focused, add tests for
-					behavioral changes, and update documentation when config or CLI behavior changes.
-				</p>
+				<h2>{copy[$language].contributingTitle}</h2>
+				<p>{copy[$language].contributingBody}</p>
 			</div>
 
 			<div class="contribute-list">
-				<div>
-					<strong>1. Fork and branch</strong>
-					<p>Create a branch with a focused name, then make the smallest useful change.</p>
-				</div>
-				<div>
-					<strong>2. Validate locally</strong>
-					<p>Run the relevant tests and use <code>specter validate -c config.yml</code> for docs examples.</p>
-				</div>
-				<div>
-					<strong>3. Open a pull request</strong>
-					<p>Describe the scenario, what changed, and any compatibility notes for existing configs.</p>
-				</div>
+				{#each copy[$language].contributingSteps as step}
+					<div>
+						<strong>{step.title}</strong>
+						<p>{step.body}</p>
+					</div>
+				{/each}
 			</div>
 		</section>
 	</main>
@@ -491,9 +643,9 @@ specter record -t http://api.example.com -o config.yml`;
 		<table>
 			<thead>
 				<tr>
-					<th>Field</th>
-					<th>Type</th>
-					<th>Description</th>
+					{#each copy[$language].tableHead as heading}
+						<th>{heading}</th>
+					{/each}
 				</tr>
 			</thead>
 			<tbody>
@@ -501,7 +653,7 @@ specter record -t http://api.example.com -o config.yml`;
 					<tr>
 						<td><code>{row[0]}</code></td>
 						<td>{row[1]}</td>
-						<td>{row[2]}</td>
+						<td>{row[$language === 'ja' ? 3 : 2]}</td>
 					</tr>
 				{/each}
 			</tbody>

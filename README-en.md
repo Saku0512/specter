@@ -8,15 +8,15 @@
 ![Downloads](https://img.shields.io/github/downloads/Saku0512/specter/total)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
 
-[English](README-en.md)
+[日本語](README.md)
 
-specter は軽量なモック API サーバーです。エンドポイントを YAML で定義して、すぐに起動できます。
+Lightweight mock API server. Define endpoints in YAML, run instantly.
 
-- Hot reload: `config.yml` を編集すると変更がすぐ反映されます
-- Response templates、faker、stateful mocking、rate limiting に対応
-- 単一バイナリで動作し、追加のランタイム依存はありません
+- Hot reload — edit `config.yml` and changes apply immediately
+- Response templates, faker, stateful mocking, rate limiting
+- Single binary, no dependencies
 
-## インストール
+## Install
 
 **Docker**
 
@@ -46,8 +46,8 @@ irm https://raw.githubusercontent.com/Saku0512/specter/main/install.ps1 | iex
 ## Quick start
 
 ```sh
-specter init          # config.yml を生成
-specter -c config.yml # サーバーを起動
+specter init          # generate config.yml
+specter -c config.yml # start the server
 ```
 
 ```yaml
@@ -59,16 +59,14 @@ routes:
         name: Alice
 ```
 
-この設定で `GET /users` にアクセスすると、YAML に書いたレスポンスが返ります。
+## Documentation
 
-## ドキュメント
+- [Config reference](doc/config.md) — routes, matching, templates, faker, state, rate limiting, ...
+- [CLI reference](doc/cli.md) — flags, env vars, `init` / `gen` / `validate` / `record`
+- [Introspection API](doc/introspection.md) — `/__specter/requests`, `/__specter/state`
 
-- [Config reference](doc/config.md) — routes、matching、templates、faker、state、rate limiting など
-- [CLI reference](doc/cli.md) — flags、env vars、`init` / `gen` / `validate` / `record`
-- [Introspection API](doc/introspection.md) — `/__specter/requests`、`/__specter/state`
+See [config.example.yml](config.example.yml) for a full working example.
 
-動作する設定例は [config.example.yml](config.example.yml) を見てください。
-
-## ライセンス
+## License
 
 MIT

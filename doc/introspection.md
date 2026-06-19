@@ -128,6 +128,25 @@ DELETE /__specter/vars/:key      # delete one var
 
 Vars persist across hot reloads but reset when the server restarts.
 
+## Scenario Presets
+
+List and apply named scenario presets from config. Applying a scenario replaces the current state, all vars, and all store collections with the preset values.
+
+```sh
+GET  /__specter/scenarios       # { "active": "login-success", "scenarios": ["login-success", ...] }
+GET  /__specter/scenario        # { "active": "login-success" }
+POST /__specter/scenarios/:name # apply a named scenario
+```
+
+Example:
+
+```sh
+curl -X POST http://localhost:8080/__specter/scenarios/login-success
+# → { "ok": true, "active": "login-success" }
+```
+
+The active scenario name persists across hot reloads but resets when the server restarts or when `POST /__specter/reset` includes the `scenario` target.
+
 ## Stores
 
 Read or seed the in-memory CRUD store. See [config.md](config.md#in-memory-crud-store) for route-level `store_*` fields.
@@ -163,8 +182,9 @@ curl -X POST http://localhost:8080/__specter/reset \
 | `vars` | All vars (same as `DELETE /__specter/vars`) |
 | `history` | Request history (same as `DELETE /__specter/requests`) |
 | `stores` | All in-memory store collections |
+| `scenario` | Active scenario name |
 
-Omit `targets` (or send `{}`) to reset all four at once.
+Omit `targets` (or send `{}`) to reset all five at once.
 
 Dynamic routes are **not** affected — use `DELETE /__specter/routes` to clear those separately.
 

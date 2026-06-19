@@ -33,6 +33,7 @@ Flags take precedence over environment variables.
 | `SPECTER_KEY` | `--key` |
 | `SPECTER_VERBOSE` | `--verbose` |
 | `SPECTER_UI_PORT` | `--ui-port` |
+| `SPECTER_URL` | `specter scenario --url` |
 
 ## Web UI
 
@@ -89,6 +90,22 @@ Validate a config file and report errors.
 ```sh
 specter validate -c config.yml
 ```
+
+### `specter scenario`
+
+List or apply scenario presets on a running specter server. Scenario presets are defined in `config.yml` under `scenarios`.
+
+```sh
+specter scenario                    # show active and available scenarios
+specter scenario list               # list available scenarios
+specter scenario current            # show active and available scenarios
+specter scenario login-success      # apply a scenario
+specter scenario --url http://localhost:3000 login-success
+```
+
+| Flag | Default | Description |
+|---|---|---|
+| `--url` | `http://localhost:8080` | Running specter server URL |
 
 ### `specter record`
 

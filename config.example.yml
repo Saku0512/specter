@@ -1,6 +1,21 @@
 cors: true
 # proxy: http://api.example.com  # forward unmatched routes to a real API
 
+scenarios:
+  login-success:
+    state: logged_in
+    vars:
+      role: admin
+      tier: gold
+    stores:
+      users:
+        - id: "1"
+          name: Alice
+  logged-out:
+    state: ""
+    vars: {}
+    stores: {}
+
 routes:
   # Basic GET
   - path: /users

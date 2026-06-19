@@ -2,6 +2,12 @@
 
 Both `.yaml` and `.yml` extensions are supported. See [config.example.yml](../config.example.yml) for a full working example.
 
+Specter publishes a JSON Schema for editor completion and validation. See [JSON Schema](schema.md) or use:
+
+```yaml
+# yaml-language-server: $schema=https://specter.dev/schemas/config.schema.json
+```
+
 ## Basic structure
 
 ```yaml

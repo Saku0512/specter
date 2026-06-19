@@ -345,6 +345,32 @@ GET /retry  (call 2) → 200 { ok: true }
 GET /retry  (call 3) → 503 { error: unavailable }
 ```
 
+## Scenario Timelines
+
+Use `timeline` when a route should progress through a fixed multi-step flow. Each request advances one step; after the final step, specter keeps returning the final response until the timeline is reset.
+
+```yaml
+routes:
+  - path: /jobs/1
+    method: GET
+    timeline:
+      - status: 202
+        response: { status: pending }
+      - status: 202
+        response: { status: processing }
+      - status: 200
+        response: { status: completed }
+```
+
+```
+GET /jobs/1  (call 1) → 202 { status: pending }
+GET /jobs/1  (call 2) → 202 { status: processing }
+GET /jobs/1  (call 3) → 200 { status: completed }
+GET /jobs/1  (call 4) → 200 { status: completed }
+```
+
+Timeline progress is visible in the Web UI and through `GET /__specter/timelines`. Use `POST /__specter/reset` with the `timelines` target, or the per-timeline reset endpoint, to make flows repeatable between tests.
+
 ### on_call inside responses
 
 Set `on_call` on individual `responses[]` entries to pin them to a specific call number. Entries without `on_call` form the fallback pool for sequential/random cycling.

@@ -3,6 +3,7 @@ package server
 import (
 	"bytes"
 	"encoding/json"
+	"fmt"
 	"io"
 	"net/http"
 	"net/http/httptest"
@@ -4248,6 +4249,54 @@ func TestStoreFileLoadsInitialCollections(t *testing.T) {
 	}
 }
 
+func TestStoreFileCreatesMissingFileAndParentDirs(t *testing.T) {
+	path := t.TempDir() + "/nested/state/stores.json"
+	srv, err := NewWithStoreFile(&config.Config{
+		Routes: []config.Route{
+			{Path: "/items", Method: "POST", StorePush: "items"},
+		},
+	}, false, false, path)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	w := do(srv, "POST", "/items", `{"name":"Created"}`)
+	if w.Code != http.StatusCreated {
+		t.Fatalf("expected 201, got %d: %s", w.Code, w.Body.String())
+	}
+	stores := readStoreFile(t, path)
+	if len(stores["items"]) != 1 || stores["items"][0]["name"] != "Created" {
+		t.Fatalf("missing store file was not created with item: %v", stores)
+	}
+}
+
+func TestStoreFileAllowsEmptyFile(t *testing.T) {
+	path := t.TempDir() + "/stores.json"
+	if err := os.WriteFile(path, nil, 0644); err != nil {
+		t.Fatal(err)
+	}
+	srv, err := NewWithStoreFile(&config.Config{
+		Routes: []config.Route{
+			{Path: "/items", Method: "GET", StoreList: "items"},
+		},
+	}, false, false, path)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	w := do(srv, "GET", "/items", "")
+	if w.Code != http.StatusOK {
+		t.Fatalf("expected 200, got %d: %s", w.Code, w.Body.String())
+	}
+	var items []any
+	if err := json.NewDecoder(w.Body).Decode(&items); err != nil {
+		t.Fatal(err)
+	}
+	if len(items) != 0 {
+		t.Fatalf("expected empty store from empty file, got %v", items)
+	}
+}
+
 func TestStoreFilePersistsRouteMutations(t *testing.T) {
 	path := t.TempDir() + "/stores.json"
 	srv, err := NewWithStoreFile(&config.Config{
@@ -4256,6 +4305,7 @@ func TestStoreFilePersistsRouteMutations(t *testing.T) {
 			{Path: "/users/:id", Method: "PUT", StorePut: "users", StoreKey: "id"},
 			{Path: "/users/:id", Method: "PATCH", StorePatch: "users", StoreKey: "id"},
 			{Path: "/users/:id", Method: "DELETE", StoreDelete: "users", StoreKey: "id"},
+			{Path: "/users", Method: "DELETE", StoreClear: "users"},
 		},
 	}, false, false, path)
 	if err != nil {
@@ -4298,6 +4348,16 @@ func TestStoreFilePersistsRouteMutations(t *testing.T) {
 	if len(stores["users"]) != 0 {
 		t.Fatalf("delete was not persisted: %v", stores)
 	}
+
+	do(srv, "POST", "/users", `{"name":"Lin"}`)
+	w = do(srv, "DELETE", "/users", "")
+	if w.Code != http.StatusNoContent {
+		t.Fatalf("clear: expected 204, got %d: %s", w.Code, w.Body.String())
+	}
+	stores = readStoreFile(t, path)
+	if len(stores["users"]) != 0 {
+		t.Fatalf("clear was not persisted: %v", stores)
+	}
 }
 
 func TestStoreFilePersistsIntrospectionScenarioAndResetMutations(t *testing.T) {
@@ -4324,6 +4384,15 @@ func TestStoreFilePersistsIntrospectionScenarioAndResetMutations(t *testing.T) {
 		t.Fatalf("introspection put was not persisted: %v", stores)
 	}
 
+	w = do(srv, "DELETE", "/__specter/stores/users", "")
+	if w.Code != http.StatusNoContent {
+		t.Fatalf("introspection delete: expected 204, got %d: %s", w.Code, w.Body.String())
+	}
+	stores = readStoreFile(t, path)
+	if len(stores["users"]) != 0 {
+		t.Fatalf("introspection delete was not persisted: %v", stores)
+	}
+
 	w = do(srv, "POST", "/__specter/scenarios/seeded", "")
 	if w.Code != http.StatusOK {
 		t.Fatalf("scenario apply: expected 200, got %d: %s", w.Code, w.Body.String())
@@ -4340,6 +4409,42 @@ func TestStoreFilePersistsIntrospectionScenarioAndResetMutations(t *testing.T) {
 	stores = readStoreFile(t, path)
 	if len(stores) != 0 {
 		t.Fatalf("store reset was not persisted: %v", stores)
+	}
+}
+
+func TestStoreFilePersistFailureIsRecorded(t *testing.T) {
+	parentFile := t.TempDir() + "/not-a-dir"
+	if err := os.WriteFile(parentFile, []byte("x"), 0644); err != nil {
+		t.Fatal(err)
+	}
+	store := newDataStore()
+	store.persistPath = parentFile + "/stores.json"
+
+	store.Push("items", map[string]any{"name": "Ada"})
+	if err := store.LastPersistError(); err == nil {
+		t.Fatal("expected persist error when parent path is a file")
+	}
+}
+
+func TestStoreFilePersistFailureReturns500(t *testing.T) {
+	parentFile := t.TempDir() + "/not-a-dir"
+	if err := os.WriteFile(parentFile, []byte("x"), 0644); err != nil {
+		t.Fatal(err)
+	}
+	srv := newSrv(&config.Config{
+		Routes: []config.Route{
+			{Path: "/items", Method: "POST", StorePush: "items"},
+		},
+	})
+	srv.store.persistPath = parentFile + "/stores.json"
+
+	w := do(srv, "POST", "/items", `{"name":"Ada"}`)
+	if w.Code != http.StatusInternalServerError {
+		t.Fatalf("expected 500 on persist failure, got %d: %s", w.Code, w.Body.String())
+	}
+	body := jsonBody(t, w)
+	if !strings.Contains(fmt.Sprint(body["error"]), "failed to persist store") {
+		t.Fatalf("expected persist error response, got %v", body)
 	}
 }
 

@@ -1905,6 +1905,63 @@ func TestDynamicRoute_deleteByID(t *testing.T) {
 	}
 }
 
+func TestDynamicRoute_updateByID(t *testing.T) {
+	srv := newSrv(&config.Config{})
+
+	w := postRoute(srv, `{"path":"/tmp","method":"GET","status":200,"response":{"version":1}}`)
+	var m map[string]any
+	json.Unmarshal(w.Body.Bytes(), &m)
+	id := m["id"].(string)
+	time.Sleep(20 * time.Millisecond)
+
+	req := httptest.NewRequest(http.MethodPut, "/__specter/routes/"+id, bytes.NewBufferString(`{"path":"/tmp2","method":"GET","status":201,"response":{"version":2}}`))
+	req.Header.Set("Content-Type", "application/json")
+	rec := httptest.NewRecorder()
+	srv.ServeHTTP(rec, req)
+	if rec.Code != http.StatusNoContent {
+		t.Fatalf("expected 204, got %d: %s", rec.Code, rec.Body.String())
+	}
+	time.Sleep(20 * time.Millisecond)
+
+	old := do(srv, "GET", "/tmp", "")
+	if old.Code != http.StatusNotFound {
+		t.Errorf("expected old route to be gone, got %d", old.Code)
+	}
+	updated := do(srv, "GET", "/tmp2", "")
+	if updated.Code != http.StatusCreated {
+		t.Fatalf("expected updated route status 201, got %d", updated.Code)
+	}
+	body := jsonBody(t, updated)
+	if body["version"] != float64(2) {
+		t.Errorf("expected updated response version=2, got %v", body)
+	}
+}
+
+func TestDynamicRoute_updateMissingAndInvalid(t *testing.T) {
+	srv := newSrv(&config.Config{})
+
+	req := httptest.NewRequest(http.MethodPut, "/__specter/routes/missing", bytes.NewBufferString(`{"path":"/tmp","method":"GET"}`))
+	req.Header.Set("Content-Type", "application/json")
+	rec := httptest.NewRecorder()
+	srv.ServeHTTP(rec, req)
+	if rec.Code != http.StatusNotFound {
+		t.Fatalf("expected 404 for missing dynamic route, got %d", rec.Code)
+	}
+
+	w := postRoute(srv, `{"path":"/tmp","method":"GET","status":200}`)
+	var m map[string]any
+	json.Unmarshal(w.Body.Bytes(), &m)
+	id := m["id"].(string)
+
+	req = httptest.NewRequest(http.MethodPut, "/__specter/routes/"+id, bytes.NewBufferString(`{"path":"/tmp"}`))
+	req.Header.Set("Content-Type", "application/json")
+	rec = httptest.NewRecorder()
+	srv.ServeHTTP(rec, req)
+	if rec.Code != http.StatusBadRequest {
+		t.Fatalf("expected 400 for invalid route, got %d", rec.Code)
+	}
+}
+
 func TestDynamicRoute_clearAll(t *testing.T) {
 	srv := newSrv(&config.Config{})
 

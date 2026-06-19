@@ -237,6 +237,23 @@ func newEngine(cfg *config.Config, verbose bool, random bool, history *RequestHi
 		go rebuild()
 		c.JSON(http.StatusCreated, gin.H{"id": id})
 	})
+	r.PUT("/__specter/routes/:id", func(c *gin.Context) {
+		var route config.Route
+		if err := c.ShouldBindJSON(&route); err != nil {
+			c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+			return
+		}
+		if route.Path == "" || route.Method == "" {
+			c.JSON(http.StatusBadRequest, gin.H{"error": "path and method are required"})
+			return
+		}
+		if !dynamic.Update(c.Param("id"), route) {
+			c.JSON(http.StatusNotFound, gin.H{"error": "route not found"})
+			return
+		}
+		go rebuild()
+		c.Status(http.StatusNoContent)
+	})
 	r.DELETE("/__specter/routes", func(c *gin.Context) {
 		dynamic.Clear()
 		go rebuild()

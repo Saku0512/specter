@@ -409,6 +409,7 @@ tbody tr.active{background:rgba(103,232,249,.09)}
           </div>
           <div class="table-actions">
             <span class="tag" id="route-count">0 routes</span>
+            <button class="small good" onclick="newRoute()">New Route</button>
             <button class="small warn" onclick="clearDynamicRoutes()">Clear Dynamic</button>
           </div>
         </div>
@@ -426,10 +427,31 @@ tbody tr.active{background:rgba(103,232,249,.09)}
             <h2>Route Detail</h2>
             <p>See the resolved route config as JSON.</p>
           </div>
-          <button id="delete-route-btn" class="small warn" style="display:none" onclick="deleteSelectedRoute()">Delete Dynamic Route</button>
+          <div class="table-actions">
+            <button id="edit-route-btn" class="small good" style="display:none" onclick="editSelectedRoute()">Edit</button>
+            <button id="delete-route-btn" class="small warn" style="display:none" onclick="deleteSelectedRoute()">Delete</button>
+          </div>
         </div>
         <div class="panel-body">
           <div id="route-detail" class="detail"></div>
+        </div>
+      </div>
+
+      <div class="panel">
+        <div class="panel-head">
+          <div>
+            <h2>Dynamic Route Editor</h2>
+            <p>Add or update runtime-only routes.</p>
+          </div>
+          <span class="tag" id="route-editor-mode">new route</span>
+        </div>
+        <div class="panel-body">
+          <textarea id="route-json" spellcheck="false"></textarea>
+          <div class="inline" style="margin-top:10px">
+            <span class="hint" id="route-editor-hint">Create a dynamic route from JSON.</span>
+            <button class="small ghost right" onclick="resetRouteEditor()">Reset</button>
+            <button class="small good" onclick="saveRoute()">Save Route</button>
+          </div>
         </div>
       </div>
     </div>
@@ -564,6 +586,7 @@ const ui = {
   autoRefresh: true,
   selectedRequest: null,
   selectedRoute: null,
+  editingRouteID: '',
   selectedVar: '',
   selectedStore: '',
   flashTimer: null
@@ -741,15 +764,18 @@ async function clearHistory(){
 function renderRouteDetail(){
   const el = document.getElementById('route-detail');
   const btn = document.getElementById('delete-route-btn');
+  const editBtn = document.getElementById('edit-route-btn');
   const route = ui.routes.find(function(item){ return item._uiKey === ui.selectedRoute; });
   if (!route) {
     btn.style.display = 'none';
+    editBtn.style.display = 'none';
     el.innerHTML = '<div class="detail-card"><p class="hint">Select a route to inspect the resolved config.</p></div>';
     return;
   }
   const rt = route.route || route;
   const features = routeFeatures(rt).map(function(note){ return '<span class="tag">' + esc(note) + '</span>'; }).join(' ');
   btn.style.display = route.source === 'dynamic' ? 'inline-flex' : 'none';
+  editBtn.style.display = 'inline-flex';
   el.innerHTML =
     '<div class="detail-card"><div class="inline">' + methodBadge(rt.method) + '<strong>' + esc(rt.path) + '</strong><span class="tag">' + esc(route.source || 'config') + '</span></div><div class="tag-row" style="margin-top:10px">' + (features || '<span class="hint">No special route features.</span>') + '</div></div>' +
     '<div class="detail-card"><h3>Route JSON</h3><pre>' + esc(pretty(rt)) + '</pre></div>';
@@ -800,9 +826,87 @@ async function loadRoutes(){
   renderRoutes();
 }
 
+function routeTemplate(){
+  return {
+    path: '/example',
+    method: 'GET',
+    status: 200,
+    response: {ok: true}
+  };
+}
+
+function setRouteEditor(route, id, label){
+  ui.editingRouteID = id || '';
+  document.getElementById('route-json').value = JSON.stringify(route || routeTemplate(), null, 2);
+  document.getElementById('route-editor-mode').textContent = label || (id ? 'editing dynamic' : 'new route');
+  document.getElementById('route-editor-hint').textContent = id ? 'Editing dynamic route ' + id + '.' : 'Create a dynamic route from JSON.';
+}
+
+function resetRouteEditor(){
+  setRouteEditor(routeTemplate(), '', 'new route');
+}
+
+function newRoute(){
+  ui.selectedRoute = null;
+  renderRoutes();
+  setRouteEditor(routeTemplate(), '', 'new route');
+}
+
+function editSelectedRoute(){
+  const route = ui.routes.find(function(item){ return item._uiKey === ui.selectedRoute; });
+  if (!route) return;
+  const rt = route.route || route;
+  if (route.source === 'dynamic' && route.id) {
+    setRouteEditor(rt, route.id, 'editing dynamic');
+  } else {
+    setRouteEditor(rt, '', 'copy as dynamic');
+    document.getElementById('route-editor-hint').textContent = 'Config routes cannot be edited in memory; saving creates a dynamic copy.';
+  }
+}
+
+function validateRoutePayload(route){
+  if (!route || typeof route !== 'object' || Array.isArray(route)) return 'Route JSON must be an object.';
+  if (!route.path || typeof route.path !== 'string') return 'Route JSON must include a string path.';
+  if (!route.method || typeof route.method !== 'string') return 'Route JSON must include a string method.';
+  return '';
+}
+
+async function saveRoute(){
+  let route;
+  try {
+    route = JSON.parse(document.getElementById('route-json').value || '{}');
+  } catch (e) {
+    showFlash('Route JSON must be valid JSON.', 'error');
+    return;
+  }
+  const validation = validateRoutePayload(route);
+  if (validation) {
+    showFlash(validation, 'error');
+    return;
+  }
+  try {
+    if (ui.editingRouteID) {
+      await sendJSON('/__specter/routes/' + encodeURIComponent(ui.editingRouteID), 'PUT', route);
+      showFlash('Dynamic route updated.', 'success');
+    } else {
+      const res = await sendJSON('/__specter/routes', 'POST', route);
+      ui.editingRouteID = res && res.id ? res.id : '';
+      showFlash('Dynamic route added.', 'success');
+    }
+  } catch (e) {
+    showFlash(e.message || 'Route save failed.', 'error');
+    return;
+  }
+  await loadRoutes();
+  if (ui.editingRouteID) ui.selectedRoute = ui.editingRouteID;
+  renderRoutes();
+  editSelectedRoute();
+}
+
 async function clearDynamicRoutes(){
   if (!confirm('Remove all dynamic routes?')) return;
   await fetchJSON('/__specter/routes', {method:'DELETE'});
+  resetRouteEditor();
   showFlash('Dynamic routes cleared.', 'success');
   await loadRoutes();
 }
@@ -812,6 +916,7 @@ async function deleteSelectedRoute(){
   if (!route || route.source !== 'dynamic' || !route.id) return;
   if (!confirm('Delete dynamic route ' + route.route.method + ' ' + route.route.path + '?')) return;
   await fetchJSON('/__specter/routes/' + encodeURIComponent(route.id), {method:'DELETE'});
+  if (ui.editingRouteID === route.id) resetRouteEditor();
   showFlash('Dynamic route removed.', 'success');
   await loadRoutes();
 }
@@ -1058,6 +1163,7 @@ document.addEventListener('focusin', function(e){
   }
 });
 
+resetRouteEditor();
 refreshAll();
 setInterval(function(){
   if (ui.autoRefresh) refreshAll();

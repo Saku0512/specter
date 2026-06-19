@@ -895,6 +895,63 @@ func TestConfigValidation_reportsParseAndSemanticErrors(t *testing.T) {
 	}
 }
 
+func TestConfigValidation_rejectsMalformedRequestJSON(t *testing.T) {
+	srv := newSrv(&config.Config{})
+	w := do(srv, "POST", "/__specter/config/validate", `{"yaml":`)
+	if w.Code != http.StatusBadRequest {
+		t.Fatalf("expected 400, got %d: %s", w.Code, w.Body.String())
+	}
+	body := jsonBody(t, w)
+	if body["error"] == "" {
+		t.Fatalf("expected error message, got %v", body)
+	}
+}
+
+func TestConfigValidation_reportsPreviewForInvalidSemanticConfig(t *testing.T) {
+	srv := newSrv(&config.Config{})
+	w := do(srv, "POST", "/__specter/config/validate", `{"yaml":"scenarios:\n  zed:\n    stores:\n      beta: []\n  alpha:\n    stores:\n      alpha: []\nroutes:\n  - path: /queued\n    state: pending\n    status: 202\n  - path: /done\n    method: POST\n    status: 201\n"}`)
+	if w.Code != http.StatusOK {
+		t.Fatalf("expected 200, got %d: %s", w.Code, w.Body.String())
+	}
+	var payload struct {
+		Valid  bool `json:"valid"`
+		Errors []string
+		Routes []struct {
+			Method string `json:"method"`
+			Path   string `json:"path"`
+			Status int    `json:"status"`
+			State  string `json:"state"`
+			Source string `json:"source"`
+		} `json:"routes"`
+		Scenarios []string `json:"scenarios"`
+		Stores    []string `json:"stores"`
+	}
+	if err := json.NewDecoder(w.Body).Decode(&payload); err != nil {
+		t.Fatal(err)
+	}
+	if payload.Valid {
+		t.Fatalf("expected invalid config")
+	}
+	if len(payload.Errors) == 0 || !strings.Contains(payload.Errors[0], "missing method") {
+		t.Fatalf("expected missing method error, got %v", payload.Errors)
+	}
+	if len(payload.Routes) != 2 {
+		t.Fatalf("expected both routes in preview, got %v", payload.Routes)
+	}
+	if payload.Routes[0].Path != "/queued" || payload.Routes[0].Status != 202 || payload.Routes[0].State != "pending" || payload.Routes[0].Source != "config" {
+		t.Fatalf("unexpected first route preview: %+v", payload.Routes[0])
+	}
+	if payload.Routes[1].Method != "POST" || payload.Routes[1].Path != "/done" || payload.Routes[1].Status != 201 || payload.Routes[1].Source != "config" {
+		t.Fatalf("unexpected second route preview: %+v", payload.Routes[1])
+	}
+	if got, want := strings.Join(payload.Scenarios, ","), "alpha,zed"; got != want {
+		t.Fatalf("expected sorted scenarios %q, got %q", want, got)
+	}
+	if got, want := strings.Join(payload.Stores, ","), "alpha,beta"; got != want {
+		t.Fatalf("expected sorted stores %q, got %q", want, got)
+	}
+}
+
 // --- Stateful mocking ---
 
 func setServerState(srv *Server, state string) {

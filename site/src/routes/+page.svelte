@@ -1,4 +1,5 @@
 <script lang="ts">
+	import { base } from '$app/paths';
 	import mark from '$lib/assets/logo-icon.png';
 
 	const installMethods = [
@@ -108,7 +109,7 @@ UI running on http://localhost:4444`;
 					<a class="button primary" href="https://github.com/Saku0512/specter/releases/latest"
 						>Download Latest</a
 					>
-					<a class="button ghost" href="/docs">Read Docs</a>
+					<a class="button ghost" href={`${base}/docs/`}>Read Docs</a>
 					<a class="button ghost" href="https://github.com/Saku0512/specter">View Repository</a>
 				</div>
 

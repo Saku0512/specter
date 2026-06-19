@@ -28,6 +28,11 @@
 			copySnippet: 'コピー',
 			copiedSnippet: 'コピー済み',
 			copySnippetLabel: 'コードをコピー',
+			searchLabel: 'Docs search',
+			searchPlaceholder: 'config field、CLI command、example を検索',
+			searchHint: '/ で検索、↑↓ で移動、Enter で開く',
+			searchResultsLabel: '検索結果',
+			searchNoResults: '一致する結果がありません',
 			quickStartTitle: '空のフォルダからモック API へ',
 			quickStart: [
 				{
@@ -172,6 +177,11 @@
 			copySnippet: 'Copy',
 			copiedSnippet: 'Copied',
 			copySnippetLabel: 'Copy code',
+			searchLabel: 'Docs search',
+			searchPlaceholder: 'Search config fields, CLI commands, examples',
+			searchHint: 'Press / to search, ↑↓ to move, Enter to open',
+			searchResultsLabel: 'Search results',
+			searchNoResults: 'No matching results',
 			quickStartTitle: 'From blank folder to mock API',
 			quickStart: [
 				{ title: 'Generate a starter file', body: 'Creates config.yml in the current directory.' },
@@ -538,7 +548,18 @@ specter record -t http://api.example.com -o config.yml`;
 
 	const storeQuery = `GET /users?role=admin&_sort=name&_order=asc&_limit=10&_offset=0`;
 
+	type SearchResult = {
+		title: string;
+		category: string;
+		href: string;
+		body: string;
+		keywords?: string;
+	};
+
 	let copiedSnippet = $state('');
+	let searchQuery = $state('');
+	let activeSearchIndex = $state(0);
+	let searchInput: HTMLInputElement;
 	let copyTimer: ReturnType<typeof setTimeout> | undefined;
 
 	async function copyCode(code: string, key: string) {
@@ -566,7 +587,186 @@ specter record -t http://api.example.com -o config.yml`;
 			copiedSnippet = '';
 		}, 1600);
 	}
+
+	function searchIndex(lang: 'ja' | 'en'): SearchResult[] {
+		const isJa = lang === 'ja';
+		const sectionEntries: SearchResult[] = [
+			{
+				title: isJa ? 'はじめに' : 'Introduction',
+				category: 'Docs',
+				href: '#introduction',
+				body: copy[lang].heroBody,
+				keywords: 'overview getting started mock api yaml hot reload'
+			},
+			{
+				title: 'Quick Start',
+				category: 'Docs',
+				href: '#quick-start',
+				body: copy[lang].quickStart.map((step) => `${step.title} ${step.body}`).join(' '),
+				keywords: 'specter init run curl start'
+			},
+			{
+				title: 'config.yml',
+				category: 'Docs',
+				href: '#config',
+				body: copy[lang].configBody,
+				keywords: 'configuration routes match response stores scenarios'
+			},
+			{
+				title: 'Examples gallery',
+				category: 'Docs',
+				href: '#examples',
+				body: copy[lang].examplesBody,
+				keywords: 'auth crud pagination graphql webhooks sse openapi errors polling'
+			},
+			{
+				title: isJa ? '比較' : 'Comparison',
+				category: 'Docs',
+				href: '#comparison',
+				body: copy[lang].comparisonBody,
+				keywords: 'json-server prism wiremock comparison alternatives'
+			},
+			{
+				title: isJa ? 'レシピ' : 'Recipes',
+				category: 'Docs',
+				href: '#recipes',
+				body: Object.values(copy[lang].recipes)
+					.map((recipe) => `${recipe.title} ${recipe.body}`)
+					.join(' '),
+				keywords: 'conditional state store templates faker fixtures redirects cookies webhooks'
+			},
+			{
+				title: 'CLI',
+				category: 'Docs',
+				href: '#cli',
+				body: `${copy[lang].cliBody} ${cliCommands}`,
+				keywords: 'commands flags env init validate doctor examples record gen'
+			}
+		];
+
+		const configEntries = [
+			...topLevelFields.map((row) => ({
+				title: row[0],
+				category: 'Config',
+				href: '#config',
+				body: row[isJa ? 3 : 2],
+				keywords: row.join(' ')
+			})),
+			...routeFields.map((row) => ({
+				title: row[0],
+				category: 'Route',
+				href: '#config',
+				body: row[isJa ? 3 : 2],
+				keywords: row.join(' ')
+			})),
+			...matchFields.map((row) => ({
+				title: row[0],
+				category: 'Match',
+				href: '#config',
+				body: row[isJa ? 3 : 2],
+				keywords: row.join(' ')
+			})),
+			...responseFields.map((row) => ({
+				title: row[0],
+				category: 'Response',
+				href: '#config',
+				body: row[isJa ? 3 : 2],
+				keywords: row.join(' ')
+			}))
+		];
+
+		const exampleEntries = copy[lang].exampleCards.map((example) => ({
+			title: example[0],
+			category: 'Example',
+			href: '#examples',
+			body: example[1],
+			keywords: `specter examples ${example[0]} ${example.join(' ')}`
+		}));
+
+		const comparisonEntries = copy[lang].comparisonCards.map((item) => ({
+			title: item[0],
+			category: 'Comparison',
+			href: '#comparison',
+			body: item[1],
+			keywords: item.join(' ')
+		}));
+
+		const cliEntries = cliCommands.split('\n').map((command) => ({
+			title: command,
+			category: 'CLI',
+			href: '#cli',
+			body: isJa ? 'CLI command' : 'CLI command',
+			keywords: command
+		}));
+
+		return [...sectionEntries, ...configEntries, ...exampleEntries, ...comparisonEntries, ...cliEntries];
+	}
+
+	function searchResults(query: string, lang: 'ja' | 'en') {
+		const normalized = query.trim().toLowerCase();
+		if (!normalized) {
+			return [];
+		}
+		const terms = normalized.split(/\s+/).filter(Boolean);
+		return searchIndex(lang)
+			.map((item) => {
+				const haystack = `${item.title} ${item.category} ${item.body} ${item.keywords ?? ''}`.toLowerCase();
+				const score = terms.reduce((total, term) => {
+					if (item.title.toLowerCase() === term) return total + 10;
+					if (item.title.toLowerCase().includes(term)) return total + 5;
+					if (haystack.includes(term)) return total + 1;
+					return total;
+				}, 0);
+				return { ...item, score };
+			})
+			.filter((item) => item.score > 0)
+			.sort((a, b) => b.score - a.score || a.title.localeCompare(b.title))
+			.slice(0, 8);
+	}
+
+	function moveSearchSelection(delta: number) {
+		const results = searchResults(searchQuery, $language);
+		if (results.length === 0) return;
+		activeSearchIndex = (activeSearchIndex + delta + results.length) % results.length;
+	}
+
+	function openSearchResult(result: SearchResult) {
+		window.location.hash = result.href;
+	}
+
+	function handleSearchKeydown(event: KeyboardEvent) {
+		const results = searchResults(searchQuery, $language);
+		if (event.key === 'ArrowDown') {
+			event.preventDefault();
+			moveSearchSelection(1);
+		} else if (event.key === 'ArrowUp') {
+			event.preventDefault();
+			moveSearchSelection(-1);
+		} else if (event.key === 'Enter' && results[activeSearchIndex]) {
+			event.preventDefault();
+			openSearchResult(results[activeSearchIndex]);
+		} else if (event.key === 'Escape') {
+			searchQuery = '';
+			activeSearchIndex = 0;
+			searchInput?.blur();
+		}
+	}
+
+	function handleGlobalSearchKeydown(event: KeyboardEvent) {
+		const target = event.target as HTMLElement | null;
+		const isTyping =
+			target?.tagName === 'INPUT' ||
+			target?.tagName === 'TEXTAREA' ||
+			target?.tagName === 'SELECT' ||
+			target?.isContentEditable;
+		if (event.key === '/' && !isTyping) {
+			event.preventDefault();
+			searchInput?.focus();
+		}
+	}
 </script>
+
+<svelte:window onkeydown={handleGlobalSearchKeydown} />
 
 <svelte:head>
 	<title>{copy[$language].title}</title>
@@ -603,6 +803,54 @@ specter record -t http://api.example.com -o config.yml`;
 			</div>
 
 			{@render codeBlock(basicConfig)}
+		</div>
+
+		<div class="docs-search" role="search">
+			<label for="docs-search-input">{copy[$language].searchLabel}</label>
+			<div class="search-box">
+				<input
+					id="docs-search-input"
+					bind:this={searchInput}
+					bind:value={searchQuery}
+					type="search"
+					placeholder={copy[$language].searchPlaceholder}
+					autocomplete="off"
+					aria-describedby="docs-search-hint"
+					aria-controls="docs-search-results"
+					oninput={() => (activeSearchIndex = 0)}
+					onkeydown={handleSearchKeydown}
+				/>
+				<span id="docs-search-hint">{copy[$language].searchHint}</span>
+			</div>
+
+			{#if searchQuery.trim()}
+				{@const results = searchResults(searchQuery, $language)}
+				<div
+					id="docs-search-results"
+					class="search-results"
+					role="listbox"
+					aria-label={copy[$language].searchResultsLabel}
+				>
+					{#if results.length}
+						{#each results as result, index}
+							<a
+								href={result.href}
+								role="option"
+								aria-selected={activeSearchIndex === index}
+								class:active={activeSearchIndex === index}
+								onmouseenter={() => (activeSearchIndex = index)}
+								onfocus={() => (activeSearchIndex = index)}
+							>
+								<span>{result.category}</span>
+								<strong>{result.title}</strong>
+								<small>{result.body}</small>
+							</a>
+						{/each}
+					{:else}
+						<p class="search-empty">{copy[$language].searchNoResults}</p>
+					{/if}
+				</div>
+			{/if}
 		</div>
 	</header>
 
@@ -992,6 +1240,114 @@ specter record -t http://api.example.com -o config.yml`;
 		grid-template-columns: minmax(0, 0.95fr) minmax(0, 1.05fr);
 		gap: clamp(1.2rem, 4vw, 3rem);
 		align-items: start;
+	}
+
+	.docs-search {
+		position: relative;
+		z-index: 2;
+		display: grid;
+		gap: 0.65rem;
+		max-width: 54rem;
+		margin-top: clamp(1.5rem, 4vw, 2.6rem);
+	}
+
+	.docs-search label {
+		color: #8adcee;
+		font-size: 0.78rem;
+		font-weight: 800;
+		letter-spacing: 0.12em;
+		text-transform: uppercase;
+	}
+
+	.search-box {
+		display: grid;
+		gap: 0.45rem;
+	}
+
+	.search-box input {
+		width: 100%;
+		min-height: 3.1rem;
+		padding: 0.78rem 0.95rem;
+		border: 1px solid rgba(145, 184, 220, 0.2);
+		border-radius: 8px;
+		background: rgba(7, 17, 31, 0.9);
+		color: #e9f3ff;
+		font: inherit;
+		font-size: 1rem;
+		outline: none;
+	}
+
+	.search-box input:focus {
+		border-color: rgba(138, 241, 255, 0.55);
+		box-shadow: 0 0 0 3px rgba(138, 241, 255, 0.08);
+	}
+
+	.search-box span {
+		color: #9fb5d4;
+		font-size: 0.82rem;
+	}
+
+	.search-results {
+		display: grid;
+		gap: 0.45rem;
+		max-height: min(60vh, 28rem);
+		overflow-y: auto;
+		padding: 0.45rem;
+		border: 1px solid rgba(145, 184, 220, 0.14);
+		border-radius: 8px;
+		background: rgba(6, 14, 25, 0.96);
+		box-shadow: 0 28px 80px rgba(0, 0, 0, 0.34);
+	}
+
+	.search-results a,
+	.search-empty {
+		display: grid;
+		gap: 0.25rem;
+		margin: 0;
+		padding: 0.78rem 0.85rem;
+		border-radius: 8px;
+		color: #dce9f8;
+	}
+
+	.search-results a {
+		border: 1px solid transparent;
+		background: rgba(255, 255, 255, 0.025);
+	}
+
+	.search-results a.active,
+	.search-results a:hover,
+	.search-results a:focus-visible {
+		border-color: rgba(138, 241, 255, 0.34);
+		background: rgba(138, 241, 255, 0.08);
+		outline: none;
+	}
+
+	.search-results span {
+		color: #8adcee;
+		font-size: 0.72rem;
+		font-weight: 800;
+		letter-spacing: 0.1em;
+		text-transform: uppercase;
+	}
+
+	.search-results strong {
+		color: #f0f7ff;
+		font-size: 1rem;
+	}
+
+	.search-results small {
+		display: -webkit-box;
+		overflow: hidden;
+		color: #b9c8dd;
+		font-size: 0.84rem;
+		line-height: 1.45;
+		-webkit-box-orient: vertical;
+		-webkit-line-clamp: 2;
+		line-clamp: 2;
+	}
+
+	.search-empty {
+		color: #b9c8dd;
 	}
 
 	.kicker {

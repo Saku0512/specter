@@ -415,8 +415,19 @@ UI running on http://localhost:4444`
 				<div class="scene">
 					<div class="terminal">
 						<div class="window-bar">
-							<span></span><span></span><span></span>
-							<strong>terminal</strong>
+							<div class="window-title">
+								<span></span><span></span><span></span>
+								<strong>terminal</strong>
+							</div>
+							<button
+								type="button"
+								class="mini-copy"
+								class:copied={copiedCommand === 'terminal-example'}
+								aria-label={`${copy[$language].copyCommandLabel}: terminal`}
+								onclick={() => copyInstallCommand(copy[$language].terminalExample, 'terminal-example')}
+							>
+								{copiedCommand === 'terminal-example' ? copy[$language].copiedCommand : copy[$language].copyCommand}
+							</button>
 						</div>
 						<pre>{copy[$language].terminalExample}</pre>
 					</div>
@@ -450,6 +461,15 @@ UI running on http://localhost:4444`
 					<div class="config-card">
 						<div class="window-bar">
 							<strong>config.yml</strong>
+							<button
+								type="button"
+								class="mini-copy"
+								class:copied={copiedCommand === 'route-example'}
+								aria-label={`${copy[$language].copyCommandLabel}: config.yml`}
+								onclick={() => copyInstallCommand(routeExample, 'route-example')}
+							>
+								{copiedCommand === 'route-example' ? copy[$language].copiedCommand : copy[$language].copyCommand}
+							</button>
 						</div>
 						<pre>{routeExample}</pre>
 					</div>
@@ -508,7 +528,18 @@ UI running on http://localhost:4444`
 				<article class="step">
 					<div class="step-number">0{index + 1}</div>
 					<h3>{step.title}</h3>
-					<pre>{step.command}</pre>
+					<div class="step-command">
+						<pre>{step.command}</pre>
+						<button
+							type="button"
+							class="mini-copy"
+							class:copied={copiedCommand === `quickstart-${index}`}
+							aria-label={`${copy[$language].copyCommandLabel}: ${step.command}`}
+							onclick={() => copyInstallCommand(step.command, `quickstart-${index}`)}
+						>
+							{copiedCommand === `quickstart-${index}` ? copy[$language].copiedCommand : copy[$language].copyCommand}
+						</button>
+					</div>
 					<p>{step.body}</p>
 				</article>
 			{/each}
@@ -911,6 +942,7 @@ UI running on http://localhost:4444`
 	.window-bar {
 		display: flex;
 		align-items: center;
+		justify-content: space-between;
 		gap: 0.45rem;
 		padding: 0.8rem 0.95rem;
 		border-bottom: 1px solid rgba(145, 184, 220, 0.11);
@@ -921,9 +953,24 @@ UI running on http://localhost:4444`
 		color: #98accc;
 	}
 
-	.window-bar span {
+	.window-title {
+		display: flex;
+		align-items: center;
+		gap: 0.45rem;
+		min-width: 0;
+	}
+
+	.window-title strong,
+	.window-bar > strong {
+		overflow: hidden;
+		text-overflow: ellipsis;
+		white-space: nowrap;
+	}
+
+	.window-title span {
 		width: 0.58rem;
 		height: 0.58rem;
+		flex: 0 0 auto;
 		border-radius: 999px;
 		background: rgba(255, 255, 255, 0.16);
 	}
@@ -1022,6 +1069,54 @@ UI running on http://localhost:4444`
 	.install-card,
 	.step {
 		padding: 1.15rem;
+	}
+
+	.step-command {
+		display: grid;
+		grid-template-columns: minmax(0, 1fr) auto;
+		align-items: stretch;
+		overflow: hidden;
+		border: 1px solid rgba(145, 184, 220, 0.12);
+		border-radius: 10px;
+		background: rgba(5, 12, 22, 0.5);
+	}
+
+	.step-command pre {
+		min-width: 0;
+		padding: 0.85rem 0.9rem;
+	}
+
+	.mini-copy {
+		flex: 0 0 auto;
+		min-height: 1.85rem;
+		padding: 0.35rem 0.62rem;
+		border: 1px solid rgba(137, 216, 235, 0.24);
+		border-radius: 8px;
+		background: rgba(137, 216, 235, 0.08);
+		color: #e1f6ff;
+		font: inherit;
+		font-size: 0.72rem;
+		font-weight: 800;
+		letter-spacing: 0;
+		text-transform: none;
+		cursor: pointer;
+	}
+
+	.mini-copy:hover,
+	.mini-copy:focus-visible {
+		border-color: rgba(137, 216, 235, 0.48);
+		background: rgba(137, 216, 235, 0.14);
+		outline: none;
+	}
+
+	.mini-copy.copied {
+		border-color: rgba(186, 255, 207, 0.44);
+		background: rgba(186, 255, 207, 0.14);
+		color: #e3ffe9;
+	}
+
+	.step-command .mini-copy {
+		margin: 0.48rem 0.48rem 0.48rem 0;
 	}
 
 	.command-copy {

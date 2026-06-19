@@ -714,6 +714,35 @@ func TestAssert_requestStringAndCalledAlias(t *testing.T) {
 	}
 }
 
+func TestAssert_explicitMethodPathOverrideRequestString(t *testing.T) {
+	srv := newSrv(&config.Config{
+		Routes: []config.Route{
+			{Path: "/orders", Method: "POST", Response: nil},
+			{Path: "/users", Method: "GET", Response: nil},
+		},
+	})
+	do(srv, "POST", "/orders", `{}`)
+	do(srv, "GET", "/users", "")
+
+	w := assertAPI(srv, `{"request":"POST /orders","method":"GET","path":"/users","called":1}`)
+	if w.Code != 200 {
+		t.Errorf("expected explicit method/path to override request shorthand, got %d: %s", w.Code, w.Body.String())
+	}
+}
+
+func TestAssert_countTakesPrecedenceOverCalled(t *testing.T) {
+	srv := newSrv(&config.Config{
+		Routes: []config.Route{{Path: "/orders", Method: "POST", Response: nil}},
+	})
+	do(srv, "POST", "/orders", `{}`)
+	do(srv, "POST", "/orders", `{}`)
+
+	w := assertAPI(srv, `{"request":"POST /orders","count":2,"called":1}`)
+	if w.Code != 200 {
+		t.Errorf("expected count to take precedence over called, got %d: %s", w.Code, w.Body.String())
+	}
+}
+
 func TestAssert_matchByHeaders(t *testing.T) {
 	srv := newSrv(&config.Config{
 		Routes: []config.Route{{Path: "/orders", Method: "POST", Response: nil}},

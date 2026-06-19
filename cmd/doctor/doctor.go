@@ -161,7 +161,7 @@ func inspectConfigTree(root string) []Diagnostic {
 	if !hasLevelForCheck(diagnostics, LevelError, "files") {
 		diagnostics = append(diagnostics, Diagnostic{Level: LevelOK, Check: "files", Message: "all referenced files exist"})
 	}
-	if !hasLevelForCheck(diagnostics, LevelError, "openapi") && !hasLevelForCheck(diagnostics, LevelWarn, "openapi") {
+	if !hasCheck(diagnostics, "openapi") {
 		diagnostics = append(diagnostics, Diagnostic{Level: LevelOK, Check: "openapi", Message: "OpenAPI spec is not configured"})
 	}
 	return diagnostics
@@ -344,6 +344,15 @@ func checkPort(host, port, check string, diagnostics *[]Diagnostic) bool {
 func hasLevelForCheck(diagnostics []Diagnostic, level Level, check string) bool {
 	for _, diagnostic := range diagnostics {
 		if diagnostic.Level == level && diagnostic.Check == check {
+			return true
+		}
+	}
+	return false
+}
+
+func hasCheck(diagnostics []Diagnostic, check string) bool {
+	for _, diagnostic := range diagnostics {
+		if diagnostic.Check == check {
 			return true
 		}
 	}

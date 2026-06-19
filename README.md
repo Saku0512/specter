@@ -5,6 +5,7 @@
 [![Go Report Card](https://goreportcard.com/badge/github.com/Saku0512/specter)](https://goreportcard.com/report/github.com/Saku0512/specter)
 [![Go Version](https://img.shields.io/github/go-mod/go-version/Saku0512/specter)](go.mod)
 [![Latest Release](https://img.shields.io/github/v/release/Saku0512/specter)](https://github.com/Saku0512/specter/releases/latest)
+![Downloads](https://img.shields.io/github/downloads/Saku0512/specter/total)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
 
 Lightweight mock API server. Define endpoints in YAML, run instantly.

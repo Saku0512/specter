@@ -69,6 +69,7 @@ func newEngine(cfg *config.Config, verbose bool, random bool, history *RequestHi
 			c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
 			return
 		}
+		req = normalizeAssertRequest(req)
 		matched := filterEntries(history.all(), req)
 		wantAtLeastOne := req.Count == nil
 		if wantAtLeastOne {

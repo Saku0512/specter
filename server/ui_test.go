@@ -17,6 +17,27 @@ func TestRenderUIInjectsAPIAddress(t *testing.T) {
 	}
 }
 
+func TestRenderUIIncludesDynamicRouteEditor(t *testing.T) {
+	got := renderUI("http://localhost:8080")
+	for _, want := range []string{
+		"Dynamic Route Editor",
+		`id="route-json"`,
+		"onclick=\"newRoute()\"",
+		"onclick=\"saveRoute()\"",
+		"onclick=\"editSelectedRoute()\"",
+		"Route JSON must be valid JSON.",
+		"Route JSON must include a string path.",
+		"Route JSON must include a string method.",
+		"Config routes cannot be edited in memory; saving creates a dynamic copy.",
+		"POST",
+		"PUT",
+	} {
+		if !strings.Contains(got, want) {
+			t.Fatalf("expected UI to contain %q", want)
+		}
+	}
+}
+
 func TestUIHandlerServesHTML(t *testing.T) {
 	req := httptest.NewRequest(http.MethodGet, "/", nil)
 	rec := httptest.NewRecorder()

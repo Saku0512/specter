@@ -166,6 +166,18 @@ func (d *DynamicRouteStore) Remove(id string) bool {
 	return false
 }
 
+func (d *DynamicRouteStore) Update(id string, route config.Route) bool {
+	d.mu.Lock()
+	defer d.mu.Unlock()
+	for i, r := range d.routes {
+		if r.ID == id {
+			d.routes[i] = DynamicRoute{ID: id, Route: route}
+			return true
+		}
+	}
+	return false
+}
+
 func (d *DynamicRouteStore) All() []DynamicRoute {
 	d.mu.Lock()
 	defer d.mu.Unlock()

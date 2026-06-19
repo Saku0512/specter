@@ -25,6 +25,11 @@ func TestRenderUIIncludesDynamicRouteEditor(t *testing.T) {
 		"onclick=\"newRoute()\"",
 		"onclick=\"saveRoute()\"",
 		"onclick=\"editSelectedRoute()\"",
+		"Route JSON must be valid JSON.",
+		"Route JSON must include a string path.",
+		"Route JSON must include a string method.",
+		"Config routes cannot be edited in memory; saving creates a dynamic copy.",
+		"POST",
 		"PUT",
 	} {
 		if !strings.Contains(got, want) {

@@ -4,6 +4,7 @@
   "description": "VS Code support for Specter config files.",
   "version": "0.0.1",
   "publisher": "saku0512-sec",
+  "icon": "logo-icon.png",
   "license": "MIT",
   "preview": true,
   "repository": {

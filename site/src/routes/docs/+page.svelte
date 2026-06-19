@@ -106,6 +106,18 @@
 					title: '3. Open a pull request',
 					body: 'scenario、変更内容、既存 config への compatibility notes を書いて pull request を作成します。'
 				}
+			],
+			projectKicker: 'Project',
+			projectTitle: 'Security、License、Roadmap',
+			projectBody:
+				'specter は local development tool です。public internet に公開する場合は追加の security measures を用意してください。Security policy、license、releases、roadmap は GitHub で確認できます。',
+			projectLinks: [
+				{ label: 'Security Policy', href: 'https://github.com/Saku0512/specter/security/policy' },
+				{ label: 'License', href: 'https://github.com/Saku0512/specter/blob/main/LICENSE' },
+				{ label: 'Releases / Changelog', href: 'https://github.com/Saku0512/specter/releases' },
+				{ label: 'Roadmap / Issues', href: 'https://github.com/Saku0512/specter/issues' },
+				{ label: 'GitHub', href: 'https://github.com/Saku0512/specter' },
+				{ label: 'README', href: 'https://github.com/Saku0512/specter#readme' }
 			]
 		},
 		en: {
@@ -191,9 +203,44 @@
 				{ title: '1. Fork and branch', body: 'Create a branch with a focused name, then make the smallest useful change.' },
 				{ title: '2. Validate locally', body: 'Run the relevant tests and use specter validate -c config.yml for docs examples.' },
 				{ title: '3. Open a pull request', body: 'Describe the scenario, what changed, and any compatibility notes for existing configs.' }
+			],
+			projectKicker: 'Project',
+			projectTitle: 'Security, license, and roadmap',
+			projectBody:
+				'specter is a local development tool. If you expose it to the public internet, add security measures such as a firewall, reverse proxy, or authentication. Security policy, license, releases, and roadmap live on GitHub.',
+			projectLinks: [
+				{ label: 'Security Policy', href: 'https://github.com/Saku0512/specter/security/policy' },
+				{ label: 'License', href: 'https://github.com/Saku0512/specter/blob/main/LICENSE' },
+				{ label: 'Releases / Changelog', href: 'https://github.com/Saku0512/specter/releases' },
+				{ label: 'Roadmap / Issues', href: 'https://github.com/Saku0512/specter/issues' },
+				{ label: 'GitHub', href: 'https://github.com/Saku0512/specter' },
+				{ label: 'README', href: 'https://github.com/Saku0512/specter#readme' }
 			]
 		}
 	};
+
+	const badges = [
+		{
+			alt: 'CI status',
+			src: 'https://github.com/Saku0512/specter/actions/workflows/test.yml/badge.svg',
+			href: 'https://github.com/Saku0512/specter/actions/workflows/test.yml'
+		},
+		{
+			alt: 'Go Report Card',
+			src: 'https://goreportcard.com/badge/github.com/Saku0512/specter',
+			href: 'https://goreportcard.com/report/github.com/Saku0512/specter'
+		},
+		{
+			alt: 'Latest release',
+			src: 'https://img.shields.io/github/v/release/Saku0512/specter',
+			href: 'https://github.com/Saku0512/specter/releases/latest'
+		},
+		{
+			alt: 'MIT License',
+			src: 'https://img.shields.io/badge/License-MIT-yellow.svg',
+			href: 'https://github.com/Saku0512/specter/blob/main/LICENSE'
+		}
+	];
 
 	const topLevelFields = [
 		['cors', 'boolean', 'Enables CORS headers and handles OPTIONS preflight requests.', 'CORS headers を有効化し、OPTIONS preflight requests を処理します。'],
@@ -636,6 +683,29 @@ specter record -t http://api.example.com -o config.yml`;
 			</div>
 		</section>
 	</main>
+
+	<footer class="project-footer">
+		<div>
+			<p class="kicker">{copy[$language].projectKicker}</p>
+			<h2>{copy[$language].projectTitle}</h2>
+			<p>{copy[$language].projectBody}</p>
+		</div>
+
+		<div>
+			<div class="footer-links">
+				{#each copy[$language].projectLinks as link}
+					<a href={link.href}>{link.label}</a>
+				{/each}
+			</div>
+			<div class="badge-row" aria-label="Project badges">
+				{#each badges as badge}
+					<a href={badge.href}>
+						<img src={badge.src} alt={badge.alt} />
+					</a>
+				{/each}
+			</div>
+		</div>
+	</footer>
 </div>
 
 {#snippet table(rows: string[][])}
@@ -707,7 +777,8 @@ specter record -t http://api.example.com -o config.yml`;
 	}
 
 	.docs-hero,
-	main {
+	main,
+	.project-footer {
 		width: min(100%, 1180px);
 		margin: 0 auto;
 		padding-inline: clamp(1rem, 2vw, 2rem);
@@ -1052,6 +1123,54 @@ specter record -t http://api.example.com -o config.yml`;
 		padding: 1rem;
 	}
 
+	.project-footer {
+		display: grid;
+		grid-template-columns: minmax(0, 0.9fr) minmax(0, 1.1fr);
+		gap: 1.25rem;
+		padding-block: clamp(2rem, 6vw, 4rem);
+		border-top: 1px solid rgba(145, 184, 220, 0.1);
+	}
+
+	.project-footer h2 {
+		margin-bottom: 0.8rem;
+	}
+
+	.project-footer p {
+		max-width: 42rem;
+	}
+
+	.footer-links {
+		display: grid;
+		grid-template-columns: repeat(2, minmax(0, 1fr));
+		gap: 0.65rem;
+	}
+
+	.footer-links a {
+		padding: 0.78rem 0.85rem;
+		border: 1px solid rgba(145, 184, 220, 0.12);
+		border-radius: 8px;
+		background: rgba(255, 255, 255, 0.035);
+		color: #dff9ff;
+		font-weight: 700;
+	}
+
+	.badge-row {
+		display: flex;
+		flex-wrap: wrap;
+		gap: 0.55rem;
+		margin-top: 1rem;
+	}
+
+	.badge-row a {
+		display: inline-flex;
+		align-items: center;
+	}
+
+	.badge-row img {
+		height: 1.25rem;
+		max-width: 12rem;
+	}
+
 	.contribute-list strong {
 		display: block;
 		margin-bottom: 0.35rem;
@@ -1061,6 +1180,7 @@ specter record -t http://api.example.com -o config.yml`;
 		.topbar,
 		.hero-grid,
 		.split,
+		.project-footer,
 		.reference-grid,
 		.steps,
 		.recipe-grid {
@@ -1078,6 +1198,10 @@ specter record -t http://api.example.com -o config.yml`;
 
 		.reference-copy {
 			position: static;
+		}
+
+		.footer-links {
+			grid-template-columns: 1fr;
 		}
 	}
 

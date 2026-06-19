@@ -32,6 +32,51 @@
 				'specter は、フロントエンドがバックエンドより先行している時期、決まった失敗を再現したいデモ、実バックエンドなしで API 形状を使いたいテストのために作られています。',
 			operateBody2:
 				'まずは 1 つのルートから始め、必要に応じて状態遷移、OpenAPI 検証、フィルタ、ストア、組み込み UI を重ねて現実的なシナリオにできます。',
+			useCasesKicker: 'Use Cases',
+			useCasesTitle: 'バックエンド待ちの時間を、開発できる時間に変える',
+			useCases: [
+				{
+					title: 'フロントエンド開発',
+					body: 'API の実装前でも、画面、フォーム、error handling、empty state を作り込めます。'
+				},
+				{
+					title: 'E2E テスト',
+					body: '状態、失敗、rate limit、遅延を固定し、再現性のあるテスト環境を作れます。'
+				},
+				{
+					title: 'デモとプロトタイプ',
+					body: '実 backend の準備を待たず、決まったデータや失敗パターンで demo flow を確認できます。'
+				},
+				{
+					title: 'OpenAPI mock',
+					body: 'OpenAPI から config を生成し、request / response validation で API contract のずれを見つけられます。'
+				},
+				{
+					title: 'Retry / failure simulation',
+					body: 'sequential responses、on_call、error_rate、delay を使って retry や timeout を試せます。'
+				},
+				{
+					title: 'Local integration',
+					body: '一部だけ real API に proxy し、それ以外を mock する hybrid な開発環境を作れます。'
+				}
+			],
+			securityKicker: 'Security',
+			securityTitle: 'ローカル開発向けのツールです',
+			securityBody:
+				'specter は信頼できるネットワークで使う local development tool です。追加の firewall、reverse proxy、authentication なしに public internet へ公開しないでください。',
+			securityLink: 'Security Policy を読む',
+			projectKicker: 'Project',
+			projectTitle: 'プロジェクト情報',
+			projectBody:
+				'Security、License、Releases、Roadmap は GitHub で管理しています。変更提案や不具合報告も歓迎です。',
+			projectLinks: [
+				{ label: 'Documentation', href: `${base}/docs/` },
+				{ label: 'Security Policy', href: 'https://github.com/Saku0512/specter/security/policy' },
+				{ label: 'License', href: 'https://github.com/Saku0512/specter/blob/main/LICENSE' },
+				{ label: 'Releases / Changelog', href: 'https://github.com/Saku0512/specter/releases' },
+				{ label: 'Roadmap / Issues', href: 'https://github.com/Saku0512/specter/issues' },
+				{ label: 'GitHub', href: 'https://github.com/Saku0512/specter' }
+			],
 			panel: [
 				{
 					title: 'YAML を編集',
@@ -129,6 +174,51 @@ UI running on http://localhost:4444`
 				'specter is built for the awkward middle of product development: frontend ahead of backend, demos that need deterministic failures, and tests that want a backend shape without a backend team on standby.',
 			operateBody2:
 				'You can start tiny with one route, then layer in state transitions, OpenAPI validation, filters, stores, or the built-in UI as the scenario gets more realistic.',
+			useCasesKicker: 'Use Cases',
+			useCasesTitle: 'Turn backend waiting time into build time',
+			useCases: [
+				{
+					title: 'Frontend development',
+					body: 'Build screens, forms, error handling, and empty states before the real API is ready.'
+				},
+				{
+					title: 'E2E testing',
+					body: 'Pin state, failures, rate limits, and delays for repeatable test environments.'
+				},
+				{
+					title: 'Demos and prototypes',
+					body: 'Run a stable demo flow with deterministic data and failure cases before backend work lands.'
+				},
+				{
+					title: 'OpenAPI mocks',
+					body: 'Generate config from OpenAPI and catch contract drift with request and response validation.'
+				},
+				{
+					title: 'Retry / failure simulation',
+					body: 'Use sequential responses, on_call, error_rate, and delay to exercise retries and timeouts.'
+				},
+				{
+					title: 'Local integration',
+					body: 'Proxy part of your traffic to a real API while mocking the rest locally.'
+				}
+			],
+			securityKicker: 'Security',
+			securityTitle: 'Designed for local development',
+			securityBody:
+				'specter is a local development tool intended for trusted networks. Do not expose it to the public internet without additional protections such as a firewall, reverse proxy, or authentication.',
+			securityLink: 'Read Security Policy',
+			projectKicker: 'Project',
+			projectTitle: 'Project information',
+			projectBody:
+				'Security, license, releases, and roadmap live on GitHub. Issues and focused contributions are welcome.',
+			projectLinks: [
+				{ label: 'Documentation', href: `${base}/docs/` },
+				{ label: 'Security Policy', href: 'https://github.com/Saku0512/specter/security/policy' },
+				{ label: 'License', href: 'https://github.com/Saku0512/specter/blob/main/LICENSE' },
+				{ label: 'Releases / Changelog', href: 'https://github.com/Saku0512/specter/releases' },
+				{ label: 'Roadmap / Issues', href: 'https://github.com/Saku0512/specter/issues' },
+				{ label: 'GitHub', href: 'https://github.com/Saku0512/specter' }
+			],
 			panel: [
 				{
 					title: 'Edit YAML',
@@ -216,6 +306,28 @@ UI running on http://localhost:4444`
 
 	let copiedCommand = $state('');
 	let copyTimer: ReturnType<typeof setTimeout> | undefined;
+	const badges = [
+		{
+			alt: 'CI status',
+			src: 'https://github.com/Saku0512/specter/actions/workflows/test.yml/badge.svg',
+			href: 'https://github.com/Saku0512/specter/actions/workflows/test.yml'
+		},
+		{
+			alt: 'Go Report Card',
+			src: 'https://goreportcard.com/badge/github.com/Saku0512/specter',
+			href: 'https://goreportcard.com/report/github.com/Saku0512/specter'
+		},
+		{
+			alt: 'Latest release',
+			src: 'https://img.shields.io/github/v/release/Saku0512/specter',
+			href: 'https://github.com/Saku0512/specter/releases/latest'
+		},
+		{
+			alt: 'MIT License',
+			src: 'https://img.shields.io/badge/License-MIT-yellow.svg',
+			href: 'https://github.com/Saku0512/specter/blob/main/LICENSE'
+		}
+	];
 
 	async function copyInstallCommand(command: string, name: string) {
 		try {
@@ -423,6 +535,55 @@ UI running on http://localhost:4444`
 					</div>
 				{/each}
 			</div>
+		</div>
+	</section>
+
+	<section class="band" id="use-cases">
+		<div class="band-head">
+			<div>
+				<p class="kicker">{copy[$language].useCasesKicker}</p>
+				<h2>{copy[$language].useCasesTitle}</h2>
+			</div>
+		</div>
+
+		<div class="use-case-grid">
+			{#each copy[$language].useCases as useCase}
+				<article class="use-case">
+					<h3>{useCase.title}</h3>
+					<p>{useCase.body}</p>
+				</article>
+			{/each}
+		</div>
+	</section>
+
+	<section class="band project-band">
+		<div class="project-grid">
+			<article class="security-note">
+				<p class="kicker">{copy[$language].securityKicker}</p>
+				<h2>{copy[$language].securityTitle}</h2>
+				<p>{copy[$language].securityBody}</p>
+				<a class="button ghost" href="https://github.com/Saku0512/specter/security/policy"
+					>{copy[$language].securityLink}</a
+				>
+			</article>
+
+			<article class="project-links">
+				<p class="kicker">{copy[$language].projectKicker}</p>
+				<h2>{copy[$language].projectTitle}</h2>
+				<p>{copy[$language].projectBody}</p>
+				<div class="link-grid">
+					{#each copy[$language].projectLinks as link}
+						<a href={link.href}>{link.label}</a>
+					{/each}
+				</div>
+				<div class="badge-row" aria-label="Project badges">
+					{#each badges as badge}
+						<a href={badge.href}>
+							<img src={badge.src} alt={badge.alt} />
+						</a>
+					{/each}
+				</div>
+			</article>
 		</div>
 	</section>
 </div>
@@ -706,6 +867,9 @@ UI running on http://localhost:4444`
 	.config-card,
 	.install-card,
 	.step,
+	.use-case,
+	.security-note,
+	.project-links,
 	.explain-panel {
 		border: 1px solid rgba(145, 184, 220, 0.16);
 		border-radius: 12px;
@@ -976,6 +1140,83 @@ UI running on http://localhost:4444`
 		gap: 1rem;
 	}
 
+	.use-case-grid {
+		display: grid;
+		grid-template-columns: repeat(3, minmax(0, 1fr));
+		gap: 1rem;
+	}
+
+	.use-case,
+	.security-note,
+	.project-links {
+		padding: 1.15rem;
+	}
+
+	.use-case h3 {
+		font-size: 1.28rem;
+		margin-bottom: 0.45rem;
+	}
+
+	.use-case p,
+	.security-note p,
+	.project-links p {
+		color: #c6d5eb;
+		line-height: 1.7;
+	}
+
+	.project-band {
+		padding-bottom: 3rem;
+	}
+
+	.project-grid {
+		display: grid;
+		grid-template-columns: minmax(0, 0.95fr) minmax(0, 1.05fr);
+		gap: 1rem;
+	}
+
+	.security-note h2,
+	.project-links h2 {
+		font-size: clamp(1.7rem, 3vw, 2.45rem);
+		margin: 0.25rem 0 0.85rem;
+	}
+
+	.security-note .button {
+		margin-top: 0.55rem;
+	}
+
+	.link-grid {
+		display: grid;
+		grid-template-columns: repeat(2, minmax(0, 1fr));
+		gap: 0.65rem;
+		margin-top: 1rem;
+	}
+
+	.link-grid a {
+		padding: 0.78rem 0.85rem;
+		border: 1px solid rgba(145, 184, 220, 0.12);
+		border-radius: 10px;
+		background: rgba(255, 255, 255, 0.035);
+		color: #dff9ff;
+		font-weight: 700;
+	}
+
+	.badge-row {
+		display: flex;
+		flex-wrap: wrap;
+		gap: 0.55rem;
+		margin-top: 1rem;
+	}
+
+	.badge-row a {
+		display: inline-flex;
+		align-items: center;
+	}
+
+	.badge-row img {
+		height: 1.25rem;
+		max-width: 12rem;
+	}
+
 	.step-number {
 		font-size: 0.75rem;
 		text-transform: uppercase;
@@ -1035,6 +1276,8 @@ UI running on http://localhost:4444`
 		.hero-inner,
 		.explain,
 		.steps,
+		.use-case-grid,
+		.project-grid,
 		.install-grid {
 			grid-template-columns: 1fr;
 		}
@@ -1103,6 +1346,10 @@ UI running on http://localhost:4444`
 		.band-head {
 			align-items: start;
 			flex-direction: column;
+		}
+
+		.link-grid {
+			grid-template-columns: 1fr;
 		}
 	}
 

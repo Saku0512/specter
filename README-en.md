@@ -48,6 +48,7 @@ irm https://raw.githubusercontent.com/Saku0512/specter/main/install.ps1 | iex
 ```sh
 specter init          # generate config.yml
 specter init --template crud  # generate a CRUD starter
+specter doctor -c config.yml  # diagnose config, file references, and ports
 specter -c config.yml # start the server
 ```
 
@@ -64,7 +65,7 @@ routes:
 
 - [Config reference](doc/config.md) — routes, matching, templates, faker, state, rate limiting, ...
 - [JSON Schema](doc/schema.md) — schema for editor completion and validation
-- [CLI reference](doc/cli.md) — flags, env vars, `init` / `gen` / `validate` / `record`
+- [CLI reference](doc/cli.md) — flags, env vars, `init` / `gen` / `validate` / `doctor` / `record`
 - [Introspection API](doc/introspection.md) — `/__specter/requests`, `/__specter/state`
 
 See [config.example.yml](config.example.yml) for a full working example.

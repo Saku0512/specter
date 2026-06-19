@@ -104,6 +104,21 @@ Validate a config file and report errors.
 specter validate -c config.yml
 ```
 
+### `specter doctor`
+
+Diagnose config loading, semantic validation, include patterns, referenced files, OpenAPI specs, duplicate routes, and port availability before starting the server.
+
+```sh
+specter doctor -c config.yml -p 8080 --ui-port 4444
+```
+
+| Flag | Default | Description |
+|---|---|---|
+| `-c` | `config.yaml` | Path to config file |
+| `-p` | `8080` | Server port to check |
+| `--host` | `127.0.0.1` for diagnostics | Host to check |
+| `--ui-port` | `4444` | Web UI port to check (`0` disables the UI port check) |
+
 ### `specter scenario`
 
 List or apply scenario presets on a running specter server. Scenario presets are defined in `config.yml` under `scenarios`.

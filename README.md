@@ -48,6 +48,7 @@ irm https://raw.githubusercontent.com/Saku0512/specter/main/install.ps1 | iex
 ```sh
 specter init          # config.yml を生成
 specter init --template crud  # CRUD スターターを生成
+specter doctor -c config.yml  # 設定・参照ファイル・ポートを診断
 specter -c config.yml # サーバーを起動
 ```
 
@@ -66,7 +67,7 @@ routes:
 
 - [Config reference](doc/config.md) — routes、matching、templates、faker、state、rate limiting など
 - [JSON Schema](doc/schema.md) — エディタ補完・validation 用 schema
-- [CLI reference](doc/cli.md) — flags、env vars、`init` / `gen` / `validate` / `record`
+- [CLI reference](doc/cli.md) — flags、env vars、`init` / `gen` / `validate` / `doctor` / `record`
 - [Introspection API](doc/introspection.md) — `/__specter/requests`、`/__specter/state`
 
 動作する設定例は [config.example.yml](config.example.yml) を見てください。

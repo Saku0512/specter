@@ -639,6 +639,7 @@ const ui = {
   requests: [],
   routes: [],
   timelines: [],
+  latency: {},
   stores: [],
   autoRefresh: true,
   selectedRequest: null,
@@ -730,6 +731,7 @@ function showTab(name){
 
 function routeFeatures(rt){
   const notes = [];
+  if (rt.latency_profile) notes.push('latency: ' + rt.latency_profile);
   if (rt.delay || rt.delay_min || rt.delay_max) notes.push('delay');
   if (rt.rate_limit) notes.push('rate limit');
   if (rt.fault || rt.error_rate) notes.push('faults');
@@ -1029,10 +1031,11 @@ function renderVars(vars){
 function renderStateSummary(stateValue, vars){
   const el = document.getElementById('state-summary');
   const varEntries = Object.entries(vars || {});
+  const globalLatency = ui.latency && ui.latency.active ? ui.latency.active : '';
   el.innerHTML =
     '<div class="detail-card"><h3>State</h3><pre>' + esc(stateValue || '(none)') + '</pre></div>' +
     '<div class="detail-card"><h3>Vars JSON</h3><pre>' + esc(pretty(vars || {})) + '</pre></div>' +
-    '<div class="detail-card"><h3>Counts</h3><div class="kv"><span class="key">Vars</span><span>' + varEntries.length + '</span><span class="key">Requests</span><span>' + ui.requests.length + '</span><span class="key">Stores</span><span>' + ui.stores.length + '</span></div></div>';
+    '<div class="detail-card"><h3>Counts</h3><div class="kv"><span class="key">Vars</span><span>' + varEntries.length + '</span><span class="key">Requests</span><span>' + ui.requests.length + '</span><span class="key">Stores</span><span>' + ui.stores.length + '</span><span class="key">Latency</span><span>' + esc(globalLatency || '(default)') + '</span></div></div>';
 }
 
 function renderTimelines(){
@@ -1116,10 +1119,12 @@ function loadCurrentConfigSample(){
 async function loadState(){
   const pair = await Promise.all([
     fetchJSON('/__specter/state'),
-    fetchJSON('/__specter/vars')
+    fetchJSON('/__specter/vars'),
+    fetchJSON('/__specter/latency')
   ]);
   const stateValue = pair[0] && pair[0].state ? pair[0].state : '';
   const vars = pair[1] || {};
+  ui.latency = pair[2] || {};
   document.getElementById('state-val').textContent = stateValue || '(none)';
   document.getElementById('state-dot').className = 'status-dot' + (stateValue ? '' : ' off');
   if (document.activeElement !== document.getElementById('state-input')) {

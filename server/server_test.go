@@ -1125,6 +1125,30 @@ func TestConfigValidation_reportsTopLevelSeededStores(t *testing.T) {
 	}
 }
 
+func TestConfigValidation_reportsLatencyProfiles(t *testing.T) {
+	srv := newSrv(&config.Config{})
+	w := do(srv, "POST", "/__specter/config/validate", `{"yaml":"latency_profile: mobile-4g\nlatency_profiles:\n  lab:\n    delay: 25\nroutes:\n  - path: /global\n    method: GET\n  - path: /custom\n    method: GET\n    latency_profile: lab\n"}`)
+	if w.Code != http.StatusOK {
+		t.Fatalf("expected 200, got %d: %s", w.Code, w.Body.String())
+	}
+	var payload struct {
+		Valid  bool `json:"valid"`
+		Routes []struct {
+			Path    string `json:"path"`
+			Latency string `json:"latency"`
+		} `json:"routes"`
+	}
+	if err := json.NewDecoder(w.Body).Decode(&payload); err != nil {
+		t.Fatal(err)
+	}
+	if !payload.Valid {
+		t.Fatal("expected config to be valid")
+	}
+	if len(payload.Routes) != 2 || payload.Routes[0].Latency != "mobile-4g" || payload.Routes[1].Latency != "lab" {
+		t.Fatalf("unexpected latency preview: %+v", payload.Routes)
+	}
+}
+
 func TestConfigValidation_rejectsIncludeWithoutReadingFiles(t *testing.T) {
 	srv := newSrv(&config.Config{})
 	w := do(srv, "POST", "/__specter/config/validate", `{"yaml":"include:\n  - /etc/*.yaml\nroutes:\n  - path: /hello\n    method: GET\n"}`)
@@ -2061,6 +2085,122 @@ func TestDelayRange_valid(t *testing.T) {
 	w := do(srv, "GET", "/slow", "")
 	if w.Code != 200 {
 		t.Errorf("expected 200, got %d", w.Code)
+	}
+}
+
+func TestLatencyProfile_globalAppliesDelay(t *testing.T) {
+	srv := newSrv(&config.Config{
+		LatencyProfile: "lab",
+		LatencyProfiles: map[string]config.LatencyProfile{
+			"lab": {Delay: 20},
+		},
+		Routes: []config.Route{
+			{Path: "/profiled", Method: "GET", Response: map[string]any{"ok": true}},
+		},
+	})
+
+	start := time.Now()
+	w := do(srv, "GET", "/profiled", "")
+	elapsed := time.Since(start)
+	if w.Code != http.StatusOK {
+		t.Fatalf("expected 200, got %d", w.Code)
+	}
+	if elapsed < 15*time.Millisecond {
+		t.Fatalf("expected latency profile delay, got %v", elapsed)
+	}
+}
+
+func TestLatencyProfile_routeOverrideAndExplicitDelayPrecedence(t *testing.T) {
+	srv := newSrv(&config.Config{
+		LatencyProfile: "global",
+		LatencyProfiles: map[string]config.LatencyProfile{
+			"global": {Delay: 40},
+			"route":  {Delay: 20},
+		},
+		Routes: []config.Route{
+			{Path: "/route", Method: "GET", LatencyProfile: "route", Response: map[string]any{"ok": true}},
+			{Path: "/explicit", Method: "GET", LatencyProfile: "route", Delay: 1, Response: map[string]any{"ok": true}},
+		},
+	})
+
+	start := time.Now()
+	w := do(srv, "GET", "/route", "")
+	routeElapsed := time.Since(start)
+	if w.Code != http.StatusOK {
+		t.Fatalf("expected route profile 200, got %d", w.Code)
+	}
+	if routeElapsed < 15*time.Millisecond || routeElapsed > 80*time.Millisecond {
+		t.Fatalf("expected route profile delay around 20ms, got %v", routeElapsed)
+	}
+
+	start = time.Now()
+	w = do(srv, "GET", "/explicit", "")
+	explicitElapsed := time.Since(start)
+	if w.Code != http.StatusOK {
+		t.Fatalf("expected explicit delay 200, got %d", w.Code)
+	}
+	if explicitElapsed > 15*time.Millisecond {
+		t.Fatalf("expected explicit delay to override profile, got %v", explicitElapsed)
+	}
+}
+
+func TestLatencyProfile_jitterDelayStaysInRange(t *testing.T) {
+	cfg := &config.Config{
+		LatencyProfile: "jitter",
+		LatencyProfiles: map[string]config.LatencyProfile{
+			"jitter": {DelayMin: 10, DelayMax: 12},
+		},
+	}
+	for i := 0; i < 25; i++ {
+		got := routeLatencyDelay(cfg, config.Route{Path: "/profiled", Method: "GET"})
+		if got < 10 || got > 12 {
+			t.Fatalf("expected jitter delay in range 10..12, got %d", got)
+		}
+	}
+}
+
+func TestLatencyIntrospectionAndRoutesExposeActiveProfiles(t *testing.T) {
+	srv := newSrv(&config.Config{
+		LatencyProfile: "mobile-4g",
+		LatencyProfiles: map[string]config.LatencyProfile{
+			"lab": {Delay: 25},
+		},
+		Routes: []config.Route{
+			{Path: "/global", Method: "GET"},
+			{Path: "/custom", Method: "GET", LatencyProfile: "lab"},
+		},
+	})
+
+	w := do(srv, "GET", "/__specter/latency", "")
+	if w.Code != http.StatusOK {
+		t.Fatalf("expected 200, got %d: %s", w.Code, w.Body.String())
+	}
+	var latency struct {
+		Active   string                           `json:"active"`
+		Profiles map[string]config.LatencyProfile `json:"profiles"`
+	}
+	if err := json.NewDecoder(w.Body).Decode(&latency); err != nil {
+		t.Fatal(err)
+	}
+	if latency.Active != "mobile-4g" {
+		t.Fatalf("expected active mobile-4g, got %+v", latency)
+	}
+	if latency.Profiles["fast"].DelayMax == 0 || latency.Profiles["lab"].Delay != 25 {
+		t.Fatalf("expected built-in and custom profiles, got %+v", latency.Profiles)
+	}
+
+	w = do(srv, "GET", "/__specter/routes", "")
+	var routes []struct {
+		Route config.Route `json:"route"`
+	}
+	if err := json.NewDecoder(w.Body).Decode(&routes); err != nil {
+		t.Fatal(err)
+	}
+	if len(routes) != 2 {
+		t.Fatalf("expected 2 routes, got %+v", routes)
+	}
+	if routes[0].Route.LatencyProfile != "mobile-4g" || routes[1].Route.LatencyProfile != "lab" {
+		t.Fatalf("expected effective route latency profiles, got %+v", routes)
 	}
 }
 

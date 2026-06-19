@@ -187,6 +187,27 @@ curl -X POST http://localhost:8080/__specter/scenarios/login-success
 
 The active scenario name persists across hot reloads but resets when the server restarts or when `POST /__specter/reset` includes the `scenario` target.
 
+## Latency
+
+Inspect the active global latency profile and available built-in/custom profiles.
+
+```sh
+GET /__specter/latency
+```
+
+Example response:
+
+```json
+{
+  "active": "mobile-4g",
+  "profiles": {
+    "fast": { "delay_min": 20, "delay_max": 80 },
+    "mobile-4g": { "delay_min": 150, "delay_max": 450 },
+    "slow-api": { "delay_min": 800, "delay_max": 1600 }
+  }
+}
+```
+
 ## Stores
 
 Read or seed the in-memory CRUD store. See [config.md](config.md#in-memory-crud-store) for route-level `store_*` fields.

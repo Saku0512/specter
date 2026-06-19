@@ -57,6 +57,38 @@ func timelineDefinitions(cfg *config.Config, dynamic *DynamicRouteStore) []Timel
 	return out
 }
 
+func routeLatencyProfileName(cfg *config.Config, rt config.Route) string {
+	if rt.LatencyProfile != "" {
+		return rt.LatencyProfile
+	}
+	return cfg.LatencyProfile
+}
+
+func routeLatencyDelay(cfg *config.Config, rt config.Route) int {
+	if rt.DelayMin > 0 || rt.DelayMax > 0 {
+		d := rt.DelayMin
+		if rt.DelayMax > rt.DelayMin {
+			d = rt.DelayMin + rand.IntN(rt.DelayMax-rt.DelayMin+1)
+		}
+		return d
+	}
+	if rt.Delay > 0 {
+		return rt.Delay
+	}
+	profile, ok := config.ResolveLatencyProfile(cfg, routeLatencyProfileName(cfg, rt))
+	if !ok {
+		return 0
+	}
+	if profile.DelayMin > 0 || profile.DelayMax > 0 {
+		d := profile.DelayMin
+		if profile.DelayMax > profile.DelayMin {
+			d = profile.DelayMin + rand.IntN(profile.DelayMax-profile.DelayMin+1)
+		}
+		return d
+	}
+	return profile.Delay
+}
+
 func newEngine(cfg *config.Config, verbose bool, random bool, history *RequestHistory, state *StateStore, vars *VarStore, scenario *ScenarioStore, dynamic *DynamicRouteStore, store *DataStore, timeline *TimelineStore, rebuild func()) *gin.Engine {
 	r := gin.New()
 	r.Use(redactedGinLogger(), gin.Recovery())
@@ -148,20 +180,22 @@ func newEngine(cfg *config.Config, verbose bool, random bool, history *RequestHi
 			errs = append(errs, "include is not supported in the config playground")
 		}
 		type routeSummary struct {
-			Method string `json:"method"`
-			Path   string `json:"path"`
-			Status int    `json:"status,omitempty"`
-			State  string `json:"state,omitempty"`
-			Source string `json:"source"`
+			Method  string `json:"method"`
+			Path    string `json:"path"`
+			Status  int    `json:"status,omitempty"`
+			State   string `json:"state,omitempty"`
+			Source  string `json:"source"`
+			Latency string `json:"latency,omitempty"`
 		}
 		routes := make([]routeSummary, 0, len(preview.Routes))
 		for _, route := range preview.Routes {
 			routes = append(routes, routeSummary{
-				Method: route.Method,
-				Path:   route.Path,
-				Status: route.Status,
-				State:  route.State,
-				Source: "config",
+				Method:  route.Method,
+				Path:    route.Path,
+				Status:  route.Status,
+				State:   route.State,
+				Source:  "config",
+				Latency: routeLatencyProfileName(preview, route),
 			})
 		}
 		scenarioNames := make([]string, 0, len(preview.Scenarios))
@@ -256,6 +290,14 @@ func newEngine(cfg *config.Config, verbose bool, random bool, history *RequestHi
 	r.GET("/__specter/scenario", func(c *gin.Context) {
 		c.JSON(http.StatusOK, gin.H{"active": scenario.Get()})
 	})
+	r.GET("/__specter/latency", func(c *gin.Context) {
+		active := cfg.LatencyProfile
+		profiles := config.BuiltinLatencyProfiles()
+		for name, profile := range cfg.LatencyProfiles {
+			profiles[name] = profile
+		}
+		c.JSON(http.StatusOK, gin.H{"active": active, "profiles": profiles})
+	})
 	r.POST("/__specter/scenarios/:name", func(c *gin.Context) {
 		name := c.Param("name")
 		preset, ok := cfg.Scenarios[name]
@@ -341,10 +383,17 @@ func newEngine(cfg *config.Config, verbose bool, random bool, history *RequestHi
 		}
 		var out []routeInfo
 		for _, r := range cfg.Routes {
+			if r.LatencyProfile == "" {
+				r.LatencyProfile = cfg.LatencyProfile
+			}
 			out = append(out, routeInfo{Source: "config", Route: r})
 		}
 		for _, dr := range all {
-			out = append(out, routeInfo{ID: dr.ID, Source: "dynamic", Route: dr.Route})
+			route := dr.Route
+			if route.LatencyProfile == "" {
+				route.LatencyProfile = cfg.LatencyProfile
+			}
+			out = append(out, routeInfo{ID: dr.ID, Source: "dynamic", Route: route})
 		}
 		c.JSON(http.StatusOK, out)
 	})
@@ -559,20 +608,14 @@ func newEngine(cfg *config.Config, verbose bool, random bool, history *RequestHi
 					fault = faultHTTPError
 					shouldFault = true
 				}
+				routeDelay := routeLatencyDelay(cfg, rt)
 				if shouldFault && fault == faultTimeout {
-					writeFault(c, fault, rt.ErrorStatus, rt.Delay)
+					writeFault(c, fault, rt.ErrorStatus, routeDelay)
 					return
 				}
 
-				// Delay: random range takes precedence over fixed delay
-				if rt.DelayMin > 0 || rt.DelayMax > 0 {
-					d := rt.DelayMin
-					if rt.DelayMax > rt.DelayMin {
-						d = rt.DelayMin + rand.IntN(rt.DelayMax-rt.DelayMin+1)
-					}
-					time.Sleep(time.Duration(d) * time.Millisecond)
-				} else if rt.Delay > 0 {
-					time.Sleep(time.Duration(rt.Delay) * time.Millisecond)
+				if routeDelay > 0 {
+					time.Sleep(time.Duration(routeDelay) * time.Millisecond)
 				}
 				// Fault injection
 				if shouldFault {
@@ -580,7 +623,7 @@ func newEngine(cfg *config.Config, verbose bool, random bool, history *RequestHi
 					if status == 0 && fault != faultHTTPError {
 						status = rt.Status
 					}
-					writeFault(c, fault, status, rt.Delay)
+					writeFault(c, fault, status, routeDelay)
 					return
 				}
 				for hk, hv := range rt.Headers {

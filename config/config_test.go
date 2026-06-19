@@ -310,3 +310,38 @@ routes: []
 		t.Fatalf("unexpected first seeded user: %v", users[0])
 	}
 }
+
+func TestLoad_latencyProfiles(t *testing.T) {
+	path := writeTemp(t, "config.yaml", `
+latency_profile: mobile-4g
+latency_profiles:
+  lab:
+    delay: 25
+  jitter:
+    delay_min: 10
+    delay_max: 20
+routes:
+  - path: /fast
+    method: GET
+    latency_profile: fast
+  - path: /custom
+    method: GET
+    latency_profile: lab
+`)
+	cfg, err := Load(path)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if cfg.LatencyProfile != "mobile-4g" {
+		t.Fatalf("expected global latency profile mobile-4g, got %q", cfg.LatencyProfile)
+	}
+	if cfg.LatencyProfiles["lab"].Delay != 25 {
+		t.Fatalf("expected custom fixed delay 25, got %+v", cfg.LatencyProfiles["lab"])
+	}
+	if cfg.LatencyProfiles["jitter"].DelayMin != 10 || cfg.LatencyProfiles["jitter"].DelayMax != 20 {
+		t.Fatalf("expected custom jitter profile, got %+v", cfg.LatencyProfiles["jitter"])
+	}
+	if cfg.Routes[0].LatencyProfile != "fast" || cfg.Routes[1].LatencyProfile != "lab" {
+		t.Fatalf("unexpected route latency profiles: %+v", cfg.Routes)
+	}
+}

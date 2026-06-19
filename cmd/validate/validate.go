@@ -58,6 +58,14 @@ func CheckNoFilesystem(cfg *config.Config) []string {
 			errs = append(errs, fmt.Sprintf("invalid proxy URL %q: %v", cfg.Proxy, err))
 		}
 	}
+	for name, profile := range cfg.LatencyProfiles {
+		errs = append(errs, config.ValidateLatencyProfile(name, profile)...)
+	}
+	if cfg.LatencyProfile != "" {
+		if _, ok := config.ResolveLatencyProfile(cfg, cfg.LatencyProfile); !ok {
+			errs = append(errs, fmt.Sprintf("unknown latency profile %q", cfg.LatencyProfile))
+		}
+	}
 
 	for i, r := range cfg.Routes {
 		prefix := fmt.Sprintf("route %d", i+1)
@@ -111,6 +119,11 @@ func CheckNoFilesystem(cfg *config.Config) []string {
 		}
 		if r.DelayMax > 0 && r.DelayMin > r.DelayMax {
 			errs = append(errs, prefix+": delay_min must be <= delay_max")
+		}
+		if r.LatencyProfile != "" {
+			if _, ok := config.ResolveLatencyProfile(cfg, r.LatencyProfile); !ok {
+				errs = append(errs, prefix+fmt.Sprintf(": unknown latency profile %q", r.LatencyProfile))
+			}
 		}
 		if r.Proxy != "" {
 			if _, err := url.ParseRequestURI(r.Proxy); err != nil {

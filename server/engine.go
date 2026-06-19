@@ -26,7 +26,8 @@ type routeEntry struct {
 }
 
 func newEngine(cfg *config.Config, verbose bool, random bool, history *RequestHistory, state *StateStore, vars *VarStore, dynamic *DynamicRouteStore, store *DataStore, rebuild func()) *gin.Engine {
-	r := gin.Default()
+	r := gin.New()
+	r.Use(redactedGinLogger(), gin.Recovery())
 
 	if cfg.CORS {
 		r.Use(corsMiddleware())
@@ -540,12 +541,12 @@ func newEngine(cfg *config.Config, verbose bool, random bool, history *RequestHi
 	if cfg.Proxy != "" {
 		target, err := url.Parse(cfg.Proxy)
 		if err != nil {
-			log.Printf("invalid proxy URL %q: %v", cfg.Proxy, err)
+			log.Printf("invalid proxy URL %q: %v", safeURLForLog(cfg.Proxy), err)
 		} else {
 			proxy := httputil.NewSingleHostReverseProxy(target)
 			r.NoRoute(func(c *gin.Context) {
 				c.Request.Host = target.Host
-				log.Printf("proxy → %s %s", c.Request.Method, c.Request.URL.RequestURI())
+				log.Printf("proxy → %s %s", c.Request.Method, redactURL(c.Request.URL.RequestURI()))
 				proxy.ServeHTTP(c.Writer, c.Request)
 			})
 		}

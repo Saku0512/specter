@@ -2,6 +2,7 @@ package server
 
 import (
 	"bytes"
+	"fmt"
 	"io"
 	"log"
 	"net/http"
@@ -52,22 +53,41 @@ func historyMiddleware(h *RequestHistory) gin.HandlerFunc {
 
 func verboseLogger() gin.HandlerFunc {
 	return func(c *gin.Context) {
-		log.Printf("→ %s %s", c.Request.Method, c.Request.URL.RequestURI())
+		log.Printf("→ %s %s", c.Request.Method, redactURL(c.Request.URL.RequestURI()))
 
 		for k, v := range c.Request.Header {
-			log.Printf("  %s: %s", k, strings.Join(v, ", "))
+			log.Printf("  %s: %s", k, redactHeaderValue(k, strings.Join(v, ", ")))
 		}
 
 		if c.Request.Body != nil && c.Request.ContentLength != 0 {
 			body, err := io.ReadAll(c.Request.Body)
 			if err == nil && len(body) > 0 {
 				c.Request.Body = io.NopCloser(bytes.NewBuffer(body))
-				log.Printf("  Body: %s", body)
+				log.Printf("  Body: %s", redactBodyForLog(body))
 			}
 		}
 
 		c.Next()
 	}
+}
+
+func redactedGinLogger() gin.HandlerFunc {
+	return gin.LoggerWithFormatter(func(param gin.LogFormatterParams) string {
+		path := redactURL(param.Path)
+		msg := fmt.Sprintf(
+			"[GIN] %s | %3d | %13v | %15s | %-7s %q",
+			param.TimeStamp.Format("2006/01/02 - 15:04:05"),
+			param.StatusCode,
+			param.Latency,
+			param.ClientIP,
+			param.Method,
+			path,
+		)
+		if param.ErrorMessage != "" {
+			msg += " | " + param.ErrorMessage
+		}
+		return msg + "\n"
+	})
 }
 
 func corsMiddleware() gin.HandlerFunc {

@@ -233,3 +233,37 @@ routes:
 		t.Errorf("expected match fault malformed-json, got %q", r.Match[0].Fault)
 	}
 }
+
+func TestLoad_scenarios(t *testing.T) {
+	path := writeTemp(t, "config.yaml", `
+scenarios:
+  login-success:
+    state: logged_in
+    vars:
+      role: admin
+      tier: gold
+    stores:
+      users:
+        - id: "1"
+          name: Alice
+routes: []
+`)
+	cfg, err := Load(path)
+	if err != nil {
+		t.Fatal(err)
+	}
+	scenario, ok := cfg.Scenarios["login-success"]
+	if !ok {
+		t.Fatalf("expected login-success scenario, got %v", cfg.Scenarios)
+	}
+	if scenario.State != "logged_in" {
+		t.Errorf("expected state logged_in, got %q", scenario.State)
+	}
+	if scenario.Vars["role"] != "admin" || scenario.Vars["tier"] != "gold" {
+		t.Errorf("unexpected vars: %v", scenario.Vars)
+	}
+	users := scenario.Stores["users"]
+	if len(users) != 1 || users[0]["id"] != "1" || users[0]["name"] != "Alice" {
+		t.Errorf("unexpected users store: %v", users)
+	}
+}

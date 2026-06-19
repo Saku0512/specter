@@ -118,14 +118,21 @@ type Route struct {
 	Times          int               `yaml:"times,omitempty"`           // max times this route matches (0 = unlimited)
 }
 
+type Scenario struct {
+	State  string                      `yaml:"state,omitempty"`  // server state to set when scenario is applied
+	Vars   map[string]string           `yaml:"vars,omitempty"`   // vars to replace when scenario is applied
+	Stores map[string][]map[string]any `yaml:"stores,omitempty"` // store collections to replace when scenario is applied
+}
+
 type Config struct {
-	CORS                  bool     `yaml:"cors,omitempty"`
-	Proxy                 string   `yaml:"proxy,omitempty"`
-	OpenAPI               string   `yaml:"openapi,omitempty"`                 // path to OpenAPI spec for request validation
-	OpenAPIStrict         bool     `yaml:"openapi_strict,omitempty"`          // return 400 on validation failures instead of warning
-	OpenAPIStrictResponse bool     `yaml:"openapi_strict_response,omitempty"` // return 500 when mock response violates schema
-	Include               []string `yaml:"include,omitempty"`                 // glob patterns of additional config files to merge
-	Routes                []Route  `yaml:"routes"`
+	CORS                  bool                `yaml:"cors,omitempty"`
+	Proxy                 string              `yaml:"proxy,omitempty"`
+	OpenAPI               string              `yaml:"openapi,omitempty"`                 // path to OpenAPI spec for request validation
+	OpenAPIStrict         bool                `yaml:"openapi_strict,omitempty"`          // return 400 on validation failures instead of warning
+	OpenAPIStrictResponse bool                `yaml:"openapi_strict_response,omitempty"` // return 500 when mock response violates schema
+	Include               []string            `yaml:"include,omitempty"`                 // glob patterns of additional config files to merge
+	Routes                []Route             `yaml:"routes"`
+	Scenarios             map[string]Scenario `yaml:"scenarios,omitempty"`
 }
 
 func Load(path string) (*Config, error) {

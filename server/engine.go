@@ -25,7 +25,7 @@ type routeEntry struct {
 	limiter   *rateLimiter
 }
 
-func newEngine(cfg *config.Config, verbose bool, random bool, history *RequestHistory, state *StateStore, vars *VarStore, dynamic *DynamicRouteStore, store *DataStore, rebuild func()) *gin.Engine {
+func newEngine(cfg *config.Config, verbose bool, random bool, history *RequestHistory, state *StateStore, vars *VarStore, scenario *ScenarioStore, dynamic *DynamicRouteStore, store *DataStore, rebuild func()) *gin.Engine {
 	r := gin.New()
 	r.Use(redactedGinLogger(), gin.Recovery())
 
@@ -146,10 +146,33 @@ func newEngine(cfg *config.Config, verbose bool, random bool, history *RequestHi
 		c.Status(http.StatusNoContent)
 	})
 
-	// Reset endpoint: clears state, vars, and request history in one call
+	// Scenario preset endpoints
+	r.GET("/__specter/scenarios", func(c *gin.Context) {
+		names := make([]string, 0, len(cfg.Scenarios))
+		for name := range cfg.Scenarios {
+			names = append(names, name)
+		}
+		sort.Strings(names)
+		c.JSON(http.StatusOK, gin.H{"active": scenario.Get(), "scenarios": names})
+	})
+	r.GET("/__specter/scenario", func(c *gin.Context) {
+		c.JSON(http.StatusOK, gin.H{"active": scenario.Get()})
+	})
+	r.POST("/__specter/scenarios/:name", func(c *gin.Context) {
+		name := c.Param("name")
+		preset, ok := cfg.Scenarios[name]
+		if !ok {
+			c.JSON(http.StatusNotFound, gin.H{"error": "scenario not found"})
+			return
+		}
+		applyScenarioPreset(name, preset, state, vars, scenario, store)
+		c.JSON(http.StatusOK, gin.H{"ok": true, "active": name})
+	})
+
+	// Reset endpoint clears runtime state in one call.
 	r.POST("/__specter/reset", func(c *gin.Context) {
 		var body struct {
-			Targets []string `json:"targets"` // optional: ["state","vars","history"] — defaults to all
+			Targets []string `json:"targets"` // optional: ["state","vars","history","stores","scenario"] — defaults to all
 		}
 		_ = c.ShouldBindJSON(&body)
 		all := len(body.Targets) == 0
@@ -175,6 +198,9 @@ func newEngine(cfg *config.Config, verbose bool, random bool, history *RequestHi
 		}
 		if reset("stores") {
 			store.ClearAll()
+		}
+		if reset("scenario") {
+			scenario.Clear()
 		}
 		c.JSON(http.StatusOK, gin.H{"ok": true})
 	})

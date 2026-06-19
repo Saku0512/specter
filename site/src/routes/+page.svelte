@@ -1,5 +1,5 @@
 <script lang="ts">
-	import { base } from '$app/paths';
+	import { resolve } from '$app/paths';
 	import LanguageToggle from '$lib/LanguageToggle.svelte';
 	import { language } from '$lib/language';
 	import mark from '$lib/assets/logo-icon.png';
@@ -13,8 +13,7 @@
 			navRepo: 'GitHub',
 			eyebrow: '軽量モック API サーバー',
 			pronounced: 'pronounced',
-			lede:
-				'手間の少ないモック API。YAML でルートを定義し、単一バイナリを起動するだけで、実バックエンドの完成を待たずにフロントエンド、テスト、デモを進められます。',
+			lede: '手間の少ないモック API。YAML でルートを定義し、単一バイナリを起動するだけで、実バックエンドの完成を待たずにフロントエンド、テスト、デモを進められます。',
 			downloadLatest: '最新版をダウンロード',
 			readDocs: 'ドキュメントを読む',
 			viewRepository: 'リポジトリを見る',
@@ -70,7 +69,7 @@
 			projectBody:
 				'Security、License、Releases、Roadmap は GitHub で管理しています。変更提案や不具合報告も歓迎です。',
 			projectLinks: [
-				{ label: 'Documentation', href: `${base}/docs/` },
+				{ label: 'Documentation', href: '/docs/' },
 				{ label: 'Security Policy', href: 'https://github.com/Saku0512/specter/security/policy' },
 				{ label: 'License', href: 'https://github.com/Saku0512/specter/blob/main/LICENSE' },
 				{ label: 'Releases / Changelog', href: 'https://github.com/Saku0512/specter/releases' },
@@ -95,7 +94,49 @@
 				'YAML で定義するルートと hot reload',
 				'状態管理、vars、stores、rate limit、delay、fault',
 				'OpenAPI 生成とバリデーション',
-				'モックを確認・操作できる組み込み Web UI'
+				'VS Code 補完と組み込み Web UI'
+			],
+			featureSetKicker: 'Feature Set',
+			featureSetTitle: 'CLI、VS Code、Docs までひとつながりで使える',
+			featureSetBody:
+				'config-driven な開発を、作成・検証・診断・編集補完・共有まで支える機能を GitHub Pages から確認できます。',
+			featureGroups: [
+				{
+					title: 'VS Code extension',
+					body: 'Specter config を開いた瞬間から YAML 補完と inline validation が効きます。',
+					items: [
+						'specter.yaml / specter.yml / config.yaml / config.yml に schema を関連付け',
+						'routes、match、stores、scenarios、OpenAPI、latency、fault profiles を補完',
+						'field name、enum、status code、numeric range のミスを editor 上で検出'
+					]
+				},
+				{
+					title: 'CLI workflow',
+					body: '空のプロジェクトから診断、生成、記録、scenario 操作まで CLI だけで回せます。',
+					items: [
+						'specter init / examples / validate / doctor',
+						'OpenAPI から config 生成、request history から export',
+						'running server に対して scenario preset を list / apply / reset'
+					]
+				},
+				{
+					title: 'Mock behavior',
+					body: '単純な固定レスポンスから stateful な E2E scenario まで広げられます。',
+					items: [
+						'state、vars、stores、seed data、persistent store',
+						'timeline、sequential/random responses、latency profiles、fault profiles',
+						'GraphQL matching、webhooks、SSE、redirects、cookies、proxy'
+					]
+				},
+				{
+					title: 'Docs on GitHub Pages',
+					body: '増えてきた config surface を探しやすく、試しやすい形で整理しています。',
+					items: [
+						'docs search と copyable snippets',
+						'examples gallery と comparison guide',
+						'config reference、CLI reference、introspection API'
+					]
+				}
 			],
 			installMethods: [
 				{
@@ -155,8 +196,7 @@ UI running on http://localhost:4444`
 			navRepo: 'GitHub',
 			eyebrow: 'lightweight mock API server',
 			pronounced: 'pronounced',
-			lede:
-				'Mock APIs without the ceremony. Define routes in YAML, run a single binary, and keep your frontend, tests, and demos moving while the real backend catches up.',
+			lede: 'Mock APIs without the ceremony. Define routes in YAML, run a single binary, and keep your frontend, tests, and demos moving while the real backend catches up.',
 			downloadLatest: 'Download Latest',
 			readDocs: 'Read Docs',
 			viewRepository: 'View Repository',
@@ -212,7 +252,7 @@ UI running on http://localhost:4444`
 			projectBody:
 				'Security, license, releases, and roadmap live on GitHub. Issues and focused contributions are welcome.',
 			projectLinks: [
-				{ label: 'Documentation', href: `${base}/docs/` },
+				{ label: 'Documentation', href: '/docs/' },
 				{ label: 'Security Policy', href: 'https://github.com/Saku0512/specter/security/policy' },
 				{ label: 'License', href: 'https://github.com/Saku0512/specter/blob/main/LICENSE' },
 				{ label: 'Releases / Changelog', href: 'https://github.com/Saku0512/specter/releases' },
@@ -237,7 +277,49 @@ UI running on http://localhost:4444`
 				'YAML-defined routes with hot reload',
 				'Stateful mocks, vars, stores, rate limits, delays, and faults',
 				'OpenAPI generation and validation',
-				'Built-in web UI for inspecting and controlling mocks'
+				'VS Code completion and a built-in web UI'
+			],
+			featureSetKicker: 'Feature Set',
+			featureSetTitle: 'CLI, VS Code, and docs working as one workflow',
+			featureSetBody:
+				'GitHub Pages now gives the whole config-driven workflow a clear home: authoring, validation, diagnostics, editor help, and sharing.',
+			featureGroups: [
+				{
+					title: 'VS Code extension',
+					body: 'Open a Specter config and get YAML completion plus inline validation immediately.',
+					items: [
+						'Associates schemas with specter.yaml, specter.yml, config.yaml, and config.yml',
+						'Completes routes, matchers, stores, scenarios, OpenAPI, latency, and fault profiles',
+						'Flags field names, enums, status codes, and numeric ranges inside the editor'
+					]
+				},
+				{
+					title: 'CLI workflow',
+					body: 'Go from empty folder to diagnosis, generation, recording, and scenario control from the CLI.',
+					items: [
+						'specter init, examples, validate, and doctor',
+						'Generate config from OpenAPI and export from request history',
+						'List, apply, and reset scenario presets against a running server'
+					]
+				},
+				{
+					title: 'Mock behavior',
+					body: 'Scale from simple fixed responses to stateful E2E scenarios when the flow needs it.',
+					items: [
+						'State, vars, stores, seed data, and persistent stores',
+						'Timelines, sequential/random responses, latency profiles, and fault profiles',
+						'GraphQL matching, webhooks, SSE, redirects, cookies, and proxying'
+					]
+				},
+				{
+					title: 'Docs on GitHub Pages',
+					body: 'The growing config surface is organized so it stays searchable and easy to try.',
+					items: [
+						'Docs search and copyable snippets',
+						'Examples gallery and comparison guide',
+						'Config reference, CLI reference, and introspection API'
+					]
+				}
 			],
 			installMethods: [
 				{
@@ -358,21 +440,18 @@ UI running on http://localhost:4444`
 
 <svelte:head>
 	<title>{copy[$language].title}</title>
-	<meta
-		name="description"
-		content={copy[$language].description}
-	/>
+	<meta name="description" content={copy[$language].description} />
 </svelte:head>
 
 <div class="page">
 	<section class="hero">
 		<header class="site-header">
-			<a class="brand" href={base ? `${base}/` : '/'}>
+			<a class="brand" href={resolve('/')}>
 				<img src={mark} alt="" />
 				<span>specter</span>
 			</a>
 			<div class="header-actions">
-				<a href={`${base}/docs/`}>{copy[$language].navDocs}</a>
+				<a href={resolve('/docs/')}>{copy[$language].navDocs}</a>
 				<a href="https://github.com/Saku0512/specter">{copy[$language].navRepo}</a>
 				<LanguageToggle />
 			</div>
@@ -398,14 +477,14 @@ UI running on http://localhost:4444`
 					<a class="button primary" href="https://github.com/Saku0512/specter/releases/latest"
 						>{copy[$language].downloadLatest}</a
 					>
-					<a class="button ghost" href={`${base}/docs/`}>{copy[$language].readDocs}</a>
+					<a class="button ghost" href={resolve('/docs/')}>{copy[$language].readDocs}</a>
 					<a class="button ghost" href="https://github.com/Saku0512/specter"
 						>{copy[$language].viewRepository}</a
 					>
 				</div>
 
 				<ul class="signal-list">
-					{#each copy[$language].features as feature}
+					{#each copy[$language].features as feature (feature)}
 						<li>{feature}</li>
 					{/each}
 				</ul>
@@ -424,9 +503,12 @@ UI running on http://localhost:4444`
 								class="mini-copy"
 								class:copied={copiedCommand === 'terminal-example'}
 								aria-label={`${copy[$language].copyCommandLabel}: terminal`}
-								onclick={() => copyInstallCommand(copy[$language].terminalExample, 'terminal-example')}
+								onclick={() =>
+									copyInstallCommand(copy[$language].terminalExample, 'terminal-example')}
 							>
-								{copiedCommand === 'terminal-example' ? copy[$language].copiedCommand : copy[$language].copyCommand}
+								{copiedCommand === 'terminal-example'
+									? copy[$language].copiedCommand
+									: copy[$language].copyCommand}
 							</button>
 						</div>
 						<pre>{copy[$language].terminalExample}</pre>
@@ -452,7 +534,7 @@ UI running on http://localhost:4444`
 							</div>
 						</div>
 						<div class="ui-list">
-							{#each copy[$language].uiLog as item}
+							{#each copy[$language].uiLog as item (item)}
 								<div>{item}</div>
 							{/each}
 						</div>
@@ -468,7 +550,9 @@ UI running on http://localhost:4444`
 								aria-label={`${copy[$language].copyCommandLabel}: config.yml`}
 								onclick={() => copyInstallCommand(routeExample, 'route-example')}
 							>
-								{copiedCommand === 'route-example' ? copy[$language].copiedCommand : copy[$language].copyCommand}
+								{copiedCommand === 'route-example'
+									? copy[$language].copiedCommand
+									: copy[$language].copyCommand}
 							</button>
 						</div>
 						<pre>{routeExample}</pre>
@@ -490,7 +574,7 @@ UI running on http://localhost:4444`
 		</div>
 
 		<div class="install-grid">
-			{#each copy[$language].installMethods as method}
+			{#each copy[$language].installMethods as method (method.name)}
 				<article class="install-card">
 					<div class="card-top">
 						<h3>{method.name}</h3>
@@ -524,7 +608,7 @@ UI running on http://localhost:4444`
 		</div>
 
 		<div class="steps">
-			{#each copy[$language].quickstart as step, index}
+			{#each copy[$language].quickstart as step, index (step.command)}
 				<article class="step">
 					<div class="step-number">0{index + 1}</div>
 					<h3>{step.title}</h3>
@@ -537,7 +621,9 @@ UI running on http://localhost:4444`
 							aria-label={`${copy[$language].copyCommandLabel}: ${step.command}`}
 							onclick={() => copyInstallCommand(step.command, `quickstart-${index}`)}
 						>
-							{copiedCommand === `quickstart-${index}` ? copy[$language].copiedCommand : copy[$language].copyCommand}
+							{copiedCommand === `quickstart-${index}`
+								? copy[$language].copiedCommand
+								: copy[$language].copyCommand}
 						</button>
 					</div>
 					<p>{step.body}</p>
@@ -556,7 +642,7 @@ UI running on http://localhost:4444`
 			</div>
 
 			<div class="explain-panel">
-				{#each copy[$language].panel as item, index}
+				{#each copy[$language].panel as item, index (item.title)}
 					<div class="panel-line">
 						<span>{index + 1}</span>
 						<div>
@@ -569,6 +655,30 @@ UI running on http://localhost:4444`
 		</div>
 	</section>
 
+	<section class="band feature-set" id="feature-set">
+		<div class="band-head wide">
+			<div>
+				<p class="kicker">{copy[$language].featureSetKicker}</p>
+				<h2>{copy[$language].featureSetTitle}</h2>
+			</div>
+			<p>{copy[$language].featureSetBody}</p>
+		</div>
+
+		<div class="feature-set-grid">
+			{#each copy[$language].featureGroups as group (group.title)}
+				<article class="feature-set-card">
+					<h3>{group.title}</h3>
+					<p>{group.body}</p>
+					<ul>
+						{#each group.items as item (item)}
+							<li>{item}</li>
+						{/each}
+					</ul>
+				</article>
+			{/each}
+		</div>
+	</section>
+
 	<section class="band" id="use-cases">
 		<div class="band-head">
 			<div>
@@ -578,7 +688,7 @@ UI running on http://localhost:4444`
 		</div>
 
 		<div class="use-case-grid">
-			{#each copy[$language].useCases as useCase}
+			{#each copy[$language].useCases as useCase (useCase.title)}
 				<article class="use-case">
 					<h3>{useCase.title}</h3>
 					<p>{useCase.body}</p>
@@ -603,13 +713,17 @@ UI running on http://localhost:4444`
 				<h2>{copy[$language].projectTitle}</h2>
 				<p>{copy[$language].projectBody}</p>
 				<div class="link-grid">
-					{#each copy[$language].projectLinks as link}
-						<a href={link.href}>{link.label}</a>
+					{#each copy[$language].projectLinks as link (link.href)}
+						{#if link.href === '/docs/'}
+							<a href={resolve('/docs/')}>{link.label}</a>
+						{:else}
+							<a href={link.href} rel="external">{link.label}</a>
+						{/if}
 					{/each}
 				</div>
 				<div class="badge-row" aria-label="Project badges">
-					{#each badges as badge}
-						<a href={badge.href}>
+					{#each badges as badge (badge.href)}
+						<a href={badge.href} rel="external">
 							<img src={badge.src} alt={badge.alt} />
 						</a>
 					{/each}
@@ -627,12 +741,7 @@ UI running on http://localhost:4444`
 			radial-gradient(circle at 88% 12%, rgba(120, 255, 180, 0.11), transparent 18%),
 			linear-gradient(180deg, #07111f 0%, #0c1523 48%, #0a1220 100%);
 		color: #e9f3ff;
-		font-family:
-			'Avenir Next',
-			'Segoe UI',
-			'Helvetica Neue',
-			Arial,
-			sans-serif;
+		font-family: 'Avenir Next', 'Segoe UI', 'Helvetica Neue', Arial, sans-serif;
 	}
 
 	:global(*) {
@@ -750,11 +859,7 @@ UI running on http://localhost:4444`
 	h2,
 	h3 {
 		margin: 0;
-		font-family:
-			'Iowan Old Style',
-			'Palatino Linotype',
-			'Book Antiqua',
-			serif;
+		font-family: 'Iowan Old Style', 'Palatino Linotype', 'Book Antiqua', serif;
 		font-weight: 700;
 		letter-spacing: 0;
 	}
@@ -799,12 +904,7 @@ UI running on http://localhost:4444`
 		border-radius: 999px;
 		background: rgba(138, 241, 255, 0.08);
 		color: #dff9ff;
-		font-family:
-			'SFMono-Regular',
-			'JetBrains Mono',
-			'IBM Plex Mono',
-			Consolas,
-			monospace;
+		font-family: 'SFMono-Regular', 'JetBrains Mono', 'IBM Plex Mono', Consolas, monospace;
 		font-size: 0.86rem;
 	}
 
@@ -898,14 +998,14 @@ UI running on http://localhost:4444`
 	.config-card,
 	.install-card,
 	.step,
+	.feature-set-card,
 	.use-case,
 	.security-note,
 	.project-links,
 	.explain-panel {
 		border: 1px solid rgba(145, 184, 220, 0.16);
 		border-radius: 12px;
-		background:
-			linear-gradient(180deg, rgba(14, 25, 43, 0.96) 0%, rgba(8, 16, 28, 0.96) 100%);
+		background: linear-gradient(180deg, rgba(14, 25, 43, 0.96) 0%, rgba(8, 16, 28, 0.96) 100%);
 		box-shadow:
 			0 28px 70px rgba(0, 0, 0, 0.28),
 			inset 0 1px 0 rgba(255, 255, 255, 0.03);
@@ -986,12 +1086,7 @@ UI running on http://localhost:4444`
 	pre {
 		margin: 0;
 		padding: 1rem 1.05rem 1.1rem;
-		font-family:
-			'SFMono-Regular',
-			'JetBrains Mono',
-			'IBM Plex Mono',
-			Consolas,
-			monospace;
+		font-family: 'SFMono-Regular', 'JetBrains Mono', 'IBM Plex Mono', Consolas, monospace;
 		font-size: 0.84rem;
 		line-height: 1.58;
 		white-space: pre-wrap;
@@ -1058,6 +1153,21 @@ UI running on http://localhost:4444`
 	.band-head h2 {
 		font-size: clamp(2rem, 4vw, 3.1rem);
 		max-width: 14ch;
+	}
+
+	.band-head.wide {
+		align-items: start;
+	}
+
+	.band-head.wide h2 {
+		max-width: 18ch;
+	}
+
+	.band-head.wide > p {
+		max-width: 32rem;
+		margin: 0.35rem 0 0;
+		color: #c6d5eb;
+		line-height: 1.7;
 	}
 
 	.install-grid {
@@ -1150,12 +1260,7 @@ UI running on http://localhost:4444`
 		display: block;
 		min-height: 4rem;
 		padding: 1rem 5.7rem 1.1rem 1.05rem;
-		font-family:
-			'SFMono-Regular',
-			'JetBrains Mono',
-			'IBM Plex Mono',
-			Consolas,
-			monospace;
+		font-family: 'SFMono-Regular', 'JetBrains Mono', 'IBM Plex Mono', Consolas, monospace;
 		font-size: 0.84rem;
 		line-height: 1.58;
 		white-space: pre-wrap;
@@ -1239,6 +1344,55 @@ UI running on http://localhost:4444`
 		display: grid;
 		grid-template-columns: repeat(3, minmax(0, 1fr));
 		gap: 1rem;
+	}
+
+	.feature-set {
+		padding-top: 2.75rem;
+	}
+
+	.feature-set-grid {
+		display: grid;
+		grid-template-columns: repeat(2, minmax(0, 1fr));
+		gap: 1rem;
+	}
+
+	.feature-set-card {
+		position: relative;
+		overflow: hidden;
+		padding: 1.2rem;
+	}
+
+	.feature-set-card::before {
+		content: '';
+		position: absolute;
+		inset: 0 auto 0 0;
+		width: 0.22rem;
+		background: linear-gradient(180deg, #8af1ff 0%, #baffcf 100%);
+		opacity: 0.86;
+	}
+
+	.feature-set-card h3 {
+		font-size: 1.42rem;
+		margin-bottom: 0.45rem;
+	}
+
+	.feature-set-card p {
+		margin: 0;
+		color: #c6d5eb;
+		line-height: 1.7;
+	}
+
+	.feature-set-card ul {
+		display: grid;
+		gap: 0.55rem;
+		margin: 1rem 0 0;
+		padding-left: 1.2rem;
+		color: #dbe7f6;
+		line-height: 1.55;
+	}
+
+	.feature-set-card li::marker {
+		color: #8adcee;
 	}
 
 	.use-case,
@@ -1371,6 +1525,7 @@ UI running on http://localhost:4444`
 		.hero-inner,
 		.explain,
 		.steps,
+		.feature-set-grid,
 		.use-case-grid,
 		.project-grid,
 		.install-grid {

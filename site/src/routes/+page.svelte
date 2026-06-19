@@ -99,6 +99,12 @@ UI running on http://localhost:4444`;
 				</div>
 
 				<h1>specter</h1>
+				<p class="pronunciation" aria-label="specter pronunciation: SPEK-ter">
+					<span>pronounced</span>
+					<strong>SPEK-ter</strong>
+					<code>/ˈspɛk.tɚ/</code>
+					<small>スペクター</small>
+				</p>
 				<p class="lede">
 					Mock APIs without the ceremony. Define routes in YAML, run a single binary, and keep your
 					frontend, tests, and demos moving while the real backend catches up.
@@ -360,6 +366,49 @@ UI running on http://localhost:4444`;
 		font-size: clamp(4rem, 10vw, 7rem);
 		line-height: 0.92;
 		margin-top: 0.85rem;
+	}
+
+	.pronunciation {
+		display: inline-flex;
+		align-items: center;
+		flex-wrap: wrap;
+		gap: 0.55rem;
+		margin: 1rem 0 0;
+		padding: 0.58rem 0.72rem;
+		border: 1px solid rgba(138, 220, 238, 0.22);
+		border-radius: 999px;
+		background: rgba(9, 17, 31, 0.32);
+		color: #c8d7ee;
+		box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.04);
+		backdrop-filter: blur(10px);
+	}
+
+	.pronunciation span,
+	.pronunciation small {
+		text-transform: uppercase;
+		letter-spacing: 0.1em;
+		font-size: 0.72rem;
+		color: #8adcee;
+	}
+
+	.pronunciation strong {
+		color: #f0fbff;
+		font-size: clamp(1rem, 1.35vw, 1.16rem);
+		letter-spacing: 0.02em;
+	}
+
+	.pronunciation code {
+		padding: 0.2rem 0.45rem;
+		border-radius: 999px;
+		background: rgba(138, 241, 255, 0.08);
+		color: #dff9ff;
+		font-family:
+			'SFMono-Regular',
+			'JetBrains Mono',
+			'IBM Plex Mono',
+			Consolas,
+			monospace;
+		font-size: 0.86rem;
 	}
 
 	.lede {
@@ -717,6 +766,10 @@ UI running on http://localhost:4444`;
 			align-items: flex-start;
 			flex-direction: column;
 			gap: 0.75rem;
+		}
+
+		.pronunciation {
+			border-radius: 14px;
 		}
 
 		.signal-list {

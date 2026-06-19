@@ -19,6 +19,7 @@ import (
 	"syscall"
 	"time"
 
+	doctor_cmd "github.com/Saku0512/specter/cmd/doctor"
 	export_cmd "github.com/Saku0512/specter/cmd/export"
 	gen_cmd "github.com/Saku0512/specter/cmd/gen"
 	init_cmd "github.com/Saku0512/specter/cmd/init"
@@ -91,6 +92,7 @@ func usage() {
 Usage:
   specter [flags]
   specter gen -i openapi.yml [-o config.yml]
+  specter doctor -c config.yml
 
 Flags:
   -c <path>    Path to config file (default: config.yaml)
@@ -108,6 +110,7 @@ Commands:
   init         Create a starter config.yml (--template basic|crud|auth|openapi)
   gen          Generate config from an OpenAPI spec
   validate     Validate a config file
+  doctor       Diagnose config, include files, OpenAPI, route conflicts, and ports
   record       Proxy a real API and record responses to config.yml
   export       Generate a starter config from a running specter's request history
   scenario     List or apply scenario presets on a running specter server
@@ -137,6 +140,10 @@ func main() {
 	}
 	if len(os.Args) > 1 && os.Args[1] == "validate" {
 		validate_cmd.Run(os.Args[2:])
+		return
+	}
+	if len(os.Args) > 1 && os.Args[1] == "doctor" {
+		doctor_cmd.Run(os.Args[2:])
 		return
 	}
 	if len(os.Args) > 1 && os.Args[1] == "init" {

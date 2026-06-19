@@ -2,7 +2,7 @@
   "name": "specter-mock-server",
   "displayName": "Specter Mock Server",
   "description": "VS Code support for Specter config files.",
-  "version": "0.0.1",
+  "version": "0.0.2",
   "publisher": "saku0512-sec",
   "icon": "logo-icon.png",
   "license": "MIT",
@@ -75,7 +75,7 @@
     "lint": "eslint src",
     "test:schema": "node scripts/validate-schema.cjs",
     "test": "vscode-test",
-    "vsix": "vsce package --no-dependencies"
+    "vsix": "vsce package --no-dependencies --changelog-path CHANGELOG.md"
   },
   "devDependencies": {
     "@types/mocha": "^10.0.10",

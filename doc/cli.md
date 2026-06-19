@@ -79,6 +79,35 @@ specter init --list-templates
 | `--template` | `basic` | Starter template: `basic`, `crud`, `auth`, or `openapi` |
 | `--list-templates` | — | List available starter templates |
 
+### `specter examples`
+
+List available examples or generate one into the current project.
+
+```sh
+specter examples
+specter examples auth
+specter examples openapi -o config.yml
+specter examples crud -o examples/crud.yml -f
+```
+
+| Flag | Default | Description |
+|---|---|---|
+| `-o` | `config.yml` | Output config file |
+| `-f` | — | Overwrite generated files if they already exist |
+
+Available examples:
+
+| Example | What it shows |
+|---|---|
+| `auth` | Login, state, vars, and unauthorized responses |
+| `crud` | In-memory CRUD routes backed by a seeded store |
+| `pagination` | Store-backed list endpoint with filtering, sorting, and pagination query params |
+| `openapi` | Request and response validation using a generated `openapi.yml` sidecar |
+| `webhooks` | Async callback fired after a mock response |
+| `sse` | Server-Sent Events stream with repeatable events |
+| `graphql` | GraphQL operationName and variable matching |
+| `errors` | Common 400, 404, 429, and flaky 503-style responses |
+
 ### `specter gen`
 
 Generate a config file from an OpenAPI spec.

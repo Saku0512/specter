@@ -696,6 +696,113 @@ func TestAssert_matchByQuery(t *testing.T) {
 	}
 }
 
+func TestAssert_requestStringAndCalledAlias(t *testing.T) {
+	srv := newSrv(&config.Config{
+		Routes: []config.Route{{Path: "/orders", Method: "POST", Response: nil}},
+	})
+	do(srv, "POST", "/orders", `{"status":"submitted"}`)
+	do(srv, "POST", "/orders", `{"status":"submitted"}`)
+
+	w := assertAPI(srv, `{"request":"POST /orders","called":2,"body":{"status":"submitted"}}`)
+	if w.Code != 200 {
+		t.Errorf("expected 200 for request/called assertion, got %d: %s", w.Code, w.Body.String())
+	}
+
+	w = assertAPI(srv, `{"request":"POST /orders","called":1}`)
+	if w.Code != http.StatusUnprocessableEntity {
+		t.Errorf("expected 422 for called mismatch, got %d", w.Code)
+	}
+}
+
+func TestAssert_explicitMethodPathOverrideRequestString(t *testing.T) {
+	srv := newSrv(&config.Config{
+		Routes: []config.Route{
+			{Path: "/orders", Method: "POST", Response: nil},
+			{Path: "/users", Method: "GET", Response: nil},
+		},
+	})
+	do(srv, "POST", "/orders", `{}`)
+	do(srv, "GET", "/users", "")
+
+	w := assertAPI(srv, `{"request":"POST /orders","method":"GET","path":"/users","called":1}`)
+	if w.Code != 200 {
+		t.Errorf("expected explicit method/path to override request shorthand, got %d: %s", w.Code, w.Body.String())
+	}
+}
+
+func TestAssert_countTakesPrecedenceOverCalled(t *testing.T) {
+	srv := newSrv(&config.Config{
+		Routes: []config.Route{{Path: "/orders", Method: "POST", Response: nil}},
+	})
+	do(srv, "POST", "/orders", `{}`)
+	do(srv, "POST", "/orders", `{}`)
+
+	w := assertAPI(srv, `{"request":"POST /orders","count":2,"called":1}`)
+	if w.Code != 200 {
+		t.Errorf("expected count to take precedence over called, got %d: %s", w.Code, w.Body.String())
+	}
+}
+
+func TestAssert_matchByHeaders(t *testing.T) {
+	srv := newSrv(&config.Config{
+		Routes: []config.Route{{Path: "/orders", Method: "POST", Response: nil}},
+	})
+	req := httptest.NewRequest("POST", "/orders", strings.NewReader(`{"status":"submitted"}`))
+	req.Header.Set("Content-Type", "application/json")
+	req.Header.Set("X-Trace-ID", "abc-123")
+	w := httptest.NewRecorder()
+	srv.ServeHTTP(w, req)
+
+	got := assertAPI(srv, `{"request":"POST /orders","headers":{"X-Trace-Id":"abc-123"}}`)
+	if got.Code != 200 {
+		t.Errorf("expected 200 for header match, got %d: %s", got.Code, got.Body.String())
+	}
+
+	got = assertAPI(srv, `{"request":"POST /orders","headers":{"X-Trace-Id":"missing"}}`)
+	if got.Code != http.StatusUnprocessableEntity {
+		t.Errorf("expected 422 for header mismatch, got %d", got.Code)
+	}
+}
+
+func TestAssert_bodyExactMode(t *testing.T) {
+	srv := newSrv(&config.Config{
+		Routes: []config.Route{{Path: "/orders", Method: "POST", Response: nil}},
+	})
+	do(srv, "POST", "/orders", `{"status":"submitted","total":42}`)
+
+	w := assertAPI(srv, `{"request":"POST /orders","body":{"status":"submitted"},"body_mode":"subset"}`)
+	if w.Code != 200 {
+		t.Errorf("expected 200 for subset body match, got %d", w.Code)
+	}
+
+	w = assertAPI(srv, `{"request":"POST /orders","body":{"status":"submitted"},"body_mode":"exact"}`)
+	if w.Code != http.StatusUnprocessableEntity {
+		t.Errorf("expected 422 for exact body mismatch, got %d", w.Code)
+	}
+
+	w = assertAPI(srv, `{"request":"POST /orders","body":{"status":"submitted","total":42},"body_mode":"exact"}`)
+	if w.Code != 200 {
+		t.Errorf("expected 200 for exact body match, got %d: %s", w.Code, w.Body.String())
+	}
+}
+
+func TestAssert_matchByBodyPath(t *testing.T) {
+	srv := newSrv(&config.Config{
+		Routes: []config.Route{{Path: "/orders", Method: "POST", Response: nil}},
+	})
+	do(srv, "POST", "/orders", `{"order":{"status":"submitted","total":42}}`)
+
+	w := assertAPI(srv, `{"request":"POST /orders","body_path":{"order.status":"^submitted$","order.total":"^42$"}}`)
+	if w.Code != 200 {
+		t.Errorf("expected 200 for body_path match, got %d: %s", w.Code, w.Body.String())
+	}
+
+	w = assertAPI(srv, `{"request":"POST /orders","body_path":{"order.status":"^cancelled$"}}`)
+	if w.Code != http.StatusUnprocessableEntity {
+		t.Errorf("expected 422 for body_path mismatch, got %d", w.Code)
+	}
+}
+
 func TestRequestByIndex(t *testing.T) {
 	srv := newSrv(&config.Config{
 		Routes: []config.Route{{Path: "/a", Method: "GET", Response: nil}},

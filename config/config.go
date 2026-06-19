@@ -15,6 +15,7 @@ type RouteResponse struct {
 	File        string `yaml:"file,omitempty"`
 	OnCall      int    `yaml:"on_call,omitempty"` // match only on this call number (1-based)
 	Script      string `yaml:"script,omitempty"`  // Go template producing the response body
+	Fault       string `yaml:"fault,omitempty"`   // built-in fault profile to inject
 }
 
 type RouteMatch struct {
@@ -35,6 +36,7 @@ type RouteMatch struct {
 	SetVars         map[string]string `yaml:"set_vars,omitempty"`         // set vars after this match
 	ResponseHeaders map[string]string `yaml:"response_headers,omitempty"` // response headers to set/override when this match fires
 	Delay           int               `yaml:"delay,omitempty"`            // additional delay (ms) applied after this match fires
+	Fault           string            `yaml:"fault,omitempty"`            // built-in fault profile to inject
 }
 
 // GraphQLMatch selects a match entry by GraphQL operation name and/or variables.
@@ -92,6 +94,7 @@ type Route struct {
 	File           string            `yaml:"file,omitempty"`            // path to response file (.json/.yaml/.yml)
 	ErrorRate      float64           `yaml:"error_rate,omitempty"`      // 0.0-1.0 probability of injecting an error
 	ErrorStatus    int               `yaml:"error_status,omitempty"`    // status code for injected error (default 503)
+	Fault          string            `yaml:"fault,omitempty"`           // built-in fault profile to inject
 	DelayMin       int               `yaml:"delay_min,omitempty"`       // min random delay in ms (used with delay_max)
 	DelayMax       int               `yaml:"delay_max,omitempty"`       // max random delay in ms
 	OnCall         int               `yaml:"on_call,omitempty"`         // match only on this call number (1-based)

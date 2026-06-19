@@ -839,6 +839,62 @@ func TestRequestByIndex_invalid(t *testing.T) {
 	}
 }
 
+func TestConfigValidation_validConfig(t *testing.T) {
+	srv := newSrv(&config.Config{})
+	w := do(srv, "POST", "/__specter/config/validate", `{"yaml":"scenarios:\n  seeded:\n    stores:\n      users:\n        - id: \"1\"\n          name: Alice\nroutes:\n  - path: /hello\n    method: GET\n    status: 200\n"}`)
+	if w.Code != http.StatusOK {
+		t.Fatalf("expected 200, got %d: %s", w.Code, w.Body.String())
+	}
+	var payload struct {
+		Valid     bool             `json:"valid"`
+		Errors    []string         `json:"errors"`
+		Routes    []map[string]any `json:"routes"`
+		Scenarios []string         `json:"scenarios"`
+		Stores    []string         `json:"stores"`
+	}
+	if err := json.NewDecoder(w.Body).Decode(&payload); err != nil {
+		t.Fatal(err)
+	}
+	if !payload.Valid || len(payload.Errors) != 0 {
+		t.Fatalf("expected valid config, got valid=%v errors=%v", payload.Valid, payload.Errors)
+	}
+	if len(payload.Routes) != 1 || payload.Routes[0]["method"] != "GET" || payload.Routes[0]["path"] != "/hello" {
+		t.Fatalf("unexpected routes: %v", payload.Routes)
+	}
+	if len(payload.Scenarios) != 1 || payload.Scenarios[0] != "seeded" {
+		t.Fatalf("unexpected scenarios: %v", payload.Scenarios)
+	}
+	if len(payload.Stores) != 1 || payload.Stores[0] != "users" {
+		t.Fatalf("unexpected stores: %v", payload.Stores)
+	}
+}
+
+func TestConfigValidation_reportsParseAndSemanticErrors(t *testing.T) {
+	srv := newSrv(&config.Config{})
+	w := do(srv, "POST", "/__specter/config/validate", `{"yaml":"routes:\n  - path: /broken\n    method: GET\n    status: nope\n"}`)
+	if w.Code != http.StatusOK {
+		t.Fatalf("expected 200, got %d: %s", w.Code, w.Body.String())
+	}
+	var parsed map[string]any
+	json.NewDecoder(w.Body).Decode(&parsed)
+	if parsed["valid"] != false {
+		t.Fatalf("expected invalid parse result, got %v", parsed)
+	}
+
+	w = do(srv, "POST", "/__specter/config/validate", `{"yaml":"routes:\n  - path: /broken\n"}`)
+	var semantic struct {
+		Valid  bool     `json:"valid"`
+		Errors []string `json:"errors"`
+	}
+	json.NewDecoder(w.Body).Decode(&semantic)
+	if semantic.Valid {
+		t.Fatalf("expected semantic validation failure")
+	}
+	if len(semantic.Errors) == 0 || !strings.Contains(semantic.Errors[0], "missing method") {
+		t.Fatalf("expected missing method error, got %v", semantic.Errors)
+	}
+}
+
 // --- Stateful mocking ---
 
 func setServerState(srv *Server, state string) {

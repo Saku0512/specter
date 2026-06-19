@@ -38,6 +38,22 @@ func TestRenderUIIncludesDynamicRouteEditor(t *testing.T) {
 	}
 }
 
+func TestRenderUIIncludesConfigPlayground(t *testing.T) {
+	got := renderUI("http://localhost:8080")
+	for _, want := range []string{
+		"Config Playground",
+		`id="config-yaml"`,
+		"onclick=\"validateConfigPlayground()\"",
+		"/__specter/config/validate",
+		"Registered Routes",
+		"Seeded Stores",
+	} {
+		if !strings.Contains(got, want) {
+			t.Fatalf("expected UI to contain %q", want)
+		}
+	}
+}
+
 func TestUIHandlerServesHTML(t *testing.T) {
 	req := httptest.NewRequest(http.MethodGet, "/", nil)
 	rec := httptest.NewRecorder()

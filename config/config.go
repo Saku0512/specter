@@ -162,6 +162,10 @@ func Load(path string) (*Config, error) {
 	return loadData(data, filepath.Dir(resolved), seen)
 }
 
+func LoadBytes(data []byte) (*Config, error) {
+	return loadData(data, ".", map[string]bool{})
+}
+
 // loadData unmarshals cfg from data and recursively merges any included files.
 // dir is the base directory for resolving relative include patterns.
 // seen prevents re-loading the same file and breaks cycles.

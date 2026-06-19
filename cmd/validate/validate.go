@@ -31,7 +31,7 @@ func Run(args []string) {
 		os.Exit(1)
 	}
 
-	errs := check(cfg)
+	errs := Check(cfg)
 	if len(errs) == 0 {
 		fmt.Printf("✓ %s is valid (%d routes)\n", *configPath, len(cfg.Routes))
 		return
@@ -44,7 +44,7 @@ func Run(args []string) {
 	os.Exit(1)
 }
 
-func check(cfg *config.Config) []string {
+func Check(cfg *config.Config) []string {
 	var errs []string
 
 	if cfg.Proxy != "" {
@@ -237,4 +237,8 @@ func check(cfg *config.Config) []string {
 	}
 
 	return errs
+}
+
+func check(cfg *config.Config) []string {
+	return Check(cfg)
 }

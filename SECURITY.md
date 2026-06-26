@@ -27,3 +27,17 @@ This project is a **local development tool** intended to run on trusted networks
 
 - Do not expose specter to the public internet without additional security measures (firewall, reverse proxy, auth, etc.)
 - Configuration files may contain sensitive response data — handle them accordingly
+
+## Supply Chain Controls
+
+The project uses several automated checks to reduce supply chain risk:
+
+- Dependabot monitors GitHub Actions, Go modules, npm workspaces, and the Dockerfile.
+- Pull requests run dependency review and fail on newly introduced high-severity runtime vulnerabilities.
+- Go modules are verified with `go mod verify` and scanned with `govulncheck`.
+- npm workspaces run `npm audit --audit-level=high`.
+- OpenSSF Scorecard runs on the default branch and uploads SARIF results to code scanning.
+- Release binaries include SHA256 checksums, SBOMs, and GitHub artifact attestations.
+- Container images are built with BuildKit SBOM and provenance attestations.
+
+For stronger CI isolation, consider enabling Harden Runner in audit mode first, then moving release and Docker workflows to an egress allowlist once expected network destinations are known.

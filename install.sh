@@ -48,6 +48,20 @@ fail() {
   exit 1
 }
 
+sha256_file() {
+  if command -v sha256sum >/dev/null 2>&1; then
+    sha256sum "$1" | awk '{print $1}'
+    return
+  fi
+
+  if command -v shasum >/dev/null 2>&1; then
+    shasum -a 256 "$1" | awk '{print $1}'
+    return
+  fi
+
+  fail "sha256sum or shasum is required to verify the download"
+}
+
 banner
 
 # Detect OS
@@ -83,10 +97,28 @@ info "Installing specter ${VERSION} for ${OS}/${ARCH}"
 
 FILENAME="${BINARY}_${OS}_${ARCH}"
 URL="https://github.com/${REPO}/releases/download/${VERSION}/${FILENAME}"
+CHECKSUM_URL="https://github.com/${REPO}/releases/download/${VERSION}/SHA256SUMS.txt"
 
-TMP="$(mktemp)"
+TMP_DIR="$(mktemp -d)"
+trap 'rm -rf "$TMP_DIR"' EXIT
+TMP="${TMP_DIR}/${FILENAME}"
+CHECKSUMS="${TMP_DIR}/SHA256SUMS.txt"
+
 info "Downloading ${FILENAME}"
 curl -fsSL "$URL" -o "$TMP"
+
+info "Verifying ${FILENAME}"
+curl -fsSL "$CHECKSUM_URL" -o "$CHECKSUMS"
+EXPECTED="$(grep "  ${FILENAME}$" "$CHECKSUMS" | awk '{print $1}')"
+if [ -z "$EXPECTED" ]; then
+  fail "Checksum for ${FILENAME} was not found in SHA256SUMS.txt"
+fi
+
+ACTUAL="$(sha256_file "$TMP")"
+if [ "$ACTUAL" != "$EXPECTED" ]; then
+  fail "Checksum mismatch for ${FILENAME}"
+fi
+
 chmod +x "$TMP"
 
 # Install (use sudo if needed)

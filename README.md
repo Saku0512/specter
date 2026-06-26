@@ -3,6 +3,7 @@
 [![Ask DeepWiki](https://deepwiki.com/badge.svg)](https://deepwiki.com/Saku0512/specter)
 [![CI](https://github.com/Saku0512/specter/actions/workflows/test.yml/badge.svg)](https://github.com/Saku0512/specter/actions/workflows/test.yml)
 [![Go Report Card](https://goreportcard.com/badge/github.com/Saku0512/specter)](https://goreportcard.com/report/github.com/Saku0512/specter)
+[![OpenSSF Scorecard](https://api.scorecard.dev/projects/github.com/Saku0512/specter/badge)](https://scorecard.dev/viewer/?uri=github.com/Saku0512/specter)
 [![Go Version](https://img.shields.io/github/go-mod/go-version/Saku0512/specter)](go.mod)
 [![Latest Release](https://img.shields.io/github/v/release/Saku0512/specter)](https://github.com/Saku0512/specter/releases/latest)
 [![VS Code Marketplace](https://img.shields.io/visual-studio-marketplace/v/Saku0512-sec.specter-mock-server?label=VS%20Code%20Extension)](https://marketplace.visualstudio.com/items?itemName=Saku0512-sec.specter-mock-server)

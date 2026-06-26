@@ -45,6 +45,21 @@ curl -fsSL https://raw.githubusercontent.com/Saku0512/specter/main/install.sh | 
 irm https://raw.githubusercontent.com/Saku0512/specter/main/install.ps1 | iex
 ```
 
+## リリース検証
+
+リリースには `SHA256SUMS.txt` と SPDX JSON SBOM が添付されます。`install.sh` と `install.ps1` は、バイナリを配置する前に SHA256 を検証します。
+
+手動で確認する場合:
+
+```sh
+VERSION=v1.0.1
+ASSET=specter_linux_amd64
+curl -LO "https://github.com/Saku0512/specter/releases/download/${VERSION}/${ASSET}"
+curl -LO "https://github.com/Saku0512/specter/releases/download/${VERSION}/SHA256SUMS.txt"
+grep "  ${ASSET}$" SHA256SUMS.txt | sha256sum --check -
+gh attestation verify "${ASSET}" --repo Saku0512/specter
+```
+
 ## Quick start
 
 ```sh

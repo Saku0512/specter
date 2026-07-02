@@ -94,6 +94,17 @@ routes:
 
 動作する設定例は [config.example.yml](config.example.yml) を見てください。
 
+## 開発
+
+通常のテストは `make test` で実行できます。Go fuzzing をローカルで回す場合は次を使います。
+
+```sh
+make fuzz
+FUZZTIME=30s make fuzz
+```
+
+fuzz target は config YAML parser と request matcher をインメモリで検証するため、ネットワークアクセスは不要です。
+
 ## ライセンス
 
 MIT

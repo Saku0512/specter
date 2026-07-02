@@ -92,6 +92,17 @@ routes:
 
 See [config.example.yml](config.example.yml) for a full working example.
 
+## Development
+
+Run the regular test suite with `make test`. To run the Go fuzz targets locally:
+
+```sh
+make fuzz
+FUZZTIME=30s make fuzz
+```
+
+The fuzz targets exercise the config YAML parser and request matchers in memory, so they do not require network access.
+
 ## License
 
 MIT

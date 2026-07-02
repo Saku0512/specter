@@ -37,7 +37,7 @@ The project uses several automated checks to reduce supply chain risk:
 - Go modules are verified with `go mod verify` and scanned with `govulncheck`.
 - npm workspaces run `npm audit --audit-level=high`.
 - OpenSSF Scorecard runs on the default branch and uploads SARIF results to code scanning.
-- Release binaries include SHA256 checksums, SBOMs, and GitHub artifact attestations.
+- Release binaries include SHA256 checksums, SBOMs, and Sigstore-signed GitHub artifact attestations.
 - Container images are built with BuildKit SBOM and provenance attestations.
 - The Docker builder image is pinned by digest and monitored by Dependabot's Docker ecosystem updates.
 
@@ -64,11 +64,23 @@ docker build -t specter:local .
 
 The inspected index digest should match the Dockerfile digest, and the manifest annotations should still identify the intended Go/Alpine image.
 
+## Release Signatures And Attestations
+
+Release artifacts are signed with GitHub artifact attestations. The release workflow attests every artifact listed in `SHA256SUMS.txt` and uploads the resulting Sigstore bundle as `specter-<version>.sigstore.json` alongside the binaries, SBOM, and checksum file.
+
+For existing releases that predate release signing, run the **Attest Legacy Release** workflow manually. The workflow downloads the selected release assets, verifies `SHA256SUMS.txt` when present, creates a signed attestation bundle, and uploads `specter-<version>.sigstore.json` back to the release. These backfilled attestations prove the release asset digests observed at workflow run time; they are not original build provenance.
+
+Users can verify current releases with GitHub artifact attestation verification:
+
+```sh
+gh attestation verify specter_linux_amd64 --repo Saku0512/specter
+```
+
 ## Release Workflow Token Permissions
 
 The release workflow defaults to `contents: read`. Write-scoped tokens are limited to the jobs that publish release outputs:
 
-- `release` uses `contents: write` to create the GitHub Release and upload release assets. It also uses `id-token: write`, `attestations: write`, and `artifact-metadata: write` to generate GitHub artifact attestations.
+- `release` uses `contents: write` to create the GitHub Release and upload release assets. It also uses `id-token: write`, `attestations: write`, and `artifact-metadata: write` to generate Sigstore-signed GitHub artifact attestations.
 - `prepare-formula-update` uses only `contents: read` while downloading release assets, calculating SHA256 checksums, and preparing the Homebrew formula diff.
 - `open-formula-pr` uses `contents: write` only to push the generated `chore/update-formula-*` branch, and `pull-requests: write` to open the formula update PR.
 

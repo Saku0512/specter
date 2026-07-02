@@ -109,9 +109,13 @@ jobs:
           sha256sum --check SHA256SUMS.txt
 
       - name: Attest release artifacts
+        id: attest
         uses: actions/attest@a1948c3f048ba23858d222213b7c278aabede763 # v4
         with:
           subject-checksums: dist/SHA256SUMS.txt
+
+      - name: Add attestation bundle to release assets
+        run: cp "${{ steps.attest.outputs.bundle-path }}" "dist/specter-${{ github.ref_name }}.sigstore.json"
 
       - name: Create release
         uses: softprops/action-gh-release@718ea10b132b3b2eba29c1007bb80653f286566b # v3.0.1

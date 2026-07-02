@@ -1,0 +1,79 @@
+name: Attest Legacy Release
+
+on:
+  workflow_dispatch:
+    inputs:
+      release_tags:
+        description: JSON array of release tags to attest.
+        required: true
+        default: '["v1.0.1","v1.0.0","v0.6.0","v0.5.0","v0.4.0"]'
+
+env:
+  FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
+
+permissions:
+  contents: read
+
+jobs:
+  attest:
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        tag: ${{ fromJSON(inputs.release_tags) }}
+    permissions:
+      contents: write
+      id-token: write
+      attestations: write
+      artifact-metadata: write
+    steps:
+      - name: Download release assets
+        env:
+          GH_TOKEN: ${{ github.token }}
+          TAG: ${{ matrix.tag }}
+        run: |
+          mkdir -p dist
+          gh release download "$TAG" --repo "$GITHUB_REPOSITORY" --dir dist
+          find dist -type f \( \
+            -name "*.asc" -o \
+            -name "*.intoto.jsonl" -o \
+            -name "*.minisig" -o \
+            -name "*.sig" -o \
+            -name "*.sigstore" -o \
+            -name "*.sigstore.json" -o \
+            -name "*.sign" \
+          \) -delete
+
+      - name: Verify or generate checksums
+        working-directory: dist
+        run: |
+          if [ -f SHA256SUMS.txt ]; then
+            sha256sum --check SHA256SUMS.txt
+          else
+            find . -maxdepth 1 -type f ! -name SHA256SUMS.txt -printf "%P\n" | sort | xargs sha256sum > SHA256SUMS.txt
+          fi
+
+      - name: Attest legacy release assets
+        id: attest
+        uses: actions/attest@a1948c3f048ba23858d222213b7c278aabede763 # v4
+        with:
+          subject-checksums: dist/SHA256SUMS.txt
+          predicate-type: https://github.com/Saku0512/specter/attestations/legacy-release/v1
+          predicate: |
+            {
+              "release_tag": "${{ matrix.tag }}",
+              "source": "existing GitHub Release assets",
+              "checksum_file": "SHA256SUMS.txt",
+              "note": "This backfill attests the downloaded release asset digests at workflow run time; it is not original build provenance."
+            }
+
+      - name: Upload attestation bundle to release
+        env:
+          GH_TOKEN: ${{ github.token }}
+          TAG: ${{ matrix.tag }}
+          BUNDLE_PATH: ${{ steps.attest.outputs.bundle-path }}
+        run: |
+          SAFE_TAG="${TAG//\//-}"
+          BUNDLE="dist/specter-${SAFE_TAG}.sigstore.json"
+          cp "$BUNDLE_PATH" "$BUNDLE"
+          gh release upload "$TAG" "$BUNDLE" --repo "$GITHUB_REPOSITORY" --clobber

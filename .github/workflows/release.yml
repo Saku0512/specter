@@ -79,7 +79,9 @@ jobs:
     needs: build
     runs-on: ubuntu-latest
     permissions:
+      # Required to create the GitHub Release and upload release assets.
       contents: write
+      # Required by actions/attest to mint provenance attestations for release artifacts.
       id-token: write
       attestations: write
       artifact-metadata: write
@@ -116,12 +118,13 @@ jobs:
         with:
           files: dist/*
 
-  update-formula:
+  prepare-formula-update:
     needs: release
     runs-on: ubuntu-latest
     permissions:
-      contents: write
-      pull-requests: write
+      contents: read
+    outputs:
+      changed: ${{ steps.diff.outputs.changed }}
     steps:
       - uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
         with:
@@ -150,17 +153,53 @@ jobs:
           ruby -0pi -e '$_.gsub!(/(specter_linux_amd64"\n\s+sha256 ")[^"]+(")/, "\\1#{ENV.fetch("SHA256_linux_amd64")}\\2")' Formula/specter.rb
           ruby -0pi -e '$_.gsub!(/(specter_linux_arm64"\n\s+sha256 ")[^"]+(")/, "\\1#{ENV.fetch("SHA256_linux_arm64")}\\2")' Formula/specter.rb
 
+      - name: Check formula diff
+        id: diff
+        run: |
+          if git diff --quiet -- Formula/specter.rb; then
+            echo "changed=false" >> "$GITHUB_OUTPUT"
+            echo "Formula/specter.rb is already up to date for ${{ github.ref_name }}."
+          else
+            echo "changed=true" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Upload formula update
+        if: steps.diff.outputs.changed == 'true'
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: specter-formula-update
+          path: Formula/specter.rb
+          if-no-files-found: error
+          retention-days: 1
+
+  open-formula-pr:
+    needs: prepare-formula-update
+    if: needs.prepare-formula-update.outputs.changed == 'true'
+    runs-on: ubuntu-latest
+    permissions:
+      # Required to push the chore/update-formula-* branch.
+      contents: write
+      # Required to create the formula update pull request.
+      pull-requests: write
+    steps:
+      - uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
+        with:
+          ref: main
+
+      - uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8.0.1
+        with:
+          name: specter-formula-update
+          path: formula-update
+
+      - name: Apply formula update
+        run: cp formula-update/specter.rb Formula/specter.rb
+
       - name: Open formula update pull request
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
           VERSION=${{ github.ref_name }}
           BRANCH="chore/update-formula-${VERSION}"
-
-          if git diff --quiet -- Formula/specter.rb; then
-            echo "Formula/specter.rb is already up to date for ${VERSION}."
-            exit 0
-          fi
 
           git config user.name "github-actions[bot]"
           git config user.email "github-actions[bot]@users.noreply.github.com"

@@ -40,4 +40,14 @@ The project uses several automated checks to reduce supply chain risk:
 - Release binaries include SHA256 checksums, SBOMs, and GitHub artifact attestations.
 - Container images are built with BuildKit SBOM and provenance attestations.
 
+## Release Workflow Token Permissions
+
+The release workflow defaults to `contents: read`. Write-scoped tokens are limited to the jobs that publish release outputs:
+
+- `release` uses `contents: write` to create the GitHub Release and upload release assets. It also uses `id-token: write`, `attestations: write`, and `artifact-metadata: write` to generate GitHub artifact attestations.
+- `prepare-formula-update` uses only `contents: read` while downloading release assets, calculating SHA256 checksums, and preparing the Homebrew formula diff.
+- `open-formula-pr` uses `contents: write` only to push the generated `chore/update-formula-*` branch, and `pull-requests: write` to open the formula update PR.
+
+The remaining write permissions are intentionally accepted because release publication and automated formula PR creation require repository writes. Read-only preparation work stays in a separate job so those write scopes are not available while checksums are computed.
+
 For stronger CI isolation, consider enabling Harden Runner in audit mode first, then moving release and Docker workflows to an egress allowlist once expected network destinations are known.

@@ -39,6 +39,7 @@ The project uses several automated checks to reduce supply chain risk:
 - OpenSSF Scorecard runs on the default branch and uploads SARIF results to code scanning.
 - Release binaries include SHA256 checksums, SBOMs, and GitHub artifact attestations.
 - Container images are built with BuildKit SBOM and provenance attestations.
+- The Docker builder image is pinned by digest and monitored by Dependabot's Docker ecosystem updates.
 
 ## Dependency Advisory Triage
 
@@ -49,6 +50,19 @@ Dependency advisories are triaged with multiple scanners before accepting risk:
 - Dependabot alerts are reviewed against local scan results and patched when a practical update or override is available.
 
 For the July 2026 Scorecard `Vulnerabilities` alert, the reachable Go vulnerability count was zero. The vulnerable `golang.org/x/*` modules were still updated to patched versions, and low-severity npm advisories in transitive development dependencies were resolved with package overrides. No dependency advisories are intentionally accepted after this triage; future remaining alerts should be documented here with the advisory ID, affected manifest, reachability, and rationale.
+
+## Docker Image Digest Updates
+
+The Dockerfile pins the Go builder image as `golang:1.26.4-alpine@sha256:<digest>` so builds keep the intended tag while also locking the immutable manifest. Dependabot is configured for the Dockerfile and should open updates when the pinned digest changes.
+
+Before merging a digest update, verify the tag-to-digest mapping and build locally:
+
+```sh
+docker buildx imagetools inspect golang:1.26.4-alpine
+docker build -t specter:local .
+```
+
+The inspected index digest should match the Dockerfile digest, and the manifest annotations should still identify the intended Go/Alpine image.
 
 ## Release Workflow Token Permissions
 

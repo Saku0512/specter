@@ -78,7 +78,7 @@
     "vsix": "vsce package --no-dependencies --changelog-path CHANGELOG.md"
   },
   "overrides": {
-    "diff": "8.0.2",
+    "diff": "8.0.3",
     "serialize-javascript": "7.0.6"
   },
   "devDependencies": {

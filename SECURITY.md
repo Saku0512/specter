@@ -40,6 +40,16 @@ The project uses several automated checks to reduce supply chain risk:
 - Release binaries include SHA256 checksums, SBOMs, and GitHub artifact attestations.
 - Container images are built with BuildKit SBOM and provenance attestations.
 
+## Dependency Advisory Triage
+
+Dependency advisories are triaged with multiple scanners before accepting risk:
+
+- `govulncheck ./...` is used for Go reachability analysis.
+- `npm audit --audit-level=high` is run for both the `site` and `vscode-extension` workspaces in CI.
+- Dependabot alerts are reviewed against local scan results and patched when a practical update or override is available.
+
+For the July 2026 Scorecard `Vulnerabilities` alert, the reachable Go vulnerability count was zero. The vulnerable `golang.org/x/*` modules were still updated to patched versions, and low-severity npm advisories in transitive development dependencies were resolved with package overrides. No dependency advisories are intentionally accepted after this triage; future remaining alerts should be documented here with the advisory ID, affected manifest, reachability, and rationale.
+
 ## Release Workflow Token Permissions
 
 The release workflow defaults to `contents: read`. Write-scoped tokens are limited to the jobs that publish release outputs:

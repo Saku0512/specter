@@ -13,6 +13,9 @@
 		"lint": "prettier --check . && eslint .",
 		"format": "prettier --write ."
 	},
+	"overrides": {
+		"cookie": "0.7.2"
+	},
 	"devDependencies": {
 		"@eslint/js": "^10.0.1",
 		"@sveltejs/adapter-auto": "^7.0.1",

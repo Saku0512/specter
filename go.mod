@@ -1,6 +1,6 @@
 module github.com/Saku0512/specter
 
-go 1.26.4
+go 1.26.5
 
 require (
 	github.com/brianvoe/gofakeit/v6 v6.28.0

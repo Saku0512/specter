@@ -27,6 +27,10 @@ updates:
       site-dependencies:
         patterns:
           - "*"
+    ignore:
+      - dependency-name: typescript
+        update-types:
+          - version-update:semver-major
 
   - package-ecosystem: npm
     directory: /vscode-extension
@@ -36,6 +40,13 @@ updates:
       vscode-extension-dependencies:
         patterns:
           - "*"
+    ignore:
+      - dependency-name: typescript
+        update-types:
+          - version-update:semver-major
+      - dependency-name: "@types/vscode"
+        versions:
+          - ">=1.126.0"
 
   - package-ecosystem: docker
     directory: /

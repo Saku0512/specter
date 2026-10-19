@@ -5,7 +5,7 @@ go 1.26.6
 require (
 	github.com/brianvoe/gofakeit/v6 v6.28.0
 	github.com/fsnotify/fsnotify v1.10.1
-	github.com/getkin/kin-openapi v0.149.0
+	github.com/getkin/kin-openapi v0.151.0
 	github.com/gin-gonic/gin v1.12.0
 	gopkg.in/yaml.v3 v3.0.1
 )
